@@ -15,6 +15,7 @@ jobs:
         backend_feature:
           - u64_backend
           - u32_backend
+          - p256,u64_backend
         toolchain:
           - stable
           - 1.51.0
@@ -42,6 +43,28 @@ jobs:
         with:
           command: test
           args: --no-default-features --features std --features ${{ matrix.backend_feature }}
+
+  build-no-std:
+    name: Build with no-std on ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          # for wasm
+          - wasm32-unknown-unknown
+          # for any no_std target
+          - thumbv6m-none-eabi
+        backend_feature:
+          - u64_backend
+          - u32_backend
+          - p256,u64_backend
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hecrj/setup-rust-action@v1
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features --features ${{ matrix.backend_feature }}
+
 
   clippy:
     name: cargo clippy

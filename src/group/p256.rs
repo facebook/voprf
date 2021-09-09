@@ -9,7 +9,7 @@
 )]
 
 use super::Group;
-use crate::errors::{InternalError, ProtocolError};
+use crate::errors::InternalError;
 use crate::hash::Hash;
 use core::ops::{Add, Div, Mul, Neg, Sub};
 use core::str::FromStr;
@@ -35,7 +35,7 @@ impl Group for ProjectivePoint {
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn map_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, ProtocolError> {
+    fn map_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
         // `p: 2^256 - 2^224 + 2^192 + 2^96 - 1`
         const P: Lazy<BigInt> = Lazy::new(|| {
@@ -83,7 +83,7 @@ impl Group for ProjectivePoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.3
-    fn hash_to_scalar<H: Hash>(input: &[u8], dst: &[u8]) -> Result<Self::Scalar, ProtocolError> {
+    fn hash_to_scalar<H: Hash>(input: &[u8], dst: &[u8]) -> Result<Self::Scalar, InternalError> {
         // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf#[{%22num%22:211,%22gen%22:0},{%22name%22:%22XYZ%22},70,700,0]
         // P-256 `n` is defined as `115792089210356248762697446949407573529996955224135760342 422259061068512044369`
         const N: once_cell::unsync::Lazy<BigInt> = once_cell::unsync::Lazy::new(|| {

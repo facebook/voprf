@@ -89,26 +89,29 @@ fn populate_test_vectors(values: &Value) -> VOPRFTestVectorParameters {
     }
 }
 
-struct Ristretto255Sha512;
-impl CipherSuite for Ristretto255Sha512 {
-    type Group = RistrettoPoint;
-    type Hash = Sha512;
-}
-
 #[test]
 fn tests() -> Result<(), InternalError> {
+    struct Ristretto255Sha512;
+    impl CipherSuite for Ristretto255Sha512 {
+        type Group = RistrettoPoint;
+        type Hash = Sha512;
+    }
+
     test_blind::<Ristretto255Sha512>(OPRF_RISTRETTO255_SHA512)?;
     test_evaluate::<Ristretto255Sha512>(OPRF_RISTRETTO255_SHA512)?;
     test_finalize::<Ristretto255Sha512>(OPRF_RISTRETTO255_SHA512)?;
 
     #[cfg(feature = "p256")]
     {
-        use p256_::ProjectivePoint;
-        use sha2::Sha256;
+        struct P256Sha256;
+        impl CipherSuite for P256Sha256 {
+            type Group = p256_::ProjectivePoint;
+            type Hash = sha2::Sha256;
+        }
 
-        test_blind::<ProjectivePoint, Sha256>(OPRF_P256_SHA256)?;
-        test_evaluate::<ProjectivePoint>(OPRF_P256_SHA256)?;
-        test_finalize::<ProjectivePoint, Sha256>(OPRF_P256_SHA256)?;
+        test_blind::<P256Sha256>(OPRF_P256_SHA256)?;
+        test_evaluate::<P256Sha256>(OPRF_P256_SHA256)?;
+        test_finalize::<P256Sha256>(OPRF_P256_SHA256)?;
     }
 
     Ok(())
