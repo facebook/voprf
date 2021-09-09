@@ -1,0 +1,39 @@
+[package]
+name = "voprf"
+version = "0.0.0"
+description = "An implementation of a verifiable oblivious pseudorandom function (VOPRF)"
+authors = ["Kevin Lewi <klewi@fb.com>"]
+license = "MIT"
+edition = "2018"
+readme = "README.md"
+
+[features]
+default = ["u64_backend"]
+u64_backend = ["curve25519-dalek/u64_backend"]
+u32_backend = ["curve25519-dalek/u32_backend"]
+std = ["curve25519-dalek/std", "getrandom", "rand/std", "rand/std_rng"]
+
+[dependencies]
+constant_time_eq = "0.1"
+curve25519-dalek = { version = "3", default-features = false }
+digest = "0.9"
+displaydoc = { version = "0.2", default-features = false }
+generic-array = "0.14"
+getrandom = { version = "0.2", optional = true }
+hkdf = "0.11"
+hmac = "0.11"
+rand = { version = "0.8", default-features = false }
+subtle = { version = "2.3", default-features = false }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+
+[dev-dependencies]
+base64 = "0.13"
+bincode = "1"
+chacha20poly1305 = "0.8"
+criterion = "0.3"
+hex = "0.4"
+lazy_static = "1"
+serde_json = "1"
+sha2 = "0.9"
+proptest = "1"
+rustyline = "8"
