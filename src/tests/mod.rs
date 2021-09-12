@@ -4,4 +4,5 @@
 // LICENSE file in the root directory of this source tree.
 
 mod mock_rng;
+mod parser;
 mod voprf_test_vectors;
