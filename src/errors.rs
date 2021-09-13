@@ -30,6 +30,15 @@ pub enum InternalError {
     HashToCurveError,
     /// Failure to serialize or deserialize bytes
     SerializationError,
+    /// Use of incompatible modes (base vs. verifiable)
+    IncompatibleModeError,
+    /**
+     * Internal error thrown when different-lengthed slices are supplied
+     * to the compute_composites() function.
+     */
+    MismatchedLengthsForCompositeInputs,
+    /// In verifiable mode, occurs when the proof failed to verify
+    ProofVerificationError,
 }
 
 impl Debug for InternalError {
@@ -49,6 +58,11 @@ impl Debug for InternalError {
             Self::PointError => f.debug_tuple("PointError").finish(),
             Self::HashToCurveError => f.debug_tuple("HashToCurveError").finish(),
             Self::SerializationError => f.debug_tuple("SerializationError").finish(),
+            Self::IncompatibleModeError => f.debug_tuple("IncompatibleModeError").finish(),
+            Self::MismatchedLengthsForCompositeInputs => f
+                .debug_tuple("MismatchedLengthsForCompositeInputs")
+                .finish(),
+            Self::ProofVerificationError => f.debug_tuple("ProofVerificationError").finish(),
         }
     }
 }

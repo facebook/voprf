@@ -149,11 +149,16 @@ impl Group for ProjectivePoint {
         self * &Self::Scalar::from_bytes_reduced(scalar)
     }
 
-    fn is_identity(&self) -> bool {
-        self == &Self::identity()
+    fn identity() -> Self {
+        Self::identity()
     }
+
     fn ct_equal(&self, other: &Self) -> bool {
         self.ct_eq(other).into()
+    }
+
+    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
+        s1.ct_eq(s2).into()
     }
 }
 

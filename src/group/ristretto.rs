@@ -78,9 +78,11 @@ impl Group for RistrettoPoint {
             }
         }
     }
+
     fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
         scalar.to_bytes().into()
     }
+
     fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
         scalar.invert()
     }
@@ -107,12 +109,15 @@ impl Group for RistrettoPoint {
         self * Scalar::from_bits(*scalar.as_ref())
     }
 
-    /// Returns if the group element is equal to the identity (1)
-    fn is_identity(&self) -> bool {
-        self == &Self::identity()
+    fn identity() -> Self {
+        <Self as Identity>::identity()
     }
 
     fn ct_equal(&self, other: &Self) -> bool {
         ConstantTimeEq::ct_eq(self, other).into()
+    }
+
+    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
+        ConstantTimeEq::ct_eq(s1, s2).into()
     }
 }
