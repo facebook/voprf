@@ -15,15 +15,6 @@ use displaydoc::Display;
 pub enum InternalError {
     /// Could not parse byte sequence for key
     InvalidByteSequence,
-    /// Invalid length for {name}: expected {len}, but is actually {actual_len}.
-    SizeError {
-        /// name
-        name: &'static str,
-        /// length
-        len: usize,
-        /// actual
-        actual_len: usize,
-    },
     /// Could not decompress point.
     PointError,
     /// Computing the hash-to-curve function failed
@@ -39,22 +30,14 @@ pub enum InternalError {
     MismatchedLengthsForCompositeInputs,
     /// In verifiable mode, occurs when the proof failed to verify
     ProofVerificationError,
+    /// Encountered insufficient bytes when attempting to deserialize
+    SizeError,
 }
 
 impl Debug for InternalError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::InvalidByteSequence => f.debug_tuple("InvalidByteSequence").finish(),
-            Self::SizeError {
-                name,
-                len,
-                actual_len,
-            } => f
-                .debug_struct("SizeError")
-                .field("name", name)
-                .field("len", len)
-                .field("actual_len", actual_len)
-                .finish(),
             Self::PointError => f.debug_tuple("PointError").finish(),
             Self::HashToCurveError => f.debug_tuple("HashToCurveError").finish(),
             Self::SerializationError => f.debug_tuple("SerializationError").finish(),
@@ -63,6 +46,7 @@ impl Debug for InternalError {
                 .debug_tuple("MismatchedLengthsForCompositeInputs")
                 .finish(),
             Self::ProofVerificationError => f.debug_tuple("ProofVerificationError").finish(),
+            Self::SizeError => f.debug_tuple("SizeError").finish(),
         }
     }
 }
