@@ -3,8 +3,10 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+//! Contains the main VOPRF API
+
 use crate::{
-    ciphersuite::{CipherSuite, Mode},
+    ciphersuite::CipherSuite,
     errors::InternalError,
     group::Group,
     serialization::{i2osp, serialize},
@@ -16,6 +18,11 @@ use rand::{CryptoRng, RngCore};
 use alloc::vec;
 use alloc::vec::Vec;
 
+///////////////
+// Constants //
+// ========= //
+///////////////
+
 static STR_HASH_TO_SCALAR: &[u8] = b"HashToScalar-";
 static STR_HASH_TO_GROUP: &[u8] = b"HashToGroup-";
 static STR_FINALIZE: &[u8] = b"Finalize-";
@@ -23,25 +30,85 @@ static STR_SEED: &[u8] = b"Seed-";
 static STR_CONTEXT: &[u8] = b"Context-";
 static STR_COMPOSITE: &[u8] = b"Composite-";
 static STR_CHALLENGE: &[u8] = b"Challenge-";
+static STR_VOPRF: &[u8] = b"VOPRF07-";
 
-pub struct NonVerifiableClient<CS: CipherSuite> {
-    data: Vec<u8>,
-    blind: <CS::Group as Group>::Scalar,
+/// Determines the mode of operation (either base mode or
+/// verifiable mode)
+enum Mode {
+    Base = 0,
+    Verifiable = 1,
 }
+
+////////////////////////////
+// High-level API Structs //
+// ====================== //
+////////////////////////////
+
+/// A client which engages with a [NonVerifiableServer]
+/// in base mode, meaning that the OPRF outputs are not
+/// verifiable.
+pub struct NonVerifiableClient<CS: CipherSuite> {
+    pub(crate) blind: <CS::Group as Group>::Scalar,
+    pub(crate) data: Vec<u8>,
+}
+
+/// A client which engages with a [VerifiableServer]
+/// in verifiable mode, meaning that the OPRF outputs
+/// can be checked against a server public key.
+pub struct VerifiableClient<CS: CipherSuite> {
+    pub(crate) blind: <CS::Group as Group>::Scalar,
+    pub(crate) blinded_element: CS::Group,
+    pub(crate) data: alloc::vec::Vec<u8>,
+}
+
+/// A server which engages with a [NonVerifiableClient]
+/// in base mode, meaning that the OPRF outputs are not
+/// verifiable.
+pub struct NonVerifiableServer<CS: CipherSuite> {
+    pub(crate) sk: <CS::Group as Group>::Scalar,
+}
+/// A server which engages with a [VerifiableClient]
+/// in verifiable mode, meaning that the OPRF outputs
+/// can be checked against a server public key.
+pub struct VerifiableServer<CS: CipherSuite> {
+    pub(crate) sk: <CS::Group as Group>::Scalar,
+    pub(crate) pk: CS::Group,
+}
+
+/// A proof produced by a [VerifiableServer] that
+/// the OPRF output matches against a server public key.
+pub struct Proof<CS: CipherSuite> {
+    pub(crate) c_scalar: <CS::Group as Group>::Scalar,
+    pub(crate) s_scalar: <CS::Group as Group>::Scalar,
+}
+
+/// The first client message sent from a client (either verifiable or not)
+/// to a server (either verifiable or not).
+pub struct BlindedElement<CS: CipherSuite>(pub(crate) CS::Group);
+
+/// The server's response to the [BlindedElement] message from
+/// a client (either verifiable or not)
+/// to a server (either verifiable or not).
+pub struct EvaluationElement<CS: CipherSuite>(pub(crate) CS::Group);
+
+/////////////////////////
+// API Implementations //
+// =================== //
+/////////////////////////
 
 impl<CS: CipherSuite> NonVerifiableClient<CS> {
     /// Computes the first step for the multiplicative blinding version of DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<(Self, CS::Group), InternalError> {
+    ) -> Result<(Self, BlindedElement<CS>), InternalError> {
         let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Base)?;
         Ok((
             Self {
                 data: input.to_vec(),
                 blind,
             },
-            blinded_element,
+            BlindedElement(blinded_element),
         ))
     }
 
@@ -49,11 +116,11 @@ impl<CS: CipherSuite> NonVerifiableClient<CS> {
     /// the client unblinds the server's message.
     pub fn finalize(
         &self,
-        evaluation_element: CS::Group,
+        evaluation_element: EvaluationElement<CS>,
         info: &[u8],
     ) -> Result<GenericArray<u8, <CS::Hash as Digest>::OutputSize>, InternalError> {
         let unblinded_element =
-            evaluation_element * &<CS::Group as Group>::scalar_invert(&self.blind);
+            evaluation_element.0 * &<CS::Group as Group>::scalar_invert(&self.blind);
         let outputs = finalize_after_unblind::<CS>(
             &[(self.data.clone(), unblinded_element)],
             info,
@@ -78,28 +145,12 @@ impl<CS: CipherSuite> NonVerifiableClient<CS> {
     }
 }
 
-pub struct VerifiableClient<CS: CipherSuite> {
-    data: alloc::vec::Vec<u8>,
-    blind: <CS::Group as Group>::Scalar,
-    blinded_element: CS::Group,
-}
-
-impl<CS: CipherSuite> Clone for VerifiableClient<CS> {
-    fn clone(&self) -> Self {
-        Self {
-            data: self.data.clone(),
-            blind: self.blind,
-            blinded_element: self.blinded_element,
-        }
-    }
-}
-
 impl<CS: CipherSuite> VerifiableClient<CS> {
     /// Computes the first step for the multiplicative blinding version of DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<(Self, CS::Group), InternalError> {
+    ) -> Result<(Self, BlindedElement<CS>), InternalError> {
         let (blind, blinded_element) =
             blind::<CS, _>(input, blinding_factor_rng, Mode::Verifiable)?;
         Ok((
@@ -108,7 +159,7 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
                 blind,
                 blinded_element,
             },
-            blinded_element,
+            BlindedElement(blinded_element),
         ))
     }
 
@@ -116,7 +167,7 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
     /// the client unblinds the server's message.
     pub fn finalize(
         &self,
-        evaluation_element: CS::Group,
+        evaluation_element: EvaluationElement<CS>,
         proof: Proof<CS>,
         pk: CS::Group,
         info: &[u8],
@@ -125,9 +176,10 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
         Ok(outputs[0].clone())
     }
 
+    /// Allows for batching of the finalization of multiple [VerifiableClient] and [EvaluationElement] pairs
     #[allow(clippy::type_complexity)]
     pub fn batch_finalize(
-        clients_and_evaluation_elements: &[(&VerifiableClient<CS>, CS::Group)],
+        clients_and_evaluation_elements: &[(&VerifiableClient<CS>, EvaluationElement<CS>)],
         proof: Proof<CS>,
         pk: CS::Group,
         info: &[u8],
@@ -136,8 +188,8 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
             .iter()
             .map(|(client, evaluation_element)| BatchItems {
                 blind: client.blind,
-                evaluation_element: *evaluation_element,
-                blinded_element: client.blinded_element,
+                evaluation_element: evaluation_element.clone(),
+                blinded_element: BlindedElement(client.blinded_element),
             })
             .collect();
 
@@ -174,71 +226,27 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
     }
 }
 
-/// Only used in batching
-struct BatchItems<CS: CipherSuite> {
-    blind: <CS::Group as Group>::Scalar,
-    evaluation_element: CS::Group,
-    blinded_element: CS::Group,
-}
-
-fn verifiable_unblind<CS: CipherSuite>(
-    batch_items: &[BatchItems<CS>],
-    pk: CS::Group,
-    proof: Proof<CS>,
-    info: &[u8],
-) -> Result<Vec<CS::Group>, InternalError> {
-    let context = [
-        STR_CONTEXT,
-        &CS::get_context_string(Mode::Verifiable)?,
-        &serialize(info, 2)?,
-    ]
-    .concat();
-
-    let dst = [
-        STR_HASH_TO_SCALAR,
-        &CS::get_context_string(Mode::Verifiable)?,
-    ]
-    .concat();
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, &dst)?;
-
-    let g = CS::Group::base_point();
-    let t = g * &m;
-    let u = t + &pk;
-
-    let blinds: Vec<<CS::Group as Group>::Scalar> = batch_items.iter().map(|x| x.blind).collect();
-    let evaluation_elements: Vec<CS::Group> =
-        batch_items.iter().map(|x| x.evaluation_element).collect();
-    let blinded_elements: Vec<CS::Group> = batch_items.iter().map(|x| x.blinded_element).collect();
-
-    verify_proof(g, u, &evaluation_elements, &blinded_elements, proof)?;
-
-    let unblinded_elements = blinds
-        .iter()
-        .zip(evaluation_elements.iter())
-        .map(|(&blind, &x)| x * &CS::Group::scalar_invert(&blind))
-        .collect();
-    Ok(unblinded_elements)
-}
-
-pub struct NonVerifiableServer<CS: CipherSuite> {
-    sk: <CS::Group as Group>::Scalar,
-}
-
 impl<CS: CipherSuite> NonVerifiableServer<CS> {
+    /// Produces a new instance of a [NonVerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, InternalError> {
         let mut seed = vec![0u8; <CS::Hash as Digest>::OutputSize::USIZE];
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
     }
 
-    pub fn new_with_key(key: &[u8]) -> Result<Self, InternalError> {
-        let sk = CS::Group::from_scalar_slice(&GenericArray::clone_from_slice(key))?;
+    /// Produces a new instance of a [NonVerifiableServer] using a supplied set of bytes to
+    /// represent the server's private key
+    pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self, InternalError> {
+        let sk = CS::Group::from_scalar_slice(&GenericArray::clone_from_slice(private_key_bytes))?;
         Ok(Self { sk })
     }
 
-    // Corresponds to DeriveKeyPair from the VOPRF spec
+    /// Produces a new instance of a [NonVerifiableServer] using a supplied set of bytes which
+    /// are used as a seed to derive the server's private key.
+    ///
+    /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
-        let dst = [STR_HASH_TO_SCALAR, &CS::get_context_string(Mode::Base)?].concat();
+        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<CS>(Mode::Base)?].concat();
         let sk = CS::Group::hash_to_scalar::<CS::Hash>(seed, &dst)?;
         Ok(Self { sk })
     }
@@ -253,46 +261,47 @@ impl<CS: CipherSuite> NonVerifiableServer<CS> {
     /// message is sent from the server (who holds the OPRF key) to the client.
     pub fn evaluate(
         &self,
-        blinded_element: CS::Group,
+        blinded_element: BlindedElement<CS>,
         info: &[u8],
-    ) -> Result<CS::Group, InternalError> {
+    ) -> Result<EvaluationElement<CS>, InternalError> {
         let context = [
             STR_CONTEXT,
-            &CS::get_context_string(Mode::Base)?,
+            &get_context_string::<CS>(Mode::Base)?,
             &serialize(info, 2)?,
         ]
         .concat();
-        let dst = [STR_HASH_TO_SCALAR, &CS::get_context_string(Mode::Base)?].concat();
+        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<CS>(Mode::Base)?].concat();
         let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, &dst)?;
         let t = self.sk + &m;
-        let evaluation_element = blinded_element * &CS::Group::scalar_invert(&t);
-        Ok(evaluation_element)
+        let evaluation_element = blinded_element.0 * &CS::Group::scalar_invert(&t);
+        Ok(EvaluationElement(evaluation_element))
     }
 }
 
-pub struct VerifiableServer<CS: CipherSuite> {
-    sk: <CS::Group as Group>::Scalar,
-    pk: CS::Group,
-}
-
 impl<CS: CipherSuite> VerifiableServer<CS> {
+    /// Produces a new instance of a [VerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, InternalError> {
         let mut seed = vec![0u8; <CS::Hash as Digest>::OutputSize::USIZE];
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
     }
 
+    /// Produces a new instance of a [VerifiableServer] using a supplied set of bytes to
+    /// represent the server's private key
     pub fn new_with_key(key: &[u8]) -> Result<Self, InternalError> {
         let sk = CS::Group::from_scalar_slice(&GenericArray::clone_from_slice(key))?;
         let pk = CS::Group::base_point() * &sk;
         Ok(Self { sk, pk })
     }
 
-    // Corresponds to DeriveKeyPair from the VOPRF spec
+    /// Produces a new instance of a [VerifiableServer] using a supplied set of bytes which
+    /// are used as a seed to derive the server's private key.
+    ///
+    /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
         let dst = [
             STR_HASH_TO_SCALAR,
-            &CS::get_context_string(Mode::Verifiable)?,
+            &get_context_string::<CS>(Mode::Verifiable)?,
         ]
         .concat();
         let sk = CS::Group::hash_to_scalar::<CS::Hash>(seed, &dst)?;
@@ -311,35 +320,36 @@ impl<CS: CipherSuite> VerifiableServer<CS> {
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
-        blinded_element: CS::Group,
+        blinded_element: BlindedElement<CS>,
         info: &[u8],
-    ) -> Result<(CS::Group, Proof<CS>), InternalError> {
+    ) -> Result<(EvaluationElement<CS>, Proof<CS>), InternalError> {
         let (evaluation_elements, proof) = self.batch_evaluate(rng, &[blinded_element], info)?;
-        Ok((evaluation_elements[0], proof))
+        Ok((evaluation_elements[0].clone(), proof))
     }
 
+    /// Allows for batching of the evaluation of multiple [BlindedElement] messages from a [VerifiableClient]
     pub fn batch_evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
-        blinded_elements: &[CS::Group],
+        blinded_elements: &[BlindedElement<CS>],
         info: &[u8],
-    ) -> Result<(Vec<CS::Group>, Proof<CS>), InternalError> {
+    ) -> Result<(Vec<EvaluationElement<CS>>, Proof<CS>), InternalError> {
         let context = [
             STR_CONTEXT,
-            &CS::get_context_string(Mode::Verifiable)?,
+            &get_context_string::<CS>(Mode::Verifiable)?,
             &serialize(info, 2)?,
         ]
         .concat();
         let dst = [
             STR_HASH_TO_SCALAR,
-            &CS::get_context_string(Mode::Verifiable)?,
+            &get_context_string::<CS>(Mode::Verifiable)?,
         ]
         .concat();
         let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, &dst)?;
         let t = self.sk + &m;
-        let evaluation_elements: Vec<CS::Group> = blinded_elements
+        let evaluation_elements: Vec<EvaluationElement<CS>> = blinded_elements
             .iter()
-            .map(|&x| x * &CS::Group::scalar_invert(&t))
+            .map(|x| EvaluationElement(x.0 * &CS::Group::scalar_invert(&t)))
             .collect();
 
         let g = CS::Group::base_point();
@@ -350,8 +360,43 @@ impl<CS: CipherSuite> VerifiableServer<CS> {
         Ok((evaluation_elements, proof))
     }
 
+    /// Retrieves the server's public key
     pub fn get_public_key(&self) -> CS::Group {
         self.pk
+    }
+}
+
+///////////////////////////////////////////////
+// Inner functions and Trait Implementations //
+// ========================================= //
+///////////////////////////////////////////////
+
+/// Convenience struct only used in batching APIs
+struct BatchItems<CS: CipherSuite> {
+    blind: <CS::Group as Group>::Scalar,
+    evaluation_element: EvaluationElement<CS>,
+    blinded_element: BlindedElement<CS>,
+}
+
+impl<CS: CipherSuite> Clone for BlindedElement<CS> {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl<CS: CipherSuite> Clone for EvaluationElement<CS> {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl<CS: CipherSuite> Clone for VerifiableClient<CS> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            blind: self.blind,
+            blinded_element: self.blinded_element,
+        }
     }
 }
 
@@ -363,10 +408,54 @@ fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
 ) -> Result<(<CS::Group as Group>::Scalar, CS::Group), InternalError> {
     // Choose a random scalar that must be non-zero
     let blind = <CS::Group as Group>::random_nonzero_scalar(blinding_factor_rng);
-    let dst = [STR_HASH_TO_GROUP, &CS::get_context_string(mode)?].concat();
+    let dst = [STR_HASH_TO_GROUP, &get_context_string::<CS>(mode)?].concat();
     let mapped_point = <CS::Group as Group>::map_to_curve::<CS::Hash>(input, &dst)?;
     let blinded_element = mapped_point * &blind;
     Ok((blind, blinded_element))
+}
+
+fn verifiable_unblind<CS: CipherSuite>(
+    batch_items: &[BatchItems<CS>],
+    pk: CS::Group,
+    proof: Proof<CS>,
+    info: &[u8],
+) -> Result<Vec<CS::Group>, InternalError> {
+    let context = [
+        STR_CONTEXT,
+        &get_context_string::<CS>(Mode::Verifiable)?,
+        &serialize(info, 2)?,
+    ]
+    .concat();
+
+    let dst = [
+        STR_HASH_TO_SCALAR,
+        &get_context_string::<CS>(Mode::Verifiable)?,
+    ]
+    .concat();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, &dst)?;
+
+    let g = CS::Group::base_point();
+    let t = g * &m;
+    let u = t + &pk;
+
+    let blinds: Vec<<CS::Group as Group>::Scalar> = batch_items.iter().map(|x| x.blind).collect();
+    let evaluation_elements: Vec<EvaluationElement<CS>> = batch_items
+        .iter()
+        .map(|x| x.evaluation_element.clone())
+        .collect();
+    let blinded_elements: Vec<BlindedElement<CS>> = batch_items
+        .iter()
+        .map(|x| x.blinded_element.clone())
+        .collect();
+
+    verify_proof(g, u, &evaluation_elements, &blinded_elements, proof)?;
+
+    let unblinded_elements = blinds
+        .iter()
+        .zip(evaluation_elements.iter())
+        .map(|(&blind, x)| x.0 * &CS::Group::scalar_invert(&blind))
+        .collect();
+    Ok(unblinded_elements)
 }
 
 #[allow(clippy::many_single_char_names)]
@@ -375,8 +464,8 @@ fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: CS::Group,
     b: CS::Group,
-    cs: &[CS::Group],
-    ds: &[CS::Group],
+    cs: &[EvaluationElement<CS>],
+    ds: &[BlindedElement<CS>],
 ) -> Result<Proof<CS>, InternalError> {
     let (m, z) = compute_composites::<CS>(Some(k), b, cs, ds)?;
 
@@ -384,7 +473,7 @@ fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     let t2 = a * &r;
     let t3 = m * &r;
 
-    let challenge_dst = [STR_CHALLENGE, &CS::get_context_string(Mode::Verifiable)?].concat();
+    let challenge_dst = [STR_CHALLENGE, &get_context_string::<CS>(Mode::Verifiable)?].concat();
     let h2_input = [
         serialize(&b.to_arr().to_vec(), 2)?,
         serialize(&m.to_arr().to_vec(), 2)?,
@@ -397,7 +486,7 @@ fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
 
     let hash_to_scalar_dst = [
         STR_HASH_TO_SCALAR,
-        &CS::get_context_string(Mode::Verifiable)?,
+        &get_context_string::<CS>(Mode::Verifiable)?,
     ]
     .concat();
 
@@ -407,45 +496,19 @@ fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     Ok(Proof { c_scalar, s_scalar })
 }
 
-pub struct Proof<CS: CipherSuite> {
-    c_scalar: <CS::Group as Group>::Scalar,
-    s_scalar: <CS::Group as Group>::Scalar,
-}
-
-impl<CS: CipherSuite> Proof<CS> {
-    pub fn serialize(&self) -> Vec<u8> {
-        [
-            CS::Group::scalar_as_bytes(self.c_scalar),
-            CS::Group::scalar_as_bytes(self.s_scalar),
-        ]
-        .concat()
-    }
-
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::to_usize();
-        if input.len() < scalar_len + scalar_len {
-            return Err(InternalError::SizeError);
-        }
-        Ok(Proof {
-            c_scalar: CS::Group::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?,
-            s_scalar: CS::Group::from_scalar_slice(GenericArray::from_slice(&input[scalar_len..]))?,
-        })
-    }
-}
-
 #[allow(clippy::many_single_char_names)]
 fn verify_proof<CS: CipherSuite>(
     a: CS::Group,
     b: CS::Group,
-    cs: &[CS::Group],
-    ds: &[CS::Group],
+    cs: &[EvaluationElement<CS>],
+    ds: &[BlindedElement<CS>],
     proof: Proof<CS>,
 ) -> Result<(), InternalError> {
     let (m, z) = compute_composites::<CS>(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
-    let challenge_dst = [STR_CHALLENGE, &CS::get_context_string(Mode::Verifiable)?].concat();
+    let challenge_dst = [STR_CHALLENGE, &get_context_string::<CS>(Mode::Verifiable)?].concat();
     let h2_input = [
         serialize(&b.to_arr().to_vec(), 2)?,
         serialize(&m.to_arr().to_vec(), 2)?,
@@ -458,7 +521,7 @@ fn verify_proof<CS: CipherSuite>(
 
     let hash_to_scalar_dst = [
         STR_HASH_TO_SCALAR,
-        &CS::get_context_string(Mode::Verifiable)?,
+        &get_context_string::<CS>(Mode::Verifiable)?,
     ]
     .concat();
     let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &hash_to_scalar_dst)?;
@@ -475,7 +538,7 @@ fn finalize_after_unblind<CS: CipherSuite>(
     info: &[u8],
     mode: Mode,
 ) -> Result<Vec<GenericArray<u8, <CS::Hash as Digest>::OutputSize>>, InternalError> {
-    let finalize_dst = [STR_FINALIZE, &CS::get_context_string(mode)?].concat();
+    let finalize_dst = [STR_FINALIZE, &get_context_string::<CS>(mode)?].concat();
 
     let mut outputs = vec![];
 
@@ -497,15 +560,15 @@ fn finalize_after_unblind<CS: CipherSuite>(
 fn compute_composites<CS: CipherSuite>(
     k_option: Option<<CS::Group as Group>::Scalar>,
     b: CS::Group,
-    c_slice: &[CS::Group],
-    d_slice: &[CS::Group],
+    c_slice: &[EvaluationElement<CS>],
+    d_slice: &[BlindedElement<CS>],
 ) -> Result<(CS::Group, CS::Group), InternalError> {
     if c_slice.len() != d_slice.len() {
         return Err(InternalError::MismatchedLengthsForCompositeInputs);
     }
 
-    let seed_dst = [STR_SEED, &CS::get_context_string(Mode::Verifiable)?].concat();
-    let composite_dst = [STR_COMPOSITE, &CS::get_context_string(Mode::Verifiable)?].concat();
+    let seed_dst = [STR_SEED, &get_context_string::<CS>(Mode::Verifiable)?].concat();
+    let composite_dst = [STR_COMPOSITE, &get_context_string::<CS>(Mode::Verifiable)?].concat();
 
     let h1_input = [
         serialize(&b.to_arr().to_vec(), 2)?,
@@ -521,21 +584,21 @@ fn compute_composites<CS: CipherSuite>(
         let h2_input = [
             serialize(&seed, 2)?,
             i2osp(i, 2)?,
-            serialize(&c_slice[i].to_arr().to_vec(), 2)?,
-            serialize(&d_slice[i].to_arr().to_vec(), 2)?,
+            serialize(&c_slice[i].0.to_arr().to_vec(), 2)?,
+            serialize(&d_slice[i].0.to_arr().to_vec(), 2)?,
             serialize(&composite_dst, 2)?,
         ]
         .concat();
         let dst = [
             STR_HASH_TO_SCALAR,
-            &CS::get_context_string(Mode::Verifiable)?,
+            &get_context_string::<CS>(Mode::Verifiable)?,
         ]
         .concat();
         let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst)?;
-        m = c_slice[i] * &di + &m;
+        m = c_slice[i].0 * &di + &m;
         z = match k_option {
             Some(_) => z,
-            None => d_slice[i] * &di + &z,
+            None => d_slice[i].0 * &di + &z,
         };
     }
 
@@ -545,6 +608,17 @@ fn compute_composites<CS: CipherSuite>(
     };
 
     Ok((m, z))
+}
+
+/// Generates the contextString parameter as defined in
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html>
+fn get_context_string<CS: CipherSuite>(mode: Mode) -> Result<alloc::vec::Vec<u8>, InternalError> {
+    Ok([
+        STR_VOPRF,
+        &i2osp(mode as usize, 1)?,
+        &i2osp(CS::Group::SUITE_ID, 2)?,
+    ]
+    .concat())
 }
 
 ///////////
@@ -574,7 +648,7 @@ mod tests {
     ) -> GenericArray<u8, <Sha512 as Digest>::OutputSize> {
         let dst = [
             STR_HASH_TO_GROUP,
-            &Ristretto255Sha512::get_context_string(Mode::Base).unwrap(),
+            &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
         ]
         .concat();
         let point = RistrettoPoint::map_to_curve::<Sha512>(input, &dst).unwrap();
@@ -583,13 +657,13 @@ mod tests {
 
         let context = [
             STR_CONTEXT,
-            &Ristretto255Sha512::get_context_string(Mode::Base).unwrap(),
+            &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
             &serialize(info, 2).unwrap(),
         ]
         .concat();
         let dst = [
             STR_HASH_TO_SCALAR,
-            &Ristretto255Sha512::get_context_string(Mode::Base).unwrap(),
+            &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
         ]
         .concat();
         let m = <<Ristretto255Sha512 as CipherSuite>::Group as Group>::hash_to_scalar::<
@@ -631,11 +705,11 @@ mod tests {
         let info = b"info";
         let (client, alpha) =
             NonVerifiableClient::<Ristretto255Sha512>::blind(&input, &mut rng).unwrap();
-        let res = client.finalize(alpha, info).unwrap();
+        let res = client.finalize(EvaluationElement(alpha.0), info).unwrap();
 
         let dst = [
             STR_HASH_TO_GROUP,
-            &Ristretto255Sha512::get_context_string(Mode::Base).unwrap(),
+            &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
         ]
         .concat();
         let point = RistrettoPoint::map_to_curve::<Sha512>(&input, &dst).unwrap();
