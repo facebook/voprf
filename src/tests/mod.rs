@@ -6,3 +6,4 @@
 mod mock_rng;
 mod parser;
 mod voprf_test_vectors;
+mod voprf_vectors;
