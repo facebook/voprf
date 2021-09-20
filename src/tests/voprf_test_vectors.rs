@@ -9,8 +9,8 @@ use crate::{
     group::Group,
     tests::{mock_rng::CycleRng, parser::*},
     voprf::{
-        BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
-        VerifiableClient, VerifiableServer,
+        BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
+        NonVerifiableServer, Proof, VerifiableClient, VerifiableServer,
     },
 };
 use alloc::string::ToString;
@@ -180,14 +180,16 @@ fn test_base_blind<CS: CipherSuite>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let (client, blinded_element) =
-                NonVerifiableClient::<CS>::blind(&parameters.input[i], &mut rng)?;
+            let client_result = NonVerifiableClient::<CS>::blind(&parameters.input[i], &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &CS::Group::scalar_as_bytes(client.get_blind()).to_vec()
+                &CS::Group::scalar_as_bytes(client_result.state.get_blind()).to_vec()
             );
-            assert_eq!(&parameters.blinded_element[i], &blinded_element.serialize());
+            assert_eq!(
+                &parameters.blinded_element[i],
+                &client_result.message.serialize()
+            );
         }
     }
     Ok(())
@@ -200,14 +202,17 @@ fn test_verifiable_blind<CS: CipherSuite>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let (client, blinded_element) =
+            let client_blind_result =
                 VerifiableClient::<CS>::blind(&parameters.input[i], &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &CS::Group::scalar_as_bytes(client.get_blind()).to_vec()
+                &CS::Group::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
             );
-            assert_eq!(&parameters.blinded_element[i], &blinded_element.serialize());
+            assert_eq!(
+                &parameters.blinded_element[i],
+                &client_blind_result.message.serialize()
+            );
         }
     }
     Ok(())
@@ -220,14 +225,14 @@ fn test_base_evaluate<CS: CipherSuite>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
-            let evaluation_element = server.evaluate(
+            let server_result = server.evaluate(
                 BlindedElement::deserialize(&parameters.blinded_element[i])?,
-                &parameters.info,
+                &Metadata(parameters.info.clone()),
             )?;
 
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &evaluation_element.serialize()
+                &server_result.message.serialize()
             );
         }
     }
@@ -246,17 +251,20 @@ fn test_verifiable_evaluate<CS: CipherSuite>(
             blinded_elements.push(BlindedElement::deserialize(&blinded_element_bytes)?);
         }
 
-        let (evaluation_elements, proof) =
-            server.batch_evaluate(&mut rng, &blinded_elements, &parameters.info)?;
+        let batch_evaluate_result = server.batch_evaluate(
+            &mut rng,
+            &blinded_elements,
+            &Metadata(parameters.info.clone()),
+        )?;
 
         for i in 0..parameters.evaluation_element.len() {
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &evaluation_elements[i].serialize(),
+                &batch_evaluate_result.messages[i].serialize(),
             );
         }
 
-        assert_eq!(&parameters.proof, &proof.serialize());
+        assert_eq!(&parameters.proof, &batch_evaluate_result.proof.serialize());
     }
     Ok(())
 }
@@ -274,12 +282,15 @@ fn test_base_finalize<CS: CipherSuite>(
                 ))?,
             );
 
-            let output = client.finalize(
+            let client_finalize_result = client.finalize(
                 EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
-                &parameters.info,
+                &Metadata(parameters.info.clone()),
             )?;
 
-            assert_eq!(&parameters.output[i], &output.to_vec());
+            assert_eq!(
+                &parameters.output[i],
+                &client_finalize_result.output.to_vec()
+            );
         }
     }
     Ok(())
@@ -289,8 +300,6 @@ fn test_verifiable_finalize<CS: CipherSuite>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
-        let mut clients_and_evaluation_elements = vec![];
-
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<CS>::from_data_and_blind(
@@ -305,22 +314,26 @@ fn test_verifiable_finalize<CS: CipherSuite>(
             clients.push(client.clone());
         }
 
-        for i in 0..parameters.input.len() {
-            let evaluation_element =
-                EvaluationElement::deserialize(&parameters.evaluation_element[i])?;
-            clients_and_evaluation_elements.push((&clients[i], evaluation_element));
-        }
+        let batch_finalize_input = BatchFinalizeInput::new(
+            clients,
+            parameters
+                .evaluation_element
+                .iter()
+                .map(|x| EvaluationElement::deserialize(x).unwrap())
+                .collect(),
+        );
 
-        let outputs = VerifiableClient::batch_finalize(
-            &clients_and_evaluation_elements,
+        let batch_result = VerifiableClient::batch_finalize(
+            batch_finalize_input,
             Proof::deserialize(&parameters.proof)?,
             CS::Group::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
-            &parameters.info,
+            &Metadata(parameters.info.clone()),
         )?;
 
         assert_eq!(
             parameters.output,
-            outputs
+            batch_result
+                .outputs
                 .iter()
                 .map(|arr| arr.to_vec())
                 .collect::<Vec<Vec<u8>>>()
