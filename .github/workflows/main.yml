@@ -16,6 +16,8 @@ jobs:
           - u64_backend
           - u32_backend
           - p256,u64_backend
+        frontend_feature:
+          - serialize
         toolchain:
           - stable
           - 1.51.0
@@ -42,7 +44,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features std --features ${{ matrix.backend_feature }}
+          args: --no-default-features --features ${{ matrix.frontend_feature }},std --features ${{ matrix.backend_feature }}
 
   build-no-std:
     name: Build with no-std on ${{ matrix.target }}
@@ -59,11 +61,13 @@ jobs:
           - u64_backend
           - u32_backend
           - p256,u64_backend
+        frontend_feature:
+          - serialize
     steps:
       - uses: actions/checkout@v2
       - uses: hecrj/setup-rust-action@v1
       - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features --features ${{ matrix.backend_feature }}
+      - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features --features ${{ matrix.frontend_feature }} --features ${{ matrix.backend_feature }}
 
 
   clippy:
