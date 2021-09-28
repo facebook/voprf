@@ -31,7 +31,7 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn map_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError>;
+    fn hash_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
     fn hash_to_scalar<H: Hash>(input: &[u8], dst: &[u8]) -> Result<Self::Scalar, InternalError>;
@@ -44,10 +44,25 @@ pub trait Group:
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
     /// The byte length necessary to represent scalars
     type ScalarLen: ArrayLength<u8> + 'static;
-    /// Return a scalar from its fixed-length bytes representation
-    fn from_scalar_slice(
+
+    /// Return a scalar from its fixed-length bytes representation, without
+    /// checking if the scalar is zero.
+    fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar, InternalError>;
+
+    /// Return a scalar from its fixed-length bytes representation. If the scalar
+    /// is zero, then return an error.
+    fn from_scalar_slice(
+        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
+    ) -> Result<Self::Scalar, InternalError> {
+        let scalar = Self::from_scalar_slice_unchecked(scalar_bits)?;
+        if Self::ct_equal_scalar(&scalar, &Self::scalar_zero()) {
+            return Err(InternalError::ZeroScalarError);
+        }
+        Ok(scalar)
+    }
+
     /// picks a scalar at random
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
     /// Serializes a scalar to bytes
@@ -57,18 +72,34 @@ pub trait Group:
 
     /// The byte length necessary to represent group elements
     type ElemLen: ArrayLength<u8> + 'static;
-    /// Return an element from its fixed-length bytes representation
-    fn from_element_slice(
+
+    /// Return an element from its fixed-length bytes representation. This is
+    /// the unchecked version, which does not check for deserializing the identity
+    /// element
+    fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
     ) -> Result<Self, InternalError>;
+
+    /// Return an element from its fixed-length bytes representation. If the element
+    /// is the identity element, return an error.
+    fn from_element_slice(
+        element_bits: &GenericArray<u8, Self::ElemLen>,
+    ) -> Result<Self, InternalError> {
+        let elem = Self::from_element_slice_unchecked(element_bits)?;
+
+        if Self::ct_equal(&elem, &<Self as Group>::identity()) {
+            // found the identity element
+            return Err(InternalError::PointError);
+        }
+
+        Ok(elem)
+    }
+
     /// Serializes the `self` group element
     fn to_arr(&self) -> GenericArray<u8, Self::ElemLen>;
 
     /// Get the base point for the group
     fn base_point() -> Self;
-
-    /// Multiply the point by a scalar, represented as a slice
-    fn mult_by_slice(&self, scalar: &GenericArray<u8, Self::ScalarLen>) -> Self;
 
     /// Returns if the group element is equal to the identity (1)
     fn is_identity(&self) -> bool {
@@ -78,9 +109,15 @@ pub trait Group:
     /// Returns the identity group element
     fn identity() -> Self;
 
+    /// Returns the scalar representing zero
+    fn scalar_zero() -> Self::Scalar;
+
     /// Compares in constant time if the group elements are equal
     fn ct_equal(&self, other: &Self) -> bool;
 
     /// Compares in constant time if the scalars are equal
     fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool;
 }
+
+#[cfg(test)]
+mod tests;

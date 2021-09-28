@@ -15,10 +15,8 @@ use crate::{
 };
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use curve25519_dalek::ristretto::RistrettoPoint;
 use generic_array::GenericArray;
 use json::JsonValue;
-use sha2::Sha512;
 
 #[derive(Debug)]
 struct VOPRFTestVectorParameters {
@@ -82,14 +80,10 @@ macro_rules! json_to_test_vectors {
 
 #[test]
 fn test_vectors() -> Result<(), InternalError> {
-    struct Ristretto255Sha512;
-    impl CipherSuite for Ristretto255Sha512 {
-        type Group = RistrettoPoint;
-        type Hash = Sha512;
-    }
-
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
+
+    use crate::tests::Ristretto255Sha512;
 
     let ristretto_base_tvs = json_to_test_vectors!(
         rfc,
@@ -115,11 +109,7 @@ fn test_vectors() -> Result<(), InternalError> {
 
     #[cfg(feature = "p256")]
     {
-        struct P256Sha256;
-        impl CipherSuite for P256Sha256 {
-            type Group = p256_::ProjectivePoint;
-            type Hash = sha2::Sha256;
-        }
+        use crate::tests::P256Sha256;
 
         let p256_base_tvs =
             json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));

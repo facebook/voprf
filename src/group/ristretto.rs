@@ -23,7 +23,7 @@ impl Group for RistrettoPoint {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn map_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
+    fn hash_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
         let uniform_bytes = super::expand::expand_message_xmd::<H>(msg, dst, 64)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
@@ -49,11 +49,12 @@ impl Group for RistrettoPoint {
 
     type Scalar = Scalar;
     type ScalarLen = U32;
-    fn from_scalar_slice(
+    fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar, InternalError> {
         Ok(Scalar::from_bytes_mod_order(*scalar_bits.as_ref()))
     }
+
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
         loop {
             let scalar = {
@@ -89,7 +90,7 @@ impl Group for RistrettoPoint {
 
     // The byte length necessary to represent group elements
     type ElemLen = U32;
-    fn from_element_slice(
+    fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
     ) -> Result<Self, InternalError> {
         CompressedRistretto::from_slice(element_bits)
@@ -105,12 +106,12 @@ impl Group for RistrettoPoint {
         RISTRETTO_BASEPOINT_POINT
     }
 
-    fn mult_by_slice(&self, scalar: &GenericArray<u8, Self::ScalarLen>) -> Self {
-        self * Scalar::from_bits(*scalar.as_ref())
-    }
-
     fn identity() -> Self {
         <Self as Identity>::identity()
+    }
+
+    fn scalar_zero() -> Self::Scalar {
+        Self::Scalar::zero()
     }
 
     fn ct_equal(&self, other: &Self) -> bool {

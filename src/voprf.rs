@@ -528,8 +528,8 @@ fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
     // Choose a random scalar that must be non-zero
     let blind = <CS::Group as Group>::random_nonzero_scalar(blinding_factor_rng);
     let dst = [STR_HASH_TO_GROUP, &get_context_string::<CS>(mode)?].concat();
-    let mapped_point = <CS::Group as Group>::map_to_curve::<CS::Hash>(input, &dst)?;
-    let blinded_element = mapped_point * &blind;
+    let hashed_point = <CS::Group as Group>::hash_to_curve::<CS::Hash>(input, &dst)?;
+    let blinded_element = hashed_point * &blind;
     Ok((blind, blinded_element))
 }
 
@@ -744,7 +744,6 @@ fn get_context_string<CS: CipherSuite>(mode: Mode) -> Result<alloc::vec::Vec<u8>
 // Tests //
 // ===== //
 ///////////
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -770,7 +769,7 @@ mod tests {
             &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
         ]
         .concat();
-        let point = RistrettoPoint::map_to_curve::<Sha512>(input, &dst).unwrap();
+        let point = RistrettoPoint::hash_to_curve::<Sha512>(input, &dst).unwrap();
         let scalar =
             RistrettoPoint::from_scalar_slice(GenericArray::from_slice(&oprf_key[..])).unwrap();
 
@@ -842,7 +841,7 @@ mod tests {
             &get_context_string::<Ristretto255Sha512>(Mode::Base).unwrap(),
         ]
         .concat();
-        let point = RistrettoPoint::map_to_curve::<Sha512>(&input, &dst).unwrap();
+        let point = RistrettoPoint::hash_to_curve::<Sha512>(&input, &dst).unwrap();
         let res2 = finalize_after_unblind::<Ristretto255Sha512>(
             &[(input.to_vec(), point)],
             info,
