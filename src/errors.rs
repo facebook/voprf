@@ -15,7 +15,7 @@ use displaydoc::Display;
 pub enum InternalError {
     /// Could not parse byte sequence for key
     InvalidByteSequence,
-    /// Could not decompress point.
+    /// Could not deserialize element, or deserialized to the identity element
     PointError,
     /// Computing the hash-to-curve function failed
     HashToCurveError,
@@ -32,6 +32,8 @@ pub enum InternalError {
     ProofVerificationError,
     /// Encountered insufficient bytes when attempting to deserialize
     SizeError,
+    /// Encountered a zero scalar
+    ZeroScalarError,
 }
 
 impl Debug for InternalError {
@@ -47,6 +49,7 @@ impl Debug for InternalError {
                 .finish(),
             Self::ProofVerificationError => f.debug_tuple("ProofVerificationError").finish(),
             Self::SizeError => f.debug_tuple("SizeError").finish(),
+            Self::ZeroScalarError => f.debug_tuple("ZeroScalarError").finish(),
         }
     }
 }

@@ -17,7 +17,7 @@ use generic_array::typenum::{U32, U33};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
-use num_traits::{One, ToPrimitive};
+use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::group::GroupEncoding;
@@ -35,7 +35,7 @@ impl Group for ProjectivePoint {
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn map_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
+    fn hash_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
         // `p: 2^256 - 2^224 + 2^192 + 2^96 - 1`
         const P: Lazy<BigInt> = Lazy::new(|| {
@@ -63,9 +63,9 @@ impl Group for ProjectivePoint {
         // `hash_to_field` calls `expand_message` with a `len_in_bytes` of `count * L`
         let uniform_bytes = super::expand::expand_message_xmd::<H>(msg, dst, 2 * L)?;
 
-        // map to curve
-        let (q0x, q0y) = map_to_curve_simple_swu(&uniform_bytes[..L], &A, &B, &P, &Z);
-        let (q1x, q1y) = map_to_curve_simple_swu(&uniform_bytes[L..], &A, &B, &P, &Z);
+        // hash to curve
+        let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L], &A, &B, &P, &Z);
+        let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L..], &A, &B, &P, &Z);
 
         // convert to `p256` types
         let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
@@ -111,7 +111,7 @@ impl Group for ProjectivePoint {
     type Scalar = p256_::Scalar;
     type ScalarLen = U32;
 
-    fn from_scalar_slice(
+    fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar, InternalError> {
         Ok(Self::Scalar::from_bytes_reduced(scalar_bits))
@@ -129,7 +129,7 @@ impl Group for ProjectivePoint {
         scalar.invert().unwrap_or(Self::Scalar::zero())
     }
 
-    fn from_element_slice(
+    fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
     ) -> Result<Self, InternalError> {
         Option::from(Self::from_bytes(element_bits)).ok_or(InternalError::PointError)
@@ -145,12 +145,12 @@ impl Group for ProjectivePoint {
         Self::generator()
     }
 
-    fn mult_by_slice(&self, scalar: &GenericArray<u8, Self::ScalarLen>) -> Self {
-        self * &Self::Scalar::from_bytes_reduced(scalar)
-    }
-
     fn identity() -> Self {
         Self::identity()
+    }
+
+    fn scalar_zero() -> Self::Scalar {
+        Self::Scalar::zero()
     }
 
     fn ct_equal(&self, other: &Self) -> bool {
@@ -162,10 +162,10 @@ impl Group for ProjectivePoint {
     }
 }
 
-/// Corresponds to the map_to_curve_simple_swu() function defined in
+/// Corresponds to the hash_to_curve_simple_swu() function defined in
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#appendix-F.2>
 #[allow(clippy::many_single_char_names)]
-fn map_to_curve_simple_swu<N: ArrayLength<u8>>(
+fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
     u: &[u8],
     a: &BigInt,
     b: &BigInt,
@@ -311,7 +311,7 @@ fn map_to_curve_simple_swu<N: ArrayLength<u8>>(
         }
 
         fn is_zero(&self) -> bool {
-            self.number.is_one()
+            self.number.is_zero()
         }
 
         /// Corresponds to the is_square() function defined in
@@ -321,7 +321,7 @@ fn map_to_curve_simple_swu<N: ArrayLength<u8>>(
             let exponent = (self.f.0 - 1) >> 1;
 
             let result = self.pow_internal(&exponent);
-            result.number.is_one() || result.is_zero()
+            result.is_zero() || result.number.is_one()
         }
 
         fn to_bytes<N: ArrayLength<u8>>(&self) -> GenericArray<u8, N> {
@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn map_to_curve_simple_swu() {
+    fn hash_to_curve_simple_swu() {
         const P: Lazy<BigInt> = Lazy::new(|| {
             BigInt::from_str(
                 "115792089210356248762697446949407573530086143415290314195533631308867097853951",
@@ -515,8 +515,8 @@ mod tests {
             assert_eq!(BigInt::parse_bytes(tv.u0.as_bytes(), 16).unwrap(), u0);
             assert_eq!(BigInt::parse_bytes(tv.u1.as_bytes(), 16).unwrap(), u1);
 
-            let (q0x, q0y) = super::map_to_curve_simple_swu(&u0.to_bytes_be().1, &A, &B, &P, &Z);
-            let (q1x, q1y) = super::map_to_curve_simple_swu(&u1.to_bytes_be().1, &A, &B, &P, &Z);
+            let (q0x, q0y) = super::hash_to_curve_simple_swu(&u0.to_bytes_be().1, &A, &B, &P, &Z);
+            let (q1x, q1y) = super::hash_to_curve_simple_swu(&u1.to_bytes_be().1, &A, &B, &P, &Z);
 
             assert_eq!(tv.q0x, hex::encode(q0x));
             assert_eq!(tv.q0y, hex::encode(q0y));

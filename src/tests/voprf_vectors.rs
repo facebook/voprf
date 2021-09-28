@@ -4,7 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 //! The VOPRF test vectors taken from:
-//! https://github.com/cfrg/draft-irtf-cfrg-opaque/blob/master/draft-irtf-cfrg-opaque.md
+//! https://github.com/cfrg/draft-irtf-cfrg-voprf/blob/master/draft-irtf-cfrg-voprf.md
 
 pub(crate) static VECTORS: &str = r#"
 ## OPRF(ristretto255, SHA-512)
