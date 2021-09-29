@@ -26,8 +26,7 @@ Rust **1.51** or higher.
 Contributors
 ------------
 
-The author of this code is Kevin Lewi
-([@kevinlewi](https://github.com/kevinlewi)) .
+The author of this code is Kevin Lewi ([@kevinlewi](https://github.com/kevinlewi)).
 To learn more about contributing to this project, [see this document](./CONTRIBUTING.md).
 
 License

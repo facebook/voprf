@@ -119,6 +119,11 @@ pub trait Group:
 
     /// Compares in constant time if the scalars are equal
     fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool;
+
+    /// Set the contents of self to the identity value
+    fn zeroize(&mut self) {
+        *self = <Self as Group>::identity();
+    }
 }
 
 #[cfg(test)]
