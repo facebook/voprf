@@ -35,6 +35,7 @@ static STR_VOPRF: &[u8] = b"VOPRF07-";
 
 /// Determines the mode of operation (either base mode or
 /// verifiable mode)
+#[derive(Clone, Copy)]
 enum Mode {
     Base = 0,
     Verifiable = 1,
@@ -778,50 +779,38 @@ fn get_context_string<CS: CipherSuite>(mode: Mode) -> Result<alloc::vec::Vec<u8>
 mod tests {
     use super::*;
     use crate::group::Group;
-    use generic_array::{arr, GenericArray};
+    use generic_array::GenericArray;
     use rand::rngs::OsRng;
 
     fn prf<CS: CipherSuite>(
         input: &[u8],
-        oprf_key: &[u8],
+        key: <CS::Group as Group>::Scalar,
         info: &[u8],
+        mode: Mode,
     ) -> GenericArray<u8, <CS::Hash as Digest>::OutputSize> {
-        let dst = [
-            STR_HASH_TO_GROUP,
-            &get_context_string::<CS>(Mode::Base).unwrap(),
-        ]
-        .concat();
+        let dst = [STR_HASH_TO_GROUP, &get_context_string::<CS>(mode).unwrap()].concat();
         let point = CS::Group::hash_to_curve::<CS::Hash>(input, &dst).unwrap();
-        let scalar = CS::Group::from_scalar_slice(GenericArray::from_slice(&oprf_key[..])).unwrap();
 
         let context = [
             STR_CONTEXT,
-            &get_context_string::<CS>(Mode::Base).unwrap(),
+            &get_context_string::<CS>(mode).unwrap(),
             &serialize(info, 2).unwrap(),
         ]
         .concat();
-        let dst = [
-            STR_HASH_TO_SCALAR,
-            &get_context_string::<CS>(Mode::Base).unwrap(),
-        ]
-        .concat();
+        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<CS>(mode).unwrap()].concat();
         let m = <CS::Group as Group>::hash_to_scalar::<CS::Hash>(&context, &dst).unwrap();
 
-        let res = point * &<CS::Group as Group>::scalar_invert(&(scalar + &m));
+        let res = point * &<CS::Group as Group>::scalar_invert(&(key + &m));
 
-        finalize_after_unblind::<CS>(&[(input.to_vec(), res)], info, Mode::Base).unwrap()[0].clone()
+        finalize_after_unblind::<CS>(&[(input.to_vec(), res)], info, mode).unwrap()[0].clone()
     }
 
-    fn oprf_retrieval<CS: CipherSuite>() {
-        let input = b"hunter2";
+    fn base_retrieval<CS: CipherSuite>() {
+        let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(&input[..], &mut rng).unwrap();
-        let oprf_key_bytes = arr![
-            u8; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            24, 25, 26, 27, 28, 29, 30, 31, 32,
-        ];
-        let server = NonVerifiableServer::<CS>::new_with_key(&oprf_key_bytes).unwrap();
+        let server = NonVerifiableServer::<CS>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(client_blind_result.message, &Metadata(info.to_vec()))
             .unwrap();
@@ -829,11 +818,136 @@ mod tests {
             .state
             .finalize(server_result.message, &Metadata(info.to_vec()))
             .unwrap();
-        let res2 = prf::<CS>(&input[..], &oprf_key_bytes, info);
+        let res2 = prf::<CS>(&input[..], server.get_private_key(), info, Mode::Base);
         assert_eq!(client_finalize_result.output, res2);
     }
 
-    fn oprf_inversion_unsalted<CS: CipherSuite>() {
+    fn verifiable_retrieval<CS: CipherSuite>() {
+        let input = b"input";
+        let info = b"info";
+        let mut rng = OsRng;
+        let client_blind_result = VerifiableClient::<CS>::blind(&input[..], &mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server
+            .evaluate(
+                &mut rng,
+                client_blind_result.message,
+                &Metadata(info.to_vec()),
+            )
+            .unwrap();
+        let client_finalize_result = client_blind_result
+            .state
+            .finalize(
+                server_result.message,
+                server_result.proof,
+                server.get_public_key(),
+                &Metadata(info.to_vec()),
+            )
+            .unwrap();
+        let res2 = prf::<CS>(&input[..], server.get_private_key(), info, Mode::Verifiable);
+        assert_eq!(client_finalize_result.output, res2);
+    }
+
+    fn verifiable_bad_public_key<CS: CipherSuite>() {
+        let input = b"input";
+        let info = b"info";
+        let mut rng = OsRng;
+        let client_blind_result = VerifiableClient::<CS>::blind(&input[..], &mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server
+            .evaluate(
+                &mut rng,
+                client_blind_result.message,
+                &Metadata(info.to_vec()),
+            )
+            .unwrap();
+        let wrong_pk = {
+            // Choose a group element that is unlikely to be the right public key
+            CS::Group::hash_to_curve::<CS::Hash>(b"msg", b"dst").unwrap()
+        };
+        let client_finalize_result = client_blind_result.state.finalize(
+            server_result.message,
+            server_result.proof,
+            wrong_pk,
+            &Metadata(info.to_vec()),
+        );
+        assert!(client_finalize_result.is_err());
+    }
+
+    fn verifiable_batch_retrieval<CS: CipherSuite>() {
+        let info = b"info";
+        let mut rng = OsRng;
+        let mut inputs = vec![];
+        let mut client_states = vec![];
+        let mut client_messages = vec![];
+        let num_iterations = 10;
+        for _ in 0..num_iterations {
+            let mut input = vec![0u8; 32];
+            rng.fill_bytes(&mut input);
+            let client_blind_result = VerifiableClient::<CS>::blind(&input[..], &mut rng).unwrap();
+            inputs.push(input);
+            client_states.push(client_blind_result.state);
+            client_messages.push(client_blind_result.message);
+        }
+        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server
+            .batch_evaluate(&mut rng, &client_messages, &Metadata(info.to_vec()))
+            .unwrap();
+        let batch_finalize_input = BatchFinalizeInput::new(client_states, server_result.messages);
+        let client_finalize_result = VerifiableClient::batch_finalize(
+            batch_finalize_input,
+            server_result.proof,
+            server.get_public_key(),
+            &Metadata(info.to_vec()),
+        )
+        .unwrap();
+        let mut res2 = vec![];
+        for i in 0..num_iterations {
+            let output = prf::<CS>(
+                &inputs[i][..],
+                server.get_private_key(),
+                info,
+                Mode::Verifiable,
+            );
+            res2.push(output);
+        }
+        assert_eq!(client_finalize_result.outputs, res2);
+    }
+
+    fn verifiable_batch_bad_public_key<CS: CipherSuite>() {
+        let info = b"info";
+        let mut rng = OsRng;
+        let mut inputs = vec![];
+        let mut client_states = vec![];
+        let mut client_messages = vec![];
+        let num_iterations = 10;
+        for _ in 0..num_iterations {
+            let mut input = vec![0u8; 32];
+            rng.fill_bytes(&mut input);
+            let client_blind_result = VerifiableClient::<CS>::blind(&input[..], &mut rng).unwrap();
+            inputs.push(input);
+            client_states.push(client_blind_result.state);
+            client_messages.push(client_blind_result.message);
+        }
+        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server
+            .batch_evaluate(&mut rng, &client_messages, &Metadata(info.to_vec()))
+            .unwrap();
+        let batch_finalize_input = BatchFinalizeInput::new(client_states, server_result.messages);
+        let wrong_pk = {
+            // Choose a group element that is unlikely to be the right public key
+            CS::Group::hash_to_curve::<CS::Hash>(b"msg", b"dst").unwrap()
+        };
+        let client_finalize_result = VerifiableClient::batch_finalize(
+            batch_finalize_input,
+            server_result.proof,
+            wrong_pk,
+            &Metadata(info.to_vec()),
+        );
+        assert!(client_finalize_result.is_err());
+    }
+
+    fn base_inversion_unsalted<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut input = alloc::vec![0u8; 64];
         rng.fill_bytes(&mut input);
@@ -866,15 +980,23 @@ mod tests {
     fn test_functionality() -> Result<(), InternalError> {
         use crate::tests::Ristretto255Sha512;
 
-        oprf_retrieval::<Ristretto255Sha512>();
-        oprf_inversion_unsalted::<Ristretto255Sha512>();
+        base_retrieval::<Ristretto255Sha512>();
+        base_inversion_unsalted::<Ristretto255Sha512>();
+        verifiable_retrieval::<Ristretto255Sha512>();
+        verifiable_batch_retrieval::<Ristretto255Sha512>();
+        verifiable_bad_public_key::<Ristretto255Sha512>();
+        verifiable_batch_bad_public_key::<Ristretto255Sha512>();
 
         #[cfg(feature = "p256")]
         {
             use crate::tests::P256Sha256;
 
-            oprf_retrieval::<P256Sha256>();
-            oprf_inversion_unsalted::<P256Sha256>();
+            base_retrieval::<P256Sha256>();
+            base_inversion_unsalted::<P256Sha256>();
+            verifiable_retrieval::<P256Sha256>();
+            verifiable_batch_retrieval::<P256Sha256>();
+            verifiable_bad_public_key::<P256Sha256>();
+            verifiable_batch_bad_public_key::<P256Sha256>();
         }
 
         Ok(())

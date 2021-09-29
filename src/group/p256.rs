@@ -5,6 +5,9 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
+// Note: This group implementation of p256 is experimental for now,
+// until hash-to-curve or crypto-bigint are fully supported.
+
 #![allow(
     clippy::borrow_interior_mutable_const,
     clippy::declare_interior_mutable_const
@@ -166,6 +169,11 @@ impl Group for ProjectivePoint {
 
 /// Corresponds to the hash_to_curve_simple_swu() function defined in
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#appendix-F.2>
+///
+/// `cmov`, `mod_floor` and `modpow` needs to be made constant-time, which
+/// will be supported after crypto-bigint is no longer experimental. See
+/// https://github.com/novifinancial/opaque-ke/issues/239 for more context.
+
 #[allow(clippy::many_single_char_names)]
 fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
     u: &[u8],

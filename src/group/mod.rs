@@ -5,8 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! Defines the Group trait to specify the underlying prime order group used in
-//! OPAQUE's OPRF
+//! Defines the Group trait to specify the underlying prime order group
 
 mod expand;
 #[cfg(feature = "p256")]
