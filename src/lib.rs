@@ -459,6 +459,8 @@
 //!
 //! # Features
 //!
+//! - The `p256` feature enables using p256 as the underlying group for the [Ciphersuite] choice
+//!
 //! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
 //!
@@ -473,8 +475,9 @@
 extern crate alloc;
 
 #[macro_use]
+mod impls;
+#[macro_use]
 mod serialization;
-
 mod ciphersuite;
 pub mod errors;
 pub mod group;
