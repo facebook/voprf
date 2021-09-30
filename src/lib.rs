@@ -459,7 +459,8 @@
 //!
 //! # Features
 //!
-//! - The `p256` feature enables using p256 as the underlying group for the [Ciphersuite] choice
+//! - The `p256` feature enables using p256 as the underlying group for the [Ciphersuite] choice.
+//! Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
 //!
 //! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
