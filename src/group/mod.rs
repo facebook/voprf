@@ -9,6 +9,7 @@
 
 mod expand;
 #[cfg(feature = "p256")]
+#[cfg_attr(docsrs, doc(cfg(feature = "p256")))]
 pub(crate) mod p256;
 mod ristretto;
 

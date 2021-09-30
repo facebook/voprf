@@ -55,3 +55,8 @@ proptest = "1"
 regex = "1"
 rustyline = "8"
 voprf = { path = "", default-features = false, features = ["std"] }
+
+[package.metadata.docs.rs]
+features = ["p256", "std"]
+targets = []
+rustdoc-args = ["--cfg", "docsrs"]
