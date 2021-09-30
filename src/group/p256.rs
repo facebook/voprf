@@ -335,7 +335,10 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
         }
 
         fn to_bytes<N: ArrayLength<u8>>(&self) -> GenericArray<u8, N> {
-            GenericArray::clone_from_slice(&self.number.mod_floor(self.f.0).to_bytes_be().1)
+            let val = self.number.mod_floor(self.f.0).to_bytes_be().1;
+            let mut bytes = alloc::vec![0u8; 32 - val.len()];
+            bytes.extend_from_slice(&val);
+            GenericArray::clone_from_slice(&bytes)
         }
     }
 
