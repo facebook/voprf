@@ -129,6 +129,7 @@ macro_rules! impl_zeroize_on_drop_for {
 macro_rules! impl_serialize_and_deserialize_for {
     ($t:ident) => {
         #[cfg(feature = "serialize")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
         impl<CS: CipherSuite> serde::Serialize for $t<CS> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
@@ -143,6 +144,7 @@ macro_rules! impl_serialize_and_deserialize_for {
         }
 
         #[cfg(feature = "serialize")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
         impl<'de, CS: CipherSuite> serde::Deserialize<'de> for $t<CS> {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
