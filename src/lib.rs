@@ -468,6 +468,10 @@
 //! - The `u32_backend` and `u64_backend` features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
 //! the corresponding backend for the curve arithmetic used. The `u64_backend` feature is included as the default.
+//!
+//! - The `simd_backend` feature is re-exported from
+//! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
+//! using either AVX2 or AVX512-IFMA. This will automatically enable the `u64_backend` and requires Rust nightly.
 
 #![cfg_attr(not(feature = "bench"), deny(missing_docs))]
 #![deny(unsafe_code)]
