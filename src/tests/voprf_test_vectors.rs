@@ -6,7 +6,6 @@
 // of this source tree.
 
 use crate::{
-    ciphersuite::CipherSuite,
     errors::InternalError,
     group::Group,
     tests::{mock_rng::CycleRng, parser::*},
@@ -17,6 +16,7 @@ use crate::{
 };
 use alloc::string::ToString;
 use alloc::vec::Vec;
+use digest::{BlockInput, Digest};
 use generic_array::GenericArray;
 use json::JsonValue;
 
@@ -85,7 +85,8 @@ fn test_vectors() -> Result<(), InternalError> {
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
-    use crate::tests::Ristretto255Sha512;
+    use curve25519_dalek::ristretto::RistrettoPoint;
+    use sha2::Sha512;
 
     let ristretto_base_tvs = json_to_test_vectors!(
         rfc,
@@ -99,19 +100,20 @@ fn test_vectors() -> Result<(), InternalError> {
         String::from("Verifiable")
     );
 
-    test_base_seed_to_key::<Ristretto255Sha512>(&ristretto_base_tvs)?;
-    test_base_blind::<Ristretto255Sha512>(&ristretto_base_tvs)?;
-    test_base_evaluate::<Ristretto255Sha512>(&ristretto_base_tvs)?;
-    test_base_finalize::<Ristretto255Sha512>(&ristretto_base_tvs)?;
+    test_base_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+    test_base_blind::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+    test_base_evaluate::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+    test_base_finalize::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
 
-    test_verifiable_seed_to_key::<Ristretto255Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_blind::<Ristretto255Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_evaluate::<Ristretto255Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_finalize::<Ristretto255Sha512>(&ristretto_verifiable_tvs)?;
+    test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+    test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+    test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+    test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
 
     #[cfg(feature = "p256")]
     {
-        use crate::tests::P256Sha256;
+        use p256_::ProjectivePoint;
+        use sha2::Sha256;
 
         let p256_base_tvs =
             json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
@@ -122,43 +124,43 @@ fn test_vectors() -> Result<(), InternalError> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<P256Sha256>(&p256_base_tvs)?;
-        test_base_blind::<P256Sha256>(&p256_base_tvs)?;
-        test_base_evaluate::<P256Sha256>(&p256_base_tvs)?;
-        test_base_finalize::<P256Sha256>(&p256_base_tvs)?;
+        test_base_seed_to_key::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
+        test_base_blind::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
+        test_base_evaluate::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
+        test_base_finalize::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
 
-        test_verifiable_seed_to_key::<P256Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_blind::<P256Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_evaluate::<P256Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_finalize::<P256Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_blind::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_evaluate::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_finalize::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
     }
 
     Ok(())
 }
 
-fn test_base_seed_to_key<CS: CipherSuite>(
+fn test_base_seed_to_key<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
-        let server = NonVerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
+        let server = NonVerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
         assert_eq!(
             &parameters.sksm,
-            &CS::Group::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::scalar_as_bytes(server.get_private_key()).to_vec()
         );
     }
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<CS: CipherSuite>(
+fn test_verifiable_seed_to_key<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
-        let server = VerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
+        let server = VerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
         assert_eq!(
             &parameters.sksm,
-            &CS::Group::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::scalar_as_bytes(server.get_private_key()).to_vec()
         );
         assert_eq!(&parameters.pksm, &server.get_public_key().to_arr().to_vec());
     }
@@ -166,17 +168,17 @@ fn test_verifiable_seed_to_key<CS: CipherSuite>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<CS: CipherSuite>(
+fn test_base_blind<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let client_result = NonVerifiableClient::<CS>::blind(&parameters.input[i], &mut rng)?;
+            let client_result = NonVerifiableClient::<G, H>::blind(&parameters.input[i], &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &CS::Group::scalar_as_bytes(client_result.state.get_blind()).to_vec()
+                &G::scalar_as_bytes(client_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 &parameters.blinded_element[i],
@@ -188,18 +190,18 @@ fn test_base_blind<CS: CipherSuite>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<CS: CipherSuite>(
+fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
             let client_blind_result =
-                VerifiableClient::<CS>::blind(&parameters.input[i], &mut rng)?;
+                VerifiableClient::<G, H>::blind(&parameters.input[i], &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &CS::Group::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
+                &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 &parameters.blinded_element[i],
@@ -211,12 +213,12 @@ fn test_verifiable_blind<CS: CipherSuite>(
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<CS: CipherSuite>(
+fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
+            let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
             let server_result = server.evaluate(
                 BlindedElement::deserialize(&parameters.blinded_element[i])?,
                 &Metadata(parameters.info.clone()),
@@ -231,12 +233,12 @@ fn test_base_evaluate<CS: CipherSuite>(
     Ok(())
 }
 
-fn test_verifiable_evaluate<CS: CipherSuite>(
+fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
-        let server = VerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
+        let server = VerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
 
         let mut blinded_elements = vec![];
         for blinded_element_bytes in &parameters.blinded_element {
@@ -262,14 +264,14 @@ fn test_verifiable_evaluate<CS: CipherSuite>(
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<CS: CipherSuite>(
+fn test_base_finalize<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<CS>::from_data_and_blind(
+            let client = NonVerifiableClient::<G, H>::from_data_and_blind(
                 &parameters.input[i],
-                <CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
+                <G as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
                     &parameters.blind[i],
                 ))?,
             );
@@ -288,18 +290,18 @@ fn test_base_finalize<CS: CipherSuite>(
     Ok(())
 }
 
-fn test_verifiable_finalize<CS: CipherSuite>(
+fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<CS>::from_data_and_blind(
+            let client = VerifiableClient::<G, H>::from_data_and_blind(
                 &parameters.input[i],
-                <CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
+                <G as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
                     &parameters.blind[i],
                 ))?,
-                <CS::Group as Group>::from_element_slice(&GenericArray::clone_from_slice(
+                <G as Group>::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );
@@ -318,7 +320,7 @@ fn test_verifiable_finalize<CS: CipherSuite>(
         let batch_result = VerifiableClient::batch_finalize(
             batch_finalize_input,
             Proof::deserialize(&parameters.proof)?,
-            CS::Group::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
+            G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
             &Metadata(parameters.info.clone()),
         )?;
 
