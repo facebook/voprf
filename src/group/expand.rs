@@ -6,7 +6,6 @@
 // of this source tree.
 
 use crate::errors::InternalError;
-use crate::hash::Hash;
 use crate::serialization::i2osp;
 use alloc::vec::Vec;
 use digest::{BlockInput, Digest};
@@ -28,7 +27,7 @@ fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<H: Hash>(
+pub fn expand_message_xmd<H: BlockInput + Digest>(
     msg: &[u8],
     dst: &[u8],
     len_in_bytes: usize,

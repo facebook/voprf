@@ -487,7 +487,6 @@ mod serialization;
 mod ciphersuite;
 pub mod errors;
 pub mod group;
-pub mod hash;
 mod voprf;
 
 #[cfg(test)]

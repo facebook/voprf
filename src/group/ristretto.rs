@@ -7,7 +7,6 @@
 
 use super::Group;
 use crate::errors::InternalError;
-use crate::hash::Hash;
 use core::convert::TryInto;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT,
@@ -15,6 +14,7 @@ use curve25519_dalek::{
     scalar::Scalar,
     traits::Identity,
 };
+use digest::{BlockInput, Digest};
 use generic_array::{typenum::U32, GenericArray};
 use rand::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -25,7 +25,10 @@ impl Group for RistrettoPoint {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError> {
+    fn hash_to_curve<H: BlockInput + Digest>(
+        msg: &[u8],
+        dst: &[u8],
+    ) -> Result<Self, InternalError> {
         let uniform_bytes = super::expand::expand_message_xmd::<H>(msg, dst, 64)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
@@ -38,7 +41,10 @@ impl Group for RistrettoPoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<H: Hash>(input: &[u8], dst: &[u8]) -> Result<Self::Scalar, InternalError> {
+    fn hash_to_scalar<H: BlockInput + Digest>(
+        input: &[u8],
+        dst: &[u8],
+    ) -> Result<Self::Scalar, InternalError> {
         let uniform_bytes = super::expand::expand_message_xmd::<H>(input, dst, 64)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
