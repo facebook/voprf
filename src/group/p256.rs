@@ -16,7 +16,7 @@
 use super::Group;
 use crate::errors::InternalError;
 use crate::hash::Hash;
-use core::ops::{Add, Div, Mul, Neg, Sub};
+use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
 use generic_array::typenum::{U32, U33};
 use generic_array::{ArrayLength, GenericArray};
@@ -31,6 +31,7 @@ use p256_::elliptic_curve::subtle::ConstantTimeEq;
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
 use rand::{CryptoRng, RngCore};
+use subtle::{Choice, ConditionallySelectable};
 
 // `L: 48`
 pub const L: usize = 48;
@@ -201,11 +202,6 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
         fn one(&'a self) -> FieldElement<'a> {
             self.element(&BigInt::one())
         }
-
-        /// See <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-4>
-        fn inv0(&'a self, number: &FieldElement<'a>) -> FieldElement<'a> {
-            number.pow_internal(&(self.0 - 2))
-        }
     }
 
     /// Finite field arithmetic
@@ -228,14 +224,6 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
 
         fn add(self, rhs: Self) -> Self::Output {
             self.f.element(&(&self.number + &rhs.number))
-        }
-    }
-
-    impl<'a> Sub for &FieldElement<'a> {
-        type Output = FieldElement<'a>;
-
-        fn sub(self, rhs: Self) -> Self::Output {
-            self.f.element(&(&self.number - &rhs.number))
         }
     }
 
@@ -292,7 +280,7 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
 
         #[allow(clippy::suspicious_arithmetic_impl)]
         fn div(self, rhs: &Self) -> Self::Output {
-            self * rhs.f.inv0(rhs)
+            self * rhs.inv0()
         }
     }
 
@@ -324,6 +312,11 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
             (&self.number % 2_usize).to_i32().unwrap()
         }
 
+        /// See <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-4>
+        fn inv0(&self) -> Self {
+            self.pow_internal(&(self.f.0 - 2))
+        }
+
         fn is_zero(&self) -> bool {
             self.number.is_zero()
         }
@@ -347,10 +340,27 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
     }
 
     fn cmov<'a>(x: &FieldElement<'a>, y: &FieldElement<'a>, b: bool) -> FieldElement<'a> {
-        if b {
-            y.clone()
-        } else {
-            x.clone()
+        let f = x.f;
+
+        let x_bytes = x.number.to_bytes_le().1;
+        let mut x = [0; 32];
+        x[..x_bytes.len()].copy_from_slice(&x_bytes);
+
+        let y_bytes = y.number.to_bytes_le().1;
+        let mut y = [0; 32];
+        y[..y_bytes.len()].copy_from_slice(&y_bytes);
+
+        let mut bytes = [0; 32];
+
+        let choice = Choice::from(u8::from(b));
+
+        for ((byte, x), y) in bytes.iter_mut().zip(&x).zip(&y) {
+            *byte = u8::conditional_select(x, y, choice);
+        }
+
+        FieldElement {
+            f,
+            number: BigInt::from_bytes_le(Sign::Plus, &bytes),
         }
     }
 
@@ -374,7 +384,7 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
     // 3.   x1 = tv1 + tv2
     let mut x1 = &tv1 + &tv2;
     // 4.   x1 = inv0(x1)
-    x1 = f.inv0(&x1);
+    x1 = x1.inv0();
     // 5.   e1 = x1 == 0
     let e1 = x1.is_zero();
     // 6.   x1 = x1 + 1
