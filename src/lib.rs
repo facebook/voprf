@@ -146,7 +146,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client finalization");
 //!
-//! println!("VOPRF output: {:?}", client_finalize_result.output.to_vec());
+//! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
 //! ## Verifiable Mode
@@ -275,7 +275,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client finalization");
 //!
-//! println!("VOPRF output: {:?}", client_finalize_result.output.to_vec());
+//! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
 //! # Advanced Usage
@@ -394,7 +394,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client batch finalization");
 //!
-//! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result.outputs);
+//! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
 //! ```
 //!
 //! ## Metadata
@@ -449,7 +449,7 @@ pub use rand;
 
 pub use crate::voprf::{
     BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
-    NonVerifiableClientBlindResult, NonVerifiableClientFinalizeResult, NonVerifiableServer,
-    NonVerifiableServerEvaluateResult, VerifiableClient, VerifiableClientBlindResult,
-    VerifiableClientFinalizeResult, VerifiableServer, VerifiableServerEvaluateResult,
+    NonVerifiableClientBlindResult, NonVerifiableServer, NonVerifiableServerEvaluateResult,
+    VerifiableClient, VerifiableClientBlindResult, VerifiableServer,
+    VerifiableServerEvaluateResult,
 };

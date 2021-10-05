@@ -171,7 +171,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         &self,
         evaluation_element: EvaluationElement<G, H>,
         metadata: &Metadata,
-    ) -> Result<NonVerifiableClientFinalizeResult<H>, InternalError> {
+    ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
         let unblinded_element =
             evaluation_element.value * &<G as Group>::scalar_invert(&self.blind);
         let outputs = finalize_after_unblind::<G, H>(
@@ -179,9 +179,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
             &metadata.0,
             Mode::Base,
         )?;
-        Ok(NonVerifiableClientFinalizeResult {
-            output: outputs[0].clone(),
-        })
+        Ok(outputs[0].clone())
     }
 
     #[cfg(test)]
@@ -231,13 +229,11 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         proof: Proof<G, H>,
         pk: G,
         metadata: &Metadata,
-    ) -> Result<VerifiableClientFinalizeResult<H>, InternalError> {
+    ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
         let batch_finalize_input =
             BatchFinalizeInput::new(vec![self.clone()], vec![evaluation_element]);
         let batch_result = Self::batch_finalize(batch_finalize_input, proof, pk, metadata)?;
-        Ok(VerifiableClientFinalizeResult {
-            output: batch_result.outputs[0].clone(),
-        })
+        Ok(batch_result[0].clone())
     }
 
     /// Allows for batching of the finalization of multiple [VerifiableClient] and [EvaluationElement] pairs
@@ -247,7 +243,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         proof: Proof<G, H>,
         pk: G,
         metadata: &Metadata,
-    ) -> Result<VerifiableClientBatchFinalizeResult<H>, InternalError> {
+    ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError> {
         let batch_items: Vec<BatchItems<G, H>> = batch_finalize_input
             .clients
             .iter()
@@ -271,13 +267,11 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
             .map(|(client, &unblinded_element)| (client.data.clone(), unblinded_element))
             .collect();
 
-        Ok(VerifiableClientBatchFinalizeResult {
-            outputs: finalize_after_unblind::<G, H>(
-                &inputs_and_unblinded_elements,
-                &metadata.0,
-                Mode::Verifiable,
-            )?,
-        })
+        finalize_after_unblind::<G, H>(
+            &inputs_and_unblinded_elements,
+            &metadata.0,
+            Mode::Verifiable,
+        )
     }
 
     #[cfg(test)]
@@ -506,12 +500,6 @@ pub struct NonVerifiableServerEvaluateResult<G: Group, H: BlockInput + Digest> {
     pub message: EvaluationElement<G, H>,
 }
 
-/// Contains the fields that are returned by a non-verifiable client finalize
-pub struct NonVerifiableClientFinalizeResult<H: BlockInput + Digest> {
-    /// The output of the protocol
-    pub output: GenericArray<u8, <H as Digest>::OutputSize>,
-}
-
 /// Contains the fields that are returned by a verifiable client blind
 pub struct VerifiableClientBlindResult<G: Group, H: BlockInput + Digest> {
     /// The state to be persisted on the client
@@ -534,18 +522,6 @@ pub struct VerifiableServerBatchEvaluateResult<G: Group, H: BlockInput + Digest>
     pub messages: Vec<EvaluationElement<G, H>>,
     /// The proof for the client to verify
     pub proof: Proof<G, H>,
-}
-
-/// Contains the fields that are returned by a verifiable client finalize
-pub struct VerifiableClientFinalizeResult<H: BlockInput + Digest> {
-    /// The output of the protocol
-    pub output: GenericArray<u8, <H as Digest>::OutputSize>,
-}
-
-/// Contains the fields that are returned by a verifiable client batch finalize
-pub struct VerifiableClientBatchFinalizeResult<H: BlockInput + Digest> {
-    /// The output of the protocol
-    pub outputs: Vec<GenericArray<u8, <H as Digest>::OutputSize>>,
 }
 
 /// An input to the verifiable client batch finalize function, constructed
@@ -851,7 +827,7 @@ mod tests {
             .finalize(server_result.message, &Metadata(info.to_vec()))
             .unwrap();
         let res2 = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Base);
-        assert_eq!(client_finalize_result.output, res2);
+        assert_eq!(client_finalize_result, res2);
     }
 
     fn verifiable_retrieval<G: Group, H: BlockInput + Digest>() {
@@ -877,7 +853,7 @@ mod tests {
             )
             .unwrap();
         let res2 = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Verifiable);
-        assert_eq!(client_finalize_result.output, res2);
+        assert_eq!(client_finalize_result, res2);
     }
 
     fn verifiable_bad_public_key<G: Group, H: BlockInput + Digest>() {
@@ -939,7 +915,7 @@ mod tests {
             let output = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Verifiable);
             res2.push(output);
         }
-        assert_eq!(client_finalize_result.outputs, res2);
+        assert_eq!(client_finalize_result, res2);
     }
 
     fn verifiable_batch_bad_public_key<G: Group, H: BlockInput + Digest>() {
@@ -1003,7 +979,7 @@ mod tests {
             .unwrap()[0]
             .clone();
 
-        assert_eq!(client_finalize_result.output, res2);
+        assert_eq!(client_finalize_result, res2);
     }
 
     #[test]

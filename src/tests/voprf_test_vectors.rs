@@ -281,10 +281,7 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
                 &Metadata(parameters.info.clone()),
             )?;
 
-            assert_eq!(
-                &parameters.output[i],
-                &client_finalize_result.output.to_vec()
-            );
+            assert_eq!(&parameters.output[i], &client_finalize_result.to_vec());
         }
     }
     Ok(())
@@ -327,7 +324,6 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
         assert_eq!(
             parameters.output,
             batch_result
-                .outputs
                 .iter()
                 .map(|arr| arr.to_vec())
                 .collect::<Vec<Vec<u8>>>()
