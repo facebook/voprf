@@ -6,8 +6,8 @@
 // of this source tree.
 
 macro_rules! impl_debug_eq_hash_for {
-    (struct $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound)?),+>)? core::fmt::Debug for $name$(<$($gen),+>)?
+    (struct $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl$(<$($gen$(: $bound1$( + $bound2)*)?),+>)? core::fmt::Debug for $name$(<$($gen),+>)?
         $(where $($type: core::fmt::Debug,)+)?
         {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -18,11 +18,11 @@ macro_rules! impl_debug_eq_hash_for {
             }
         }
 
-        impl$(<$($gen$(: $bound)?),+>)? Eq for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$( + $bound2)*)?),+>)? Eq for $name$(<$($gen),+>)?
         $(where $($type: Eq,)+)?
         {}
 
-        impl$(<$($gen$(: $bound)?),+>)? PartialEq for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$( + $bound2)*)?),+>)? PartialEq for $name$(<$($gen),+>)?
         $(where $($type: PartialEq,)+)?
         {
             fn eq(&self, other: &Self) -> bool {
@@ -31,17 +31,17 @@ macro_rules! impl_debug_eq_hash_for {
             }
         }
 
-        impl$(<$($gen$(: $bound)?),+>)? core::hash::Hash for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$( + $bound2)*)?),+>)? core::hash::Hash for $name$(<$($gen),+>)?
         $(where $($type: core::hash::Hash,)+)?
         {
-            fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+            fn hash<_H: core::hash::Hasher>(&self, state: &mut _H) {
                 core::hash::Hash::hash(&self.$field1, state);
                 $(core::hash::Hash::hash(&self.$field2, state);)*
             }
         }
     };
-    (tuple $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound)?),+>)? core::fmt::Debug for $name$(<$($gen),+>)?
+    (tuple $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? core::fmt::Debug for $name$(<$($gen),+>)?
         $(where $($type: core::fmt::Debug,)+)?
         {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -52,11 +52,11 @@ macro_rules! impl_debug_eq_hash_for {
             }
         }
 
-        impl$(<$($gen$(: $bound)?),+>)? Eq for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Eq for $name$(<$($gen),+>)?
         $(where $($type: Eq,)+)?
         {}
 
-        impl$(<$($gen$(: $bound)?),+>)? PartialEq for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? PartialEq for $name$(<$($gen),+>)?
         $(where $($type: PartialEq,)+)?
         {
             fn eq(&self, other: &Self) -> bool {
@@ -65,7 +65,7 @@ macro_rules! impl_debug_eq_hash_for {
             }
         }
 
-        impl$(<$($gen$(: $bound)?),+>)? core::hash::Hash for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? core::hash::Hash for $name$(<$($gen),+>)?
         $(where $($type: core::hash::Hash,)+)?
         {
             fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
@@ -77,8 +77,8 @@ macro_rules! impl_debug_eq_hash_for {
 }
 
 macro_rules! impl_clone_for {
-    (struct $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound)?),+>)? Clone for $name$(<$($gen),+>)?
+    (struct $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Clone for $name$(<$($gen),+>)?
         $(where $($type: Clone,)+)?
         {
             fn clone(&self) -> Self {
@@ -89,8 +89,8 @@ macro_rules! impl_clone_for {
             }
         }
     };
-    (tuple $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound)?),+>)? Clone for $name$(<$($gen),+>)?
+    (tuple $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Clone for $name$(<$($gen),+>)?
         $(where $($type: Clone,)+)?
         {
             fn clone(&self) -> Self {
@@ -103,23 +103,30 @@ macro_rules! impl_clone_for {
     };
 }
 
+macro_rules! impl_zeroize_field_skip_pd {
+    ($self_:ident, $field:ident, PH) => {};
+    ($self_:ident, $field:ident) => {
+        $self_.$field.zeroize();
+    };
+}
+
 macro_rules! impl_zeroize_on_drop_for {
-    (struct $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound)?),+>)? zeroize::Zeroize for $name$(<$($gen),+>)?
+    (struct $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$(#[$pd1:ident] )?$field1:ident$(, $(#[$pd2:ident] )?$field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? zeroize::Zeroize for $name$(<$($gen),+>)?
         {
             fn zeroize(&mut self) {
-                self.$field1.zeroize();
-                $(self.$field2.zeroize();)*
+                impl_zeroize_field_skip_pd!(self, $field1$(, $pd1)?);
+                $(impl_zeroize_field_skip_pd!(self, $field2$(, $pd2)?);)*
             }
         }
 
-        impl$(<$($gen$(: $bound)?),+>)? Drop for $name$(<$($gen),+>)?
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Drop for $name$(<$($gen),+>)?
         {
             fn drop(&mut self) {
                 #[allow(unused_imports)]
                 use zeroize::Zeroize;
-                self.$field1.zeroize();
-                $(self.$field2.zeroize();)*
+                impl_zeroize_field_skip_pd!(self, $field1$(, $pd1)?);
+                $(impl_zeroize_field_skip_pd!(self, $field2$(, $pd2)?);)*
             }
         }
     };
@@ -127,10 +134,10 @@ macro_rules! impl_zeroize_on_drop_for {
 
 /// Inner macro used for deriving `serde`'s `Serialize` and `Deserialize` traits.
 macro_rules! impl_serialize_and_deserialize_for {
-    ($t:ident) => {
+    ($name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?) => {
         #[cfg(feature = "serialize")]
         #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
-        impl<CS: CipherSuite> serde::Serialize for $t<CS> {
+        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? serde::Serialize for $name$(<$($gen),+>)? {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: serde::Serializer,
@@ -145,28 +152,29 @@ macro_rules! impl_serialize_and_deserialize_for {
 
         #[cfg(feature = "serialize")]
         #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
-        impl<'de, CS: CipherSuite> serde::Deserialize<'de> for $t<CS> {
+        impl<'de$(, $($gen$(: $bound1$(+ $bound2)*)?),+)?> serde::Deserialize<'de> for $name$(<$($gen),+>)? {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
                 if deserializer.is_human_readable() {
                     let s = <&str>::deserialize(deserializer)?;
-                    $t::<CS>::deserialize(&base64::decode(s).map_err(serde::de::Error::custom)?)
+                    $name$(::<$($gen),+>)?::deserialize(&base64::decode(s).map_err(serde::de::Error::custom)?)
                         .map_err(serde::de::Error::custom)
                 } else {
-                    struct ByteVisitor<CS: CipherSuite> {
-                        marker: core::marker::PhantomData<CS>,
-                    }
-                    impl<'de, CS: CipherSuite> serde::de::Visitor<'de> for ByteVisitor<CS> {
-                        type Value = $t<CS>;
+                    struct ByteVisitor$(<$($gen$(: $bound1$(+ $bound2)*)?),+> (
+                        #[allow(unused_parens)]
+                        core::marker::PhantomData<($($gen),+)>,
+                    ))?;
+                    impl<'de$(, $($gen$(: $bound1$(+ $bound2)*)?),+)?> serde::de::Visitor<'de> for ByteVisitor$(<$($gen),+>)? {
+                        type Value = $name$(<$($gen),+>)?;
                         fn expecting(
                             &self,
                             formatter: &mut core::fmt::Formatter,
                         ) -> core::fmt::Result {
                             formatter.write_str(core::concat!(
                                 "the byte representation of a ",
-                                core::stringify!($t)
+                                core::stringify!($name)
                             ))
                         }
 
@@ -174,20 +182,20 @@ macro_rules! impl_serialize_and_deserialize_for {
                         where
                             E: serde::de::Error,
                         {
-                            $t::<CS>::deserialize(value).map_err(|_| {
+                            $name$(::<$($gen),+>)?::deserialize(value).map_err(|_| {
                                 serde::de::Error::invalid_value(
                                     serde::de::Unexpected::Bytes(value),
                                     &core::concat!(
                                         "invalid byte sequence for ",
-                                        core::stringify!($t)
+                                        core::stringify!($name)
                                     ),
                                 )
                             })
                         }
                     }
-                    deserializer.deserialize_bytes(ByteVisitor::<CS> {
-                        marker: core::marker::PhantomData,
-                    })
+                    deserializer.deserialize_bytes(ByteVisitor$(::<$($gen),+> (
+                        core::marker::PhantomData,
+                    ))?)
                 }
             }
         }
@@ -196,10 +204,10 @@ macro_rules! impl_serialize_and_deserialize_for {
 
 // Convenience macro for implementing all of the above traits
 macro_rules! impl_traits_for {
-    (struct $name:ident$(<$($gen:ident$(: $bound:tt)?),+$(,)?>)?, [$field1:ident$(, $field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl_debug_eq_hash_for!(struct $name$(<$($gen$(: $bound)?),+>)?, [$field1$(, $field2)*], $([$($type),+])?);
-        impl_clone_for!(struct $name$(<$($gen$(: $bound)?),+>)?, [$field1$(, $field2)*], $([$($type),+])?);
-        impl_zeroize_on_drop_for!(struct $name$(<$($gen$(: $bound)?),+>)?, [$field1$(, $field2)*], $([$($type),+])?);
-        impl_serialize_and_deserialize_for!($name);
+    (struct $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$(#[$pd1:ident] )?$field1:ident$(, $(#[$pd2:ident] )?$field2:ident)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
+        impl_debug_eq_hash_for!(struct $name$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)?, [$field1$(, $field2)*], $([$($type),+])?);
+        impl_clone_for!(struct $name$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)?, [$field1$(, $field2)*], $([$($type),+])?);
+        impl_zeroize_on_drop_for!(struct $name$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)?, [$(#[$pd1] )?$field1$(, $(#[$pd2] )?$field2)*], $([$($type),+])?);
+        impl_serialize_and_deserialize_for!($name$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)?);
     }
 }

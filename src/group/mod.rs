@@ -14,8 +14,8 @@ pub(crate) mod p256;
 mod ristretto;
 
 use crate::errors::InternalError;
-use crate::hash::Hash;
 use core::ops::{Add, Mul, Sub};
+use digest::{BlockInput, Digest};
 use generic_array::{ArrayLength, GenericArray};
 use rand::{CryptoRng, RngCore};
 use zeroize::Zeroize;
@@ -33,10 +33,14 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: Hash>(msg: &[u8], dst: &[u8]) -> Result<Self, InternalError>;
+    fn hash_to_curve<H: BlockInput + Digest>(msg: &[u8], dst: &[u8])
+        -> Result<Self, InternalError>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: Hash>(input: &[u8], dst: &[u8]) -> Result<Self::Scalar, InternalError>;
+    fn hash_to_scalar<H: BlockInput + Digest>(
+        input: &[u8],
+        dst: &[u8],
+    ) -> Result<Self::Scalar, InternalError>;
 
     /// The type of base field scalars
     type Scalar: Zeroize

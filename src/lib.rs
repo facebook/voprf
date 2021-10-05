@@ -24,12 +24,8 @@
 //! We will use the following choices in this example:
 //!
 //! ```
-//! use voprf::CipherSuite;
-//! struct Default;
-//! impl CipherSuite for Default {
-//!     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//!     type Hash = sha2::Sha512;
-//! }
+//! type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! type Hash = sha2::Sha512;
 //! ```
 //!
 //! ## Modes of Operation
@@ -56,17 +52,13 @@
 //! client evaluations.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! use voprf::NonVerifiableServer;
 //! use rand::{rngs::OsRng, RngCore};
 //!
 //! let mut server_rng = OsRng;
-//! let server = NonVerifiableServer::<Default>::new(&mut server_rng)
+//! let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //!    .expect("Unable to construct server");
 //! ```
 //!
@@ -79,17 +71,13 @@
 //! step of the VOPRF protocol.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! use voprf::NonVerifiableClient;
 //! use rand::{rngs::OsRng, RngCore};
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = NonVerifiableClient::<Default>::blind(
+//! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
 //!     b"input",
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
@@ -104,23 +92,19 @@
 //! [EvaluationElement] to be sent to the client.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<Default>::blind(
+//! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
@@ -138,23 +122,19 @@
 //! output for the protocol.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<Default>::blind(
+//! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     client_blind_result.message,
@@ -166,7 +146,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client finalization");
 //!
-//! println!("VOPRF output: {:?}", client_finalize_result.output.to_vec());
+//! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
 //! ## Verifiable Mode
@@ -189,17 +169,13 @@
 //! client evaluations.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! use voprf::VerifiableServer;
 //! use rand::{rngs::OsRng, RngCore};
 //!
 //! let mut server_rng = OsRng;
-//! let server = VerifiableServer::<Default>::new(&mut server_rng)
+//! let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //!    .expect("Unable to construct server");
 //!
 //! // To be sent to the client
@@ -219,17 +195,13 @@
 //! step of the VOPRF protocol.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! use voprf::VerifiableClient;
 //! use rand::{rngs::OsRng, RngCore};
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = VerifiableClient::<Default>::blind(
+//! let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //!     b"input",
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
@@ -244,23 +216,19 @@
 //! [EvaluationElement] to be sent to the client along with a proof.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<Default>::blind(
+//! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
@@ -280,23 +248,19 @@
 //! output for the protocol.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<Default>::blind(
+//! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
@@ -311,7 +275,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client finalization");
 //!
-//! println!("VOPRF output: {:?}", client_finalize_result.output.to_vec());
+//! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
 //! # Advanced Usage
@@ -333,12 +297,8 @@
 //! states and messages:
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -346,7 +306,7 @@
 //! let mut client_states = vec![];
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
-//!     let client_blind_result = VerifiableClient::<Default>::blind(
+//!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //!         b"input",
 //!         &mut client_rng,
 //!     ).expect("Unable to construct client");
@@ -361,12 +321,8 @@
 //! along with a single proof:
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -374,7 +330,7 @@
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<Default>::blind(
+//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
@@ -384,7 +340,7 @@
 //! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let server_batch_evaluate_result = server.batch_evaluate(
 //!     &mut server_rng,
@@ -400,12 +356,8 @@
 //! verifies correctly.
 //!
 //! ```
-//! # use voprf::CipherSuite;
-//! # struct Default;
-//! # impl CipherSuite for Default {
-//! #     type Group = curve25519_dalek::ristretto::RistrettoPoint;
-//! #     type Hash = sha2::Sha512;
-//! # }
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Hash = sha2::Sha512;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -413,7 +365,7 @@
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<Default>::blind(
+//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
@@ -424,7 +376,7 @@
 //! # use voprf::VerifiableServer;
 //! use voprf::BatchFinalizeInput;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Default>::new(&mut server_rng)
+//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_batch_evaluate_result = server.batch_evaluate(
 //! #     &mut server_rng,
@@ -442,7 +394,7 @@
 //!     &Metadata::none(),
 //! ).expect("Unable to perform client batch finalization");
 //!
-//! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result.outputs);
+//! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
 //! ```
 //!
 //! ## Metadata
@@ -459,7 +411,7 @@
 //!
 //! # Features
 //!
-//! - The `p256` feature enables using p256 as the underlying group for the [CipherSuite] choice.
+//! - The `p256` feature enables using p256 as the underlying group for the [Group](group::Group) choice.
 //! Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
 //!
 //! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
@@ -484,10 +436,8 @@ extern crate alloc;
 mod impls;
 #[macro_use]
 mod serialization;
-mod ciphersuite;
 pub mod errors;
 pub mod group;
-pub mod hash;
 mod voprf;
 
 #[cfg(test)]
@@ -497,10 +447,9 @@ mod tests;
 
 pub use rand;
 
-pub use crate::ciphersuite::CipherSuite;
 pub use crate::voprf::{
     BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
-    NonVerifiableClientBlindResult, NonVerifiableClientFinalizeResult, NonVerifiableServer,
-    NonVerifiableServerEvaluateResult, VerifiableClient, VerifiableClientBlindResult,
-    VerifiableClientFinalizeResult, VerifiableServer, VerifiableServerEvaluateResult,
+    NonVerifiableClientBlindResult, NonVerifiableServer, NonVerifiableServerEvaluateResult,
+    VerifiableClient, VerifiableClientBlindResult, VerifiableServer,
+    VerifiableServerEvaluateResult,
 };

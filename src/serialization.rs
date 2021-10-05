@@ -9,7 +9,6 @@
 //! in the VOPRF protocol
 
 use crate::{
-    ciphersuite::CipherSuite,
     errors::InternalError,
     group::Group,
     voprf::{
@@ -18,6 +17,8 @@ use crate::{
     },
 };
 use alloc::vec::Vec;
+use core::marker::PhantomData;
+use digest::{BlockInput, Digest};
 use generic_array::{typenum::Unsigned, GenericArray};
 
 //////////////////////////////////////////////////////////
@@ -25,35 +26,35 @@ use generic_array::{typenum::Unsigned, GenericArray};
 // ==================================================== //
 //////////////////////////////////////////////////////////
 
-impl<CS: CipherSuite> NonVerifiableClient<CS> {
+impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
-        [
-            CS::Group::scalar_as_bytes(self.blind).to_vec(),
-            self.data.clone(),
-        ]
-        .concat()
+        [G::scalar_as_bytes(self.blind).to_vec(), self.data.clone()].concat()
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::USIZE;
+        let scalar_len = <G as Group>::ScalarLen::USIZE;
         if input.len() < scalar_len {
             return Err(InternalError::SizeError);
         }
 
-        let blind = CS::Group::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
+        let blind = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
         let data = input[scalar_len..].to_vec();
 
-        Ok(Self { blind, data })
+        Ok(Self {
+            blind,
+            data,
+            hash: PhantomData,
+        })
     }
 }
 
-impl<CS: CipherSuite> VerifiableClient<CS> {
+impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         [
-            CS::Group::scalar_as_bytes(self.blind).to_vec(),
+            G::scalar_as_bytes(self.blind).to_vec(),
             self.blinded_element.to_arr().to_vec(),
             self.data.clone(),
         ]
@@ -62,14 +63,14 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::USIZE;
-        let elem_len = <CS::Group as Group>::ElemLen::USIZE;
+        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let elem_len = <G as Group>::ElemLen::USIZE;
         if input.len() < scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
 
-        let blind = CS::Group::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
-        let blinded_element = CS::Group::from_element_slice(GenericArray::from_slice(
+        let blind = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
+        let blinded_element = G::from_element_slice(GenericArray::from_slice(
             &input[scalar_len..scalar_len + elem_len],
         ))?;
         let data = input[scalar_len + elem_len..].to_vec();
@@ -78,34 +79,38 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
             blind,
             blinded_element,
             data,
+            hash: PhantomData,
         })
     }
 }
 
-impl<CS: CipherSuite> NonVerifiableServer<CS> {
+impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
-        CS::Group::scalar_as_bytes(self.sk).to_vec()
+        G::scalar_as_bytes(self.sk).to_vec()
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::USIZE;
+        let scalar_len = <G as Group>::ScalarLen::USIZE;
         if input.len() != scalar_len {
             return Err(InternalError::SizeError);
         }
 
-        let sk = CS::Group::from_scalar_slice(GenericArray::from_slice(input))?;
+        let sk = G::from_scalar_slice(GenericArray::from_slice(input))?;
 
-        Ok(Self { sk })
+        Ok(Self {
+            sk,
+            hash: PhantomData,
+        })
     }
 }
 
-impl<CS: CipherSuite> VerifiableServer<CS> {
+impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         [
-            CS::Group::scalar_as_bytes(self.sk).to_vec(),
+            G::scalar_as_bytes(self.sk).to_vec(),
             self.pk.to_arr().to_vec(),
         ]
         .concat()
@@ -113,43 +118,48 @@ impl<CS: CipherSuite> VerifiableServer<CS> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::USIZE;
-        let elem_len = <CS::Group as Group>::ElemLen::USIZE;
+        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let elem_len = <G as Group>::ElemLen::USIZE;
         if input.len() != scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
 
-        let sk = CS::Group::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
-        let pk = CS::Group::from_element_slice(GenericArray::from_slice(&input[scalar_len..]))?;
+        let sk = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
+        let pk = G::from_element_slice(GenericArray::from_slice(&input[scalar_len..]))?;
 
-        Ok(Self { sk, pk })
+        Ok(Self {
+            sk,
+            pk,
+            hash: PhantomData,
+        })
     }
 }
 
-impl<CS: CipherSuite> Proof<CS> {
+impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         [
-            CS::Group::scalar_as_bytes(self.c_scalar),
-            CS::Group::scalar_as_bytes(self.s_scalar),
+            G::scalar_as_bytes(self.c_scalar),
+            G::scalar_as_bytes(self.s_scalar),
         ]
         .concat()
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <CS::Group as Group>::ScalarLen::USIZE;
+        let scalar_len = <G as Group>::ScalarLen::USIZE;
         if input.len() < scalar_len + scalar_len {
             return Err(InternalError::SizeError);
         }
         Ok(Proof {
-            c_scalar: CS::Group::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?,
-            s_scalar: CS::Group::from_scalar_slice(GenericArray::from_slice(&input[scalar_len..]))?,
+            c_scalar: G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?,
+            s_scalar: G::from_scalar_slice(GenericArray::from_slice(&input[scalar_len..]))?,
+            hash: PhantomData,
         })
     }
 }
 
-impl<CS: CipherSuite> BlindedElement<CS> {
+impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         self.value.to_arr().to_vec()
@@ -158,12 +168,13 @@ impl<CS: CipherSuite> BlindedElement<CS> {
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         Ok(Self {
-            value: CS::Group::from_element_slice(GenericArray::from_slice(input))?,
+            value: G::from_element_slice(GenericArray::from_slice(input))?,
+            hash: PhantomData,
         })
     }
 }
 
-impl<CS: CipherSuite> EvaluationElement<CS> {
+impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         self.value.to_arr().to_vec()
@@ -172,7 +183,8 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         Ok(Self {
-            value: CS::Group::from_element_slice(GenericArray::from_slice(input))?,
+            value: G::from_element_slice(GenericArray::from_slice(input))?,
+            hash: PhantomData,
         })
     }
 }
