@@ -85,7 +85,7 @@ fn parse_params(input: &str) -> String {
                 // If line contains =, then
                 if line.contains('=') {
                     // Clear out any existing string and flush to params
-                    if param.len() > 0 {
+                    if !param.is_empty() {
                         param += "\"";
                         params.push(param);
                     }
@@ -97,11 +97,11 @@ fn parse_params(input: &str) -> String {
                     param = format!("    \"{}\": \"{}", key, val);
                 } else {
                     let s = line.trim().to_string();
-                    if s.contains("~") || s.contains("#") {
+                    if s.contains('~') || s.contains('#') {
                         // Ignore comment lines
                         continue;
                     }
-                    if s.len() > 0 {
+                    if !s.is_empty() {
                         param += &s;
                     }
                 }

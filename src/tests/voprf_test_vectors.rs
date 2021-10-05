@@ -40,14 +40,14 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
         seed: decode(values, "seed"),
         sksm: decode(values, "skSm"),
         pksm: decode(values, "pkSm"),
-        input: decode_vec(&values, "Input"),
+        input: decode_vec(values, "Input"),
         info: decode(values, "Info"),
-        blind: decode_vec(&values, "Blind"),
-        blinded_element: decode_vec(&values, "BlindedElement"),
-        evaluation_element: decode_vec(&values, "EvaluationElement"),
+        blind: decode_vec(values, "Blind"),
+        blinded_element: decode_vec(values, "BlindedElement"),
+        evaluation_element: decode_vec(values, "EvaluationElement"),
         proof: decode(values, "Proof"),
         proof_random_scalar: decode(values, "ProofRandomScalar"),
-        output: decode_vec(&values, "Output"),
+        output: decode_vec(values, "Output"),
     }
 }
 
@@ -55,7 +55,7 @@ fn decode(values: &JsonValue, key: &str) -> Vec<u8> {
     values[key]
         .as_str()
         .and_then(|s| hex::decode(&s.to_string()).ok())
-        .unwrap_or(vec![])
+        .unwrap_or_default()
 }
 
 fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
@@ -240,7 +240,7 @@ fn test_verifiable_evaluate<CS: CipherSuite>(
 
         let mut blinded_elements = vec![];
         for blinded_element_bytes in &parameters.blinded_element {
-            blinded_elements.push(BlindedElement::deserialize(&blinded_element_bytes)?);
+            blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
         let batch_evaluate_result = server.batch_evaluate(
@@ -269,7 +269,7 @@ fn test_base_finalize<CS: CipherSuite>(
         for i in 0..parameters.input.len() {
             let client = NonVerifiableClient::<CS>::from_data_and_blind(
                 &parameters.input[i],
-                &<CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
+                <CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
                     &parameters.blind[i],
                 ))?,
             );
@@ -296,10 +296,10 @@ fn test_verifiable_finalize<CS: CipherSuite>(
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<CS>::from_data_and_blind(
                 &parameters.input[i],
-                &<CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
+                <CS::Group as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
                     &parameters.blind[i],
                 ))?,
-                &<CS::Group as Group>::from_element_slice(&GenericArray::clone_from_slice(
+                <CS::Group as Group>::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );
