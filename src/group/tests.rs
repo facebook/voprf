@@ -36,10 +36,7 @@ fn test_group_properties() -> Result<(), InternalError> {
 fn test_identity_element_error<CS: CipherSuite>() -> Result<(), InternalError> {
     let identity = CS::Group::identity();
     let result = CS::Group::from_element_slice(&identity.to_arr());
-    assert!(match result {
-        Err(InternalError::PointError) => true,
-        _ => false,
-    });
+    assert!(matches!(result, Err(InternalError::PointError)));
 
     Ok(())
 }
@@ -48,10 +45,7 @@ fn test_identity_element_error<CS: CipherSuite>() -> Result<(), InternalError> {
 fn test_zero_scalar_error<CS: CipherSuite>() -> Result<(), InternalError> {
     let zero_scalar = CS::Group::scalar_zero();
     let result = CS::Group::from_scalar_slice(&CS::Group::scalar_as_bytes(zero_scalar));
-    assert!(match result {
-        Err(InternalError::ZeroScalarError) => true,
-        _ => false,
-    });
+    assert!(matches!(result, Err(InternalError::ZeroScalarError)));
 
     Ok(())
 }

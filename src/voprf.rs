@@ -177,10 +177,10 @@ impl<CS: CipherSuite> NonVerifiableClient<CS> {
 
     #[cfg(test)]
     /// Only used for test functions
-    pub fn from_data_and_blind(data: &[u8], blind: &<CS::Group as Group>::Scalar) -> Self {
+    pub fn from_data_and_blind(data: &[u8], blind: <CS::Group as Group>::Scalar) -> Self {
         Self {
             data: data.to_vec(),
-            blind: blind.clone(),
+            blind,
         }
     }
 
@@ -271,13 +271,13 @@ impl<CS: CipherSuite> VerifiableClient<CS> {
     /// Only used for test functions
     pub fn from_data_and_blind(
         data: &[u8],
-        blind: &<CS::Group as Group>::Scalar,
-        blinded_element: &CS::Group,
+        blind: <CS::Group as Group>::Scalar,
+        blinded_element: CS::Group,
     ) -> Self {
         Self {
             data: data.to_vec(),
-            blind: blind.clone(),
-            blinded_element: blinded_element.clone(),
+            blind,
+            blinded_element,
         }
     }
 
@@ -447,13 +447,8 @@ impl<CS: CipherSuite> VerifiableServer<CS> {
 
 /// Allows for implementations to specify an optional sequence of
 /// public bytes that must be agreed-upon by the client and server
+#[derive(Default)]
 pub struct Metadata(pub Vec<u8>);
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Self(vec![])
-    }
-}
 
 impl Metadata {
     /// Specifies no metadata (the default option)
@@ -902,13 +897,8 @@ mod tests {
         )
         .unwrap();
         let mut res2 = vec![];
-        for i in 0..num_iterations {
-            let output = prf::<CS>(
-                &inputs[i][..],
-                server.get_private_key(),
-                info,
-                Mode::Verifiable,
-            );
+        for input in inputs.iter().take(num_iterations) {
+            let output = prf::<CS>(&input[..], server.get_private_key(), info, Mode::Verifiable);
             res2.push(output);
         }
         assert_eq!(client_finalize_result.outputs, res2);
