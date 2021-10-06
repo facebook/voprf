@@ -27,11 +27,10 @@ use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
-use p256_::elliptic_curve::subtle::ConstantTimeEq;
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
 use rand::{CryptoRng, RngCore};
-use subtle::{Choice, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 // `L: 48`
 pub const L: usize = 48;

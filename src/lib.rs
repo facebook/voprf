@@ -425,8 +425,9 @@
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
 //! using either AVX2 or AVX512-IFMA. This will automatically enable the `u64_backend` and requires Rust nightly.
 
-#![cfg_attr(not(feature = "bench"), deny(missing_docs))]
 #![deny(unsafe_code)]
+#![warn(clippy::cargo, missing_docs)]
+#![allow(clippy::multiple_crate_versions)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
