@@ -40,40 +40,6 @@ macro_rules! impl_debug_eq_hash_for {
             }
         }
     };
-    (tuple $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? core::fmt::Debug for $name$(<$($gen),+>)?
-        $(where $($type: core::fmt::Debug,)+)?
-        {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.debug_tuple("$name")
-                .field(&self.$field1)
-                $(.field(&self.$field2))*
-                .finish()
-            }
-        }
-
-        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Eq for $name$(<$($gen),+>)?
-        $(where $($type: Eq,)+)?
-        {}
-
-        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? PartialEq for $name$(<$($gen),+>)?
-        $(where $($type: PartialEq,)+)?
-        {
-            fn eq(&self, other: &Self) -> bool {
-                PartialEq::eq(&self.$field1, &other.$field1)
-                $(&& PartialEq::eq(&self.$field2, &other.$field2))*
-            }
-        }
-
-        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? core::hash::Hash for $name$(<$($gen),+>)?
-        $(where $($type: core::hash::Hash,)+)?
-        {
-            fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-                core::hash::Hash::hash(&self.$field1, state);
-                $(core::hash::Hash::hash(&self.$field2, state);)*
-            }
-        }
-    };
 }
 
 macro_rules! impl_clone_for {
@@ -86,18 +52,6 @@ macro_rules! impl_clone_for {
                     $field1: self.$field1.clone(),
                     $($field2: self.$field2.clone(),)*
                 }
-            }
-        }
-    };
-    (tuple $name:ident$(<$($gen:ident$(: $bound1:tt$( + $bound2:tt)*)?),+$(,)?>)?, [$field1:tt$(, $field2:tt)*$(,)?]$(, )?$([$($type:ty),+$(,)?]$(,)?)?) => {
-        impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Clone for $name$(<$($gen),+>)?
-        $(where $($type: Clone,)+)?
-        {
-            fn clone(&self) -> Self {
-                Self(
-                    self.$field1.clone(),
-                    $(self.$field2.clone(),)*
-                )
             }
         }
     };
