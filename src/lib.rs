@@ -117,9 +117,7 @@
 //!
 //! In the final step, the client takes as input the message from
 //! [NonVerifiableServer::evaluate] (an [EvaluationElement]), and runs
-//! [NonVerifiableClient::finalize] to produce a
-//! [NonVerifiableClientFinalizeResult], which consists of an
-//! output for the protocol.
+//! [NonVerifiableClient::finalize] to produce an output for the protocol.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
@@ -243,9 +241,7 @@
 //! In the final step, the client takes as input the message from
 //! [VerifiableServer::evaluate] (an [EvaluationElement]),
 //! the proof, and the server's public key, and runs
-//! [VerifiableClient::finalize] to produce a
-//! [VerifiableClientFinalizeResult], which consists of an
-//! output for the protocol.
+//! [VerifiableClient::finalize] to produce an output for the protocol.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
@@ -426,8 +422,8 @@
 //! using either AVX2 or AVX512-IFMA. This will automatically enable the `u64_backend` and requires Rust nightly.
 
 #![deny(unsafe_code)]
-#![warn(clippy::cargo, missing_docs)]
-#![allow(clippy::multiple_crate_versions)]
+#![warn(clippy::cargo, missing_docs, rustdoc::all)]
+#![allow(clippy::multiple_crate_versions, rustdoc::missing_doc_code_examples)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 

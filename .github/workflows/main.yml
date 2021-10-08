@@ -91,6 +91,14 @@ jobs:
           command: clippy
           args: --all-targets -- -D warnings
 
+      - name: Run cargo doc
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTDOCFLAGS: -D warnings
+        with:
+          command: doc
+          args: --no-deps --document-private-items
+
 
   format:
     name: cargo fmt
