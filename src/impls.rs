@@ -111,46 +111,15 @@ macro_rules! impl_serialize_and_deserialize_for {
             where
                 D: serde::Deserializer<'de>,
             {
+                use serde::de::Error;
+
                 if deserializer.is_human_readable() {
                     let s = <&str>::deserialize(deserializer)?;
-                    $name$(::<$($gen),+>)?::deserialize(&base64::decode(s).map_err(serde::de::Error::custom)?)
-                        .map_err(serde::de::Error::custom)
+                    Self::deserialize(&base64::decode(s).map_err(Error::custom)?)
                 } else {
-                    struct ByteVisitor$(<$($gen$(: $bound1$(+ $bound2)*)?),+> (
-                        #[allow(unused_parens)]
-                        core::marker::PhantomData<($($gen),+)>,
-                    ))?;
-                    impl<'de$(, $($gen$(: $bound1$(+ $bound2)*)?),+)?> serde::de::Visitor<'de> for ByteVisitor$(<$($gen),+>)? {
-                        type Value = $name$(<$($gen),+>)?;
-                        fn expecting(
-                            &self,
-                            formatter: &mut core::fmt::Formatter,
-                        ) -> core::fmt::Result {
-                            formatter.write_str(core::concat!(
-                                "the byte representation of a ",
-                                core::stringify!($name)
-                            ))
-                        }
-
-                        fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-                        where
-                            E: serde::de::Error,
-                        {
-                            $name$(::<$($gen),+>)?::deserialize(value).map_err(|_| {
-                                serde::de::Error::invalid_value(
-                                    serde::de::Unexpected::Bytes(value),
-                                    &core::concat!(
-                                        "invalid byte sequence for ",
-                                        core::stringify!($name)
-                                    ),
-                                )
-                            })
-                        }
-                    }
-                    deserializer.deserialize_bytes(ByteVisitor$(::<$($gen),+> (
-                        core::marker::PhantomData,
-                    ))?)
+                    Self::deserialize(<&[u8]>::deserialize(deserializer)?)
                 }
+                .map_err(Error::custom)
             }
         }
     };
