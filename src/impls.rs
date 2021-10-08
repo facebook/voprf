@@ -113,10 +113,7 @@ macro_rules! impl_traits_for {
         impl$(<$($gen$(: $bound1$(+ $bound2)*)?),+>)? Drop for $name$(<$($gen),+>)?
         {
             fn drop(&mut self) {
-                #[allow(unused_imports)]
-                use zeroize::Zeroize;
-                impl_internal_zeroize!(self, $field1$(, $attr1)?);
-                $(impl_internal_zeroize!(self, $field2$(, $attr2)?);)*
+                zeroize::Zeroize::zeroize(self);
             }
         }
 
