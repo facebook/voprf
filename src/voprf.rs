@@ -46,99 +46,94 @@ enum Mode {
 // ====================== //
 ////////////////////////////
 
-/// A client which engages with a [NonVerifiableServer]
-/// in base mode, meaning that the OPRF outputs are not
-/// verifiable.
-pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
-    pub(crate) blind: <G as Group>::Scalar,
-    pub(crate) data: Vec<u8>,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// A client which engages with a [NonVerifiableServer]
+    /// in base mode, meaning that the OPRF outputs are not
+    /// verifiable.
+    pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) blind: <G as Group>::Scalar,
+        pub(crate) data: Vec<u8>,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct NonVerifiableClient<G: Group, H: BlockInput + Digest>,
-    [blind, data, #[PH] hash],
-    [<G as Group>::Scalar],
-);
 
-/// A client which engages with a [VerifiableServer]
-/// in verifiable mode, meaning that the OPRF outputs
-/// can be checked against a server public key.
-pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
-    pub(crate) blind: <G as Group>::Scalar,
-    pub(crate) blinded_element: G,
-    pub(crate) data: alloc::vec::Vec<u8>,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// A client which engages with a [VerifiableServer]
+    /// in verifiable mode, meaning that the OPRF outputs
+    /// can be checked against a server public key.
+    pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) blind: <G as Group>::Scalar,
+        #[bind]
+        pub(crate) blinded_element: G,
+        pub(crate) data: alloc::vec::Vec<u8>,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct VerifiableClient<G: Group, H: BlockInput + Digest>,
-    [blind, blinded_element, data, #[PH] hash],
-    [<G as Group>::Scalar, G],
-);
 
-/// A server which engages with a [NonVerifiableClient]
-/// in base mode, meaning that the OPRF outputs are not
-/// verifiable.
-pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
-    pub(crate) sk: <G as Group>::Scalar,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// A server which engages with a [NonVerifiableClient]
+    /// in base mode, meaning that the OPRF outputs are not
+    /// verifiable.
+    pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) sk: <G as Group>::Scalar,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct NonVerifiableServer<G: Group, H: BlockInput + Digest>,
-    [sk, #[PH] hash],
-    [<G as Group>::Scalar],
-);
 
-/// A server which engages with a [VerifiableClient]
-/// in verifiable mode, meaning that the OPRF outputs
-/// can be checked against a server public key.
-pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
-    pub(crate) sk: <G as Group>::Scalar,
-    pub(crate) pk: G,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// A server which engages with a [VerifiableClient]
+    /// in verifiable mode, meaning that the OPRF outputs
+    /// can be checked against a server public key.
+    pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) sk: <G as Group>::Scalar,
+        #[bind]
+        pub(crate) pk: G,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct VerifiableServer<G: Group, H: BlockInput + Digest>,
-    [sk, pk, #[PH] hash],
-    [<G as Group>::Scalar, G],
-);
 
-/// A proof produced by a [VerifiableServer] that
-/// the OPRF output matches against a server public key.
-pub struct Proof<G: Group, H: BlockInput + Digest> {
-    pub(crate) c_scalar: <G as Group>::Scalar,
-    pub(crate) s_scalar: <G as Group>::Scalar,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// A proof produced by a [VerifiableServer] that
+    /// the OPRF output matches against a server public key.
+    pub struct Proof<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) c_scalar: <G as Group>::Scalar,
+        pub(crate) s_scalar: <G as Group>::Scalar,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct Proof<G: Group, H: BlockInput + Digest>,
-    [c_scalar, s_scalar, #[PH] hash],
-    [<G as Group>::Scalar],
-);
 
-/// The first client message sent from a client (either verifiable or not)
-/// to a server (either verifiable or not).
-pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
-    pub(crate) value: G,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// The first client message sent from a client (either verifiable or not)
+    /// to a server (either verifiable or not).
+    pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) value: G,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct BlindedElement<G: Group, H: BlockInput + Digest>,
-    [value, #[PH] hash],
-    [G],
-);
 
-/// The server's response to the [BlindedElement] message from
-/// a client (either verifiable or not)
-/// to a server (either verifiable or not).
-pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
-    pub(crate) value: G,
-    pub(crate) hash: PhantomData<H>,
+impl_traits_for! {
+    /// The server's response to the [BlindedElement] message from
+    /// a client (either verifiable or not)
+    /// to a server (either verifiable or not).
+    pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
+        #[bind]
+        pub(crate) value: G,
+        #[pd]
+        pub(crate) hash: PhantomData<H>,
+    }
 }
-impl_traits_for!(
-    struct EvaluationElement<G: Group, H: BlockInput + Digest>,
-    [value, #[PH] hash],
-    [G],
-);
 
 /////////////////////////
 // API Implementations //
