@@ -422,8 +422,8 @@
 //! using either AVX2 or AVX512-IFMA. This will automatically enable the `u64_backend` and requires Rust nightly.
 
 #![deny(unsafe_code)]
-#![warn(clippy::cargo, missing_docs, rustdoc::all)]
-#![allow(clippy::multiple_crate_versions, rustdoc::missing_doc_code_examples)]
+#![warn(clippy::cargo, missing_docs)]
+#![allow(clippy::multiple_crate_versions)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
