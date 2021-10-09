@@ -29,7 +29,7 @@ use generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
-        [G::scalar_as_bytes(self.blind).to_vec(), self.data.clone()].concat()
+        [G::scalar_as_bytes(self.blind).as_slice(), &self.data].concat()
     }
 
     /// Deserialization from bytes
@@ -39,7 +39,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
             return Err(InternalError::SizeError);
         }
 
-        let blind = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
+        let blind = G::from_scalar_slice(&input[..scalar_len])?;
         let data = input[scalar_len..].to_vec();
 
         Ok(Self {
@@ -54,9 +54,9 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
         [
-            G::scalar_as_bytes(self.blind).to_vec(),
-            self.blinded_element.to_arr().to_vec(),
-            self.data.clone(),
+            G::scalar_as_bytes(self.blind).as_slice(),
+            &self.blinded_element.to_arr(),
+            &self.data,
         ]
         .concat()
     }
@@ -69,10 +69,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
             return Err(InternalError::SizeError);
         }
 
-        let blind = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
-        let blinded_element = G::from_element_slice(GenericArray::from_slice(
-            &input[scalar_len..scalar_len + elem_len],
-        ))?;
+        let blind = G::from_scalar_slice(&input[..scalar_len])?;
+        let blinded_element = G::from_element_slice(&input[scalar_len..scalar_len + elem_len])?;
         let data = input[scalar_len + elem_len..].to_vec();
 
         Ok(Self {
@@ -97,7 +95,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
             return Err(InternalError::SizeError);
         }
 
-        let sk = G::from_scalar_slice(GenericArray::from_slice(input))?;
+        let sk = G::from_scalar_slice(input)?;
 
         Ok(Self {
             sk,
@@ -109,11 +107,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
 impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
-        [
-            G::scalar_as_bytes(self.sk).to_vec(),
-            self.pk.to_arr().to_vec(),
-        ]
-        .concat()
+        [G::scalar_as_bytes(self.sk).as_slice(), &self.pk.to_arr()].concat()
     }
 
     /// Deserialization from bytes
@@ -124,8 +118,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
             return Err(InternalError::SizeError);
         }
 
-        let sk = G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?;
-        let pk = G::from_element_slice(GenericArray::from_slice(&input[scalar_len..]))?;
+        let sk = G::from_scalar_slice(&input[..scalar_len])?;
+        let pk = G::from_element_slice(&input[scalar_len..])?;
 
         Ok(Self {
             sk,
@@ -152,8 +146,8 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
             return Err(InternalError::SizeError);
         }
         Ok(Proof {
-            c_scalar: G::from_scalar_slice(GenericArray::from_slice(&input[..scalar_len]))?,
-            s_scalar: G::from_scalar_slice(GenericArray::from_slice(&input[scalar_len..]))?,
+            c_scalar: G::from_scalar_slice(&input[..scalar_len])?,
+            s_scalar: G::from_scalar_slice(&input[scalar_len..])?,
             hash: PhantomData,
         })
     }
@@ -168,7 +162,7 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         Ok(Self {
-            value: G::from_element_slice(GenericArray::from_slice(input))?,
+            value: G::from_element_slice(input)?,
             hash: PhantomData,
         })
     }
@@ -183,7 +177,7 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         Ok(Self {
-            value: G::from_element_slice(GenericArray::from_slice(input))?,
+            value: G::from_element_slice(input)?,
             hash: PhantomData,
         })
     }

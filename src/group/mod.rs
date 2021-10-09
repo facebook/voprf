@@ -59,10 +59,10 @@ pub trait Group:
 
     /// Return a scalar from its fixed-length bytes representation. If the scalar
     /// is zero, then return an error.
-    fn from_scalar_slice(
-        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
+    fn from_scalar_slice<'a>(
+        scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
     ) -> Result<Self::Scalar, InternalError> {
-        let scalar = Self::from_scalar_slice_unchecked(scalar_bits)?;
+        let scalar = Self::from_scalar_slice_unchecked(scalar_bits.into())?;
         if Self::ct_equal_scalar(&scalar, &Self::scalar_zero()) {
             return Err(InternalError::ZeroScalarError);
         }
@@ -88,10 +88,10 @@ pub trait Group:
 
     /// Return an element from its fixed-length bytes representation. If the element
     /// is the identity element, return an error.
-    fn from_element_slice(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
+    fn from_element_slice<'a>(
+        element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
     ) -> Result<Self, InternalError> {
-        let elem = Self::from_element_slice_unchecked(element_bits)?;
+        let elem = Self::from_element_slice_unchecked(element_bits.into())?;
 
         if Self::ct_equal(&elem, &<Self as Group>::identity()) {
             // found the identity element
