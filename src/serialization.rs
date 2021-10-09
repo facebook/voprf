@@ -19,7 +19,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::Unsigned, GenericArray};
+use generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //
@@ -195,46 +195,48 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
 //////////////////////
 
 // Corresponds to the I2OSP() function from RFC8017
-pub(crate) fn i2osp(input: usize, length: usize) -> Result<alloc::vec::Vec<u8>, InternalError> {
-    let sizeof_usize = core::mem::size_of::<usize>();
+pub(crate) fn i2osp<L: ArrayLength<u8>>(
+    input: usize,
+) -> Result<GenericArray<u8, L>, InternalError> {
+    const SIZEOF_USIZE: usize = core::mem::size_of::<usize>();
 
     // Check if input >= 256^length
-    if (sizeof_usize as u32 - input.leading_zeros() / 8) > length as u32 {
+    if (SIZEOF_USIZE as u32 - input.leading_zeros() / 8) > L::U32 {
         return Err(InternalError::SerializationError);
     }
 
-    if length <= sizeof_usize {
-        return Ok((&input.to_be_bytes()[sizeof_usize - length..]).to_vec());
+    if L::USIZE <= SIZEOF_USIZE {
+        return Ok(GenericArray::clone_from_slice(
+            &input.to_be_bytes()[SIZEOF_USIZE - L::USIZE..],
+        ));
     }
 
-    let mut output = alloc::vec![0u8; length];
-    output.splice(
-        length - sizeof_usize..length,
-        input.to_be_bytes().iter().cloned(),
-    );
+    let mut output = GenericArray::default();
+    output[L::USIZE - SIZEOF_USIZE..L::USIZE].copy_from_slice(&input.to_be_bytes());
     Ok(output)
 }
 
 // Computes I2OSP(len(input), max_bytes) || input
-pub(crate) fn serialize(input: &[u8], max_bytes: usize) -> Result<Vec<u8>, InternalError> {
-    Ok([&i2osp(input.len(), max_bytes)?, input].concat())
+pub(crate) fn serialize<L: ArrayLength<u8>>(input: &[u8]) -> Result<Vec<u8>, InternalError> {
+    Ok([&i2osp::<L>(input.len())?, input].concat())
 }
 
 #[cfg(test)]
 mod unit_tests {
     use super::*;
+    use generic_array::typenum::{U1, U2};
 
     // Test the error condition for I2OSP
     #[test]
     fn test_i2osp_err_check() {
-        assert!(i2osp(0, 1).is_ok());
+        assert!(i2osp::<U1>(0).is_ok());
 
-        assert!(i2osp(255, 1).is_ok());
-        assert!(i2osp(256, 1).is_err());
-        assert!(i2osp(257, 1).is_err());
+        assert!(i2osp::<U1>(255).is_ok());
+        assert!(i2osp::<U1>(256).is_err());
+        assert!(i2osp::<U1>(257).is_err());
 
-        assert!(i2osp(256 * 256 - 1, 2).is_ok());
-        assert!(i2osp(256 * 256, 2).is_err());
-        assert!(i2osp(256 * 256 + 1, 2).is_err());
+        assert!(i2osp::<U2>(256 * 256 - 1).is_ok());
+        assert!(i2osp::<U2>(256 * 256).is_err());
+        assert!(i2osp::<U2>(256 * 256 + 1).is_err());
     }
 }

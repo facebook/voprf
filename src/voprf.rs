@@ -16,7 +16,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::Unsigned, GenericArray};
+use generic_array::{
+    typenum::{Unsigned, U1, U2},
+    GenericArray,
+};
 use rand::{CryptoRng, RngCore};
 
 ///////////////
@@ -338,7 +341,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
         let context = [
             STR_CONTEXT,
             &get_context_string::<G>(Mode::Base)?,
-            &serialize(&metadata.0, 2)?,
+            &serialize::<U2>(&metadata.0)?,
         ]
         .concat();
         let dst = [STR_HASH_TO_SCALAR, &get_context_string::<G>(Mode::Base)?].concat();
@@ -424,7 +427,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         let context = [
             STR_CONTEXT,
             &get_context_string::<G>(Mode::Verifiable)?,
-            &serialize(&metadata.0, 2)?,
+            &serialize::<U2>(&metadata.0)?,
         ]
         .concat();
         let dst = [
@@ -571,7 +574,7 @@ fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
     let context = [
         STR_CONTEXT,
         &get_context_string::<G>(Mode::Verifiable)?,
-        &serialize(info, 2)?,
+        &serialize::<U2>(info)?,
     ]
     .concat();
 
@@ -623,12 +626,12 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
 
     let challenge_dst = [STR_CHALLENGE, &get_context_string::<G>(Mode::Verifiable)?].concat();
     let h2_input = [
-        serialize(&b.to_arr().to_vec(), 2)?,
-        serialize(&m.to_arr().to_vec(), 2)?,
-        serialize(&z.to_arr().to_vec(), 2)?,
-        serialize(&t2.to_arr().to_vec(), 2)?,
-        serialize(&t3.to_arr().to_vec(), 2)?,
-        serialize(&challenge_dst, 2)?,
+        serialize::<U2>(&b.to_arr().to_vec())?,
+        serialize::<U2>(&m.to_arr().to_vec())?,
+        serialize::<U2>(&z.to_arr().to_vec())?,
+        serialize::<U2>(&t2.to_arr().to_vec())?,
+        serialize::<U2>(&t3.to_arr().to_vec())?,
+        serialize::<U2>(&challenge_dst)?,
     ]
     .concat();
 
@@ -662,12 +665,12 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
 
     let challenge_dst = [STR_CHALLENGE, &get_context_string::<G>(Mode::Verifiable)?].concat();
     let h2_input = [
-        serialize(&b.to_arr().to_vec(), 2)?,
-        serialize(&m.to_arr().to_vec(), 2)?,
-        serialize(&z.to_arr().to_vec(), 2)?,
-        serialize(&t2.to_arr().to_vec(), 2)?,
-        serialize(&t3.to_arr().to_vec(), 2)?,
-        serialize(&challenge_dst, 2)?,
+        serialize::<U2>(&b.to_arr().to_vec())?,
+        serialize::<U2>(&m.to_arr().to_vec())?,
+        serialize::<U2>(&z.to_arr().to_vec())?,
+        serialize::<U2>(&t2.to_arr().to_vec())?,
+        serialize::<U2>(&t3.to_arr().to_vec())?,
+        serialize::<U2>(&challenge_dst)?,
     ]
     .concat();
 
@@ -697,10 +700,10 @@ fn finalize_after_unblind<G: Group, H: BlockInput + Digest>(
     for (input, unblinded_element) in inputs_and_unblinded_elements {
         outputs.push(<H as Digest>::digest(
             &[
-                serialize(input, 2)?,
-                serialize(info, 2)?,
-                serialize(&unblinded_element.to_arr().to_vec(), 2)?,
-                serialize(&finalize_dst, 2)?,
+                serialize::<U2>(input)?,
+                serialize::<U2>(info)?,
+                serialize::<U2>(&unblinded_element.to_arr().to_vec())?,
+                serialize::<U2>(&finalize_dst)?,
             ]
             .concat(),
         ));
@@ -723,8 +726,8 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
     let composite_dst = [STR_COMPOSITE, &get_context_string::<G>(Mode::Verifiable)?].concat();
 
     let h1_input = [
-        serialize(&b.to_arr().to_vec(), 2)?,
-        serialize(&seed_dst, 2)?,
+        serialize::<U2>(&b.to_arr().to_vec())?,
+        serialize::<U2>(&seed_dst)?,
     ]
     .concat();
     let seed = <H as Digest>::digest(&h1_input);
@@ -734,11 +737,11 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
 
     for i in 0..c_slice.len() {
         let h2_input = [
-            serialize(&seed, 2)?,
-            i2osp(i, 2)?,
-            serialize(&c_slice[i].value.to_arr().to_vec(), 2)?,
-            serialize(&d_slice[i].value.to_arr().to_vec(), 2)?,
-            serialize(&composite_dst, 2)?,
+            serialize::<U2>(&seed)?,
+            i2osp::<U2>(i)?.to_vec(),
+            serialize::<U2>(&c_slice[i].value.to_arr().to_vec())?,
+            serialize::<U2>(&d_slice[i].value.to_arr().to_vec())?,
+            serialize::<U2>(&composite_dst)?,
         ]
         .concat();
         let dst = [
@@ -767,8 +770,8 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
 fn get_context_string<G: Group>(mode: Mode) -> Result<alloc::vec::Vec<u8>, InternalError> {
     Ok([
         STR_VOPRF,
-        &i2osp(mode as usize, 1)?,
-        &i2osp(G::SUITE_ID, 2)?,
+        &i2osp::<U1>(mode as usize)?,
+        &i2osp::<U2>(G::SUITE_ID)?,
     ]
     .concat())
 }
@@ -797,7 +800,7 @@ mod tests {
         let context = [
             STR_CONTEXT,
             &get_context_string::<G>(mode).unwrap(),
-            &serialize(info, 2).unwrap(),
+            &serialize::<U2>(info).unwrap(),
         ]
         .concat();
         let dst = [STR_HASH_TO_SCALAR, &get_context_string::<G>(mode).unwrap()].concat();
