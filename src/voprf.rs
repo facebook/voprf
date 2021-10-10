@@ -195,6 +195,15 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     pub fn get_blind(&self) -> <G as Group>::Scalar {
         self.blind
     }
+
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.data.clone(),
+            <G as Group>::scalar_as_bytes(self.blind).to_vec(),
+        ]
+    }
 }
 
 impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
@@ -292,6 +301,16 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     pub fn get_blind(&self) -> <G as Group>::Scalar {
         self.blind
     }
+
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.data.clone(),
+            <G as Group>::scalar_as_bytes(self.blind).to_vec(),
+            self.blinded_element.to_arr().to_vec(),
+        ]
+    }
 }
 
 impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
@@ -354,6 +373,12 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
                 hash: PhantomData,
             },
         })
+    }
+
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![<G as Group>::scalar_as_bytes(self.sk).to_vec()]
     }
 }
 
@@ -460,6 +485,15 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     pub fn get_public_key(&self) -> G {
         self.pk
     }
+
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![
+            <G as Group>::scalar_as_bytes(self.sk).to_vec(),
+            self.pk.to_arr().to_vec(),
+        ]
+    }
 }
 
 /////////////////////////
@@ -549,6 +583,35 @@ struct BatchItems<G: Group, H: BlockInput + Digest> {
     blind: <G as Group>::Scalar,
     evaluation_element: EvaluationElement<G, H>,
     blinded_element: BlindedElement<G, H>,
+}
+
+/// Convenience test functions for [BlindedElement], [EvaluationElement], and [Proof]
+
+impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![self.value.to_arr().to_vec()]
+    }
+}
+
+impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![self.value.to_arr().to_vec()]
+    }
+}
+
+impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
+    #[cfg(test)]
+    /// Only used for testing zeroize
+    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
+        vec![
+            <G as Group>::scalar_as_bytes(self.c_scalar).to_vec(),
+            <G as Group>::scalar_as_bytes(self.s_scalar).to_vec(),
+        ]
+    }
 }
 
 // Inner function for blind. Returns the blind scalar and the blinded element
@@ -787,6 +850,7 @@ mod tests {
     use crate::group::Group;
     use generic_array::GenericArray;
     use rand::rngs::OsRng;
+    use zeroize::Zeroize;
 
     fn prf<G: Group, H: BlockInput + Digest>(
         input: &[u8],
@@ -980,6 +1044,98 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
+    fn zeroize_base_client<G: Group, H: BlockInput + Digest>() {
+        let input = b"input";
+        let mut rng = OsRng;
+        let client_blind_result = NonVerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+
+        let mut state = client_blind_result.state;
+        Zeroize::zeroize(&mut state);
+        for bytes in state.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+
+        let mut message = client_blind_result.message;
+        Zeroize::zeroize(&mut message);
+        for bytes in message.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+    }
+
+    fn zeroize_verifiable_client<G: Group, H: BlockInput + Digest>() {
+        let input = b"input";
+        let mut rng = OsRng;
+        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+
+        let mut state = client_blind_result.state;
+        Zeroize::zeroize(&mut state);
+        for bytes in state.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+
+        let mut message = client_blind_result.message;
+        Zeroize::zeroize(&mut message);
+        for bytes in message.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+    }
+
+    fn zeroize_base_server<G: Group, H: BlockInput + Digest>() {
+        let input = b"input";
+        let info = b"info";
+        let mut rng = OsRng;
+        let client_blind_result = NonVerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let server = NonVerifiableServer::<G, H>::new(&mut rng).unwrap();
+        let server_result = server
+            .evaluate(client_blind_result.message, &Metadata(info.to_vec()))
+            .unwrap();
+
+        let mut state = server;
+        Zeroize::zeroize(&mut state);
+        for bytes in state.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+
+        let mut message = server_result.message;
+        Zeroize::zeroize(&mut message);
+        for bytes in message.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+    }
+
+    fn zeroize_verifiable_server<G: Group, H: BlockInput + Digest>() {
+        let input = b"input";
+        let info = b"info";
+        let mut rng = OsRng;
+        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
+        let server_result = server
+            .evaluate(
+                &mut rng,
+                client_blind_result.message,
+                &Metadata(info.to_vec()),
+            )
+            .unwrap();
+
+        let mut state = server;
+        Zeroize::zeroize(&mut state);
+        for bytes in state.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+
+        let mut message = server_result.message;
+        Zeroize::zeroize(&mut message);
+        for bytes in message.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+
+        let mut proof = server_result.proof;
+        Zeroize::zeroize(&mut proof);
+        for bytes in proof.as_ptrs() {
+            assert!(bytes.iter().all(|&x| x == 0));
+        }
+    }
+
     #[test]
     fn test_functionality() -> Result<(), InternalError> {
         use curve25519_dalek::ristretto::RistrettoPoint;
@@ -992,6 +1148,11 @@ mod tests {
         verifiable_bad_public_key::<RistrettoPoint, Sha512>();
         verifiable_batch_bad_public_key::<RistrettoPoint, Sha512>();
 
+        zeroize_base_client::<RistrettoPoint, Sha512>();
+        zeroize_base_server::<RistrettoPoint, Sha512>();
+        zeroize_verifiable_client::<RistrettoPoint, Sha512>();
+        zeroize_verifiable_server::<RistrettoPoint, Sha512>();
+
         #[cfg(feature = "p256")]
         {
             use p256_::ProjectivePoint;
@@ -1003,6 +1164,11 @@ mod tests {
             verifiable_batch_retrieval::<ProjectivePoint, Sha256>();
             verifiable_bad_public_key::<ProjectivePoint, Sha256>();
             verifiable_batch_bad_public_key::<ProjectivePoint, Sha256>();
+
+            zeroize_base_client::<ProjectivePoint, Sha256>();
+            zeroize_base_server::<ProjectivePoint, Sha256>();
+            zeroize_verifiable_client::<ProjectivePoint, Sha256>();
+            zeroize_verifiable_server::<ProjectivePoint, Sha256>();
         }
 
         Ok(())
