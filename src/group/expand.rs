@@ -9,7 +9,7 @@ use crate::errors::InternalError;
 use crate::serialization::i2osp;
 use alloc::vec::Vec;
 use digest::{BlockInput, Digest};
-use generic_array::typenum::Unsigned;
+use generic_array::typenum::{Unsigned, U1, U2};
 
 // Computes ceil(x / y)
 fn div_ceil(x: usize, y: usize) -> usize {
@@ -32,23 +32,27 @@ pub fn expand_message_xmd<H: BlockInput + Digest>(
     dst: &[u8],
     len_in_bytes: usize,
 ) -> Result<Vec<u8>, InternalError> {
-    let b_in_bytes = <H as Digest>::OutputSize::USIZE;
-    let r_in_bytes = <H as BlockInput>::BlockSize::USIZE;
-
-    let ell = div_ceil(len_in_bytes, b_in_bytes);
+    let ell = div_ceil(len_in_bytes, <H as Digest>::OutputSize::USIZE);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
-    let dst_prime = [dst, &i2osp(dst.len(), 1)?].concat();
-    let z_pad = i2osp(0, r_in_bytes)?;
-    let l_i_b_str = i2osp(len_in_bytes, 2)?;
-    let msg_prime = [&z_pad, msg, &l_i_b_str, &i2osp(0, 1)?, &dst_prime].concat();
+    let dst_prime = [dst, &i2osp::<U1>(dst.len())?].concat();
+    let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
+    let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
+    let msg_prime = [
+        &z_pad,
+        msg,
+        &l_i_b_str,
+        i2osp::<U1>(0)?.as_slice(),
+        &dst_prime,
+    ]
+    .concat();
 
     let mut b: Vec<Vec<u8>> = alloc::vec![H::digest(&msg_prime).to_vec()]; // b[0]
 
     let mut h = H::new();
     h.update(&b[0]);
-    h.update(&i2osp(1, 1)?);
+    h.update(&i2osp::<U1>(1)?);
     h.update(&dst_prime);
     b.push(h.finalize_reset().to_vec()); // b[1]
 
@@ -57,7 +61,7 @@ pub fn expand_message_xmd<H: BlockInput + Digest>(
 
     for i in 2..(ell + 1) {
         h.update(xor(&b[0], &b[i - 1])?);
-        h.update(&i2osp(i, 1)?);
+        h.update(&i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b.push(h.finalize_reset().to_vec()); // b[i]
         uniform_bytes.extend_from_slice(&b[i]);

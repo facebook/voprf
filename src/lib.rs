@@ -117,9 +117,7 @@
 //!
 //! In the final step, the client takes as input the message from
 //! [NonVerifiableServer::evaluate] (an [EvaluationElement]), and runs
-//! [NonVerifiableClient::finalize] to produce a
-//! [NonVerifiableClientFinalizeResult], which consists of an
-//! output for the protocol.
+//! [NonVerifiableClient::finalize] to produce an output for the protocol.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
@@ -243,9 +241,7 @@
 //! In the final step, the client takes as input the message from
 //! [VerifiableServer::evaluate] (an [EvaluationElement]),
 //! the proof, and the server's public key, and runs
-//! [VerifiableClient::finalize] to produce a
-//! [VerifiableClientFinalizeResult], which consists of an
-//! output for the protocol.
+//! [VerifiableClient::finalize] to produce an output for the protocol.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
@@ -435,10 +431,9 @@ extern crate alloc;
 
 #[macro_use]
 mod impls;
-#[macro_use]
-mod serialization;
 pub mod errors;
 pub mod group;
+mod serialization;
 mod voprf;
 
 #[cfg(test)]
