@@ -15,8 +15,9 @@ use crate::{
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
+use generic_array::sequence::Concat;
 use generic_array::{
-    typenum::{U1, U2},
+    typenum::{U1, U11, U2},
     GenericArray,
 };
 use rand::{CryptoRng, RngCore};
@@ -26,14 +27,14 @@ use rand::{CryptoRng, RngCore};
 // ========= //
 ///////////////
 
-static STR_HASH_TO_SCALAR: &[u8] = b"HashToScalar-";
-static STR_HASH_TO_GROUP: &[u8] = b"HashToGroup-";
-static STR_FINALIZE: &[u8] = b"Finalize-";
-static STR_SEED: &[u8] = b"Seed-";
+static STR_HASH_TO_SCALAR: &[u8; 13] = b"HashToScalar-";
+static STR_HASH_TO_GROUP: &[u8; 12] = b"HashToGroup-";
+static STR_FINALIZE: &[u8; 9] = b"Finalize-";
+static STR_SEED: &[u8; 5] = b"Seed-";
 static STR_CONTEXT: &[u8] = b"Context-";
-static STR_COMPOSITE: &[u8] = b"Composite-";
-static STR_CHALLENGE: &[u8] = b"Challenge-";
-static STR_VOPRF: &[u8] = b"VOPRF07-";
+static STR_COMPOSITE: &[u8; 10] = b"Composite-";
+static STR_CHALLENGE: &[u8; 10] = b"Challenge-";
+static STR_VOPRF: &[u8; 8] = b"VOPRF07-";
 
 /// Determines the mode of operation (either base mode or
 /// verifiable mode)
@@ -335,7 +336,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
-        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<G>(Mode::Base)?].concat();
+        let dst =
+            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
         let sk = G::hash_to_scalar::<H>(seed, &dst)?;
         Ok(Self {
             sk,
@@ -362,7 +364,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
             &serialize::<U2>(&metadata.0)?,
         ]
         .concat();
-        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<G>(Mode::Base)?].concat();
+        let dst =
+            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
         let m = G::hash_to_scalar::<H>(&context, &dst)?;
         let t = self.sk + &m;
         let evaluation_element = blinded_element.value * &G::scalar_invert(&t);
@@ -406,11 +409,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
-        let dst = [
-            STR_HASH_TO_SCALAR,
-            &get_context_string::<G>(Mode::Verifiable)?,
-        ]
-        .concat();
+        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+            .concat(get_context_string::<G>(Mode::Verifiable)?);
         let sk = G::hash_to_scalar::<H>(seed, &dst)?;
         let pk = G::base_point() * &sk;
         Ok(Self {
@@ -454,11 +454,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
             &serialize::<U2>(&metadata.0)?,
         ]
         .concat();
-        let dst = [
-            STR_HASH_TO_SCALAR,
-            &get_context_string::<G>(Mode::Verifiable)?,
-        ]
-        .concat();
+        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+            .concat(get_context_string::<G>(Mode::Verifiable)?);
         let m = G::hash_to_scalar::<H>(&context, &dst)?;
         let t = self.sk + &m;
         let evaluation_elements: Vec<EvaluationElement<G, H>> = blinded_elements
@@ -621,7 +618,7 @@ fn blind<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
 ) -> Result<(<G as Group>::Scalar, G), InternalError> {
     // Choose a random scalar that must be non-zero
     let blind = <G as Group>::random_nonzero_scalar(blinding_factor_rng);
-    let dst = [STR_HASH_TO_GROUP, &get_context_string::<G>(mode)?].concat();
+    let dst = GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
     let hashed_point = <G as Group>::hash_to_curve::<H>(input, &dst)?;
     let blinded_element = hashed_point * &blind;
     Ok((blind, blinded_element))
@@ -640,11 +637,8 @@ fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
     ]
     .concat();
 
-    let dst = [
-        STR_HASH_TO_SCALAR,
-        &get_context_string::<G>(Mode::Verifiable)?,
-    ]
-    .concat();
+    let dst =
+        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
     let m = G::hash_to_scalar::<H>(&context, &dst)?;
 
     let g = G::base_point();
@@ -686,7 +680,8 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     let t2 = a * &r;
     let t3 = m * &r;
 
-    let challenge_dst = [STR_CHALLENGE, &get_context_string::<G>(Mode::Verifiable)?].concat();
+    let challenge_dst =
+        GenericArray::from(*STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     let h2_input = [
         serialize::<U2>(&b.to_arr())?,
         serialize::<U2>(&m.to_arr())?,
@@ -697,11 +692,8 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     ]
     .concat();
 
-    let hash_to_scalar_dst = [
-        STR_HASH_TO_SCALAR,
-        &get_context_string::<G>(Mode::Verifiable)?,
-    ]
-    .concat();
+    let hash_to_scalar_dst =
+        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
 
     let c_scalar = G::hash_to_scalar::<H>(&h2_input, &hash_to_scalar_dst)?;
     let s_scalar = r - &(c_scalar * &k);
@@ -725,7 +717,8 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
-    let challenge_dst = [STR_CHALLENGE, &get_context_string::<G>(Mode::Verifiable)?].concat();
+    let challenge_dst =
+        GenericArray::from(*STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     let h2_input = [
         serialize::<U2>(&b.to_arr())?,
         serialize::<U2>(&m.to_arr())?,
@@ -736,11 +729,8 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     ]
     .concat();
 
-    let hash_to_scalar_dst = [
-        STR_HASH_TO_SCALAR,
-        &get_context_string::<G>(Mode::Verifiable)?,
-    ]
-    .concat();
+    let hash_to_scalar_dst =
+        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
     let c = G::hash_to_scalar::<H>(&h2_input, &hash_to_scalar_dst)?;
 
     match G::ct_equal_scalar(&c, &proof.c_scalar) {
@@ -755,7 +745,7 @@ fn finalize_after_unblind<G: Group, H: BlockInput + Digest>(
     info: &[u8],
     mode: Mode,
 ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError> {
-    let finalize_dst = [STR_FINALIZE, &get_context_string::<G>(mode)?].concat();
+    let finalize_dst = GenericArray::from(*STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
     inputs_and_unblinded_elements
         .iter()
@@ -783,8 +773,9 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
         return Err(InternalError::MismatchedLengthsForCompositeInputs);
     }
 
-    let seed_dst = [STR_SEED, &get_context_string::<G>(Mode::Verifiable)?].concat();
-    let composite_dst = [STR_COMPOSITE, &get_context_string::<G>(Mode::Verifiable)?].concat();
+    let seed_dst = GenericArray::from(*STR_SEED).concat(get_context_string::<G>(Mode::Verifiable)?);
+    let composite_dst =
+        GenericArray::from(*STR_COMPOSITE).concat(get_context_string::<G>(Mode::Verifiable)?);
 
     let h1_input = [serialize::<U2>(&b.to_arr())?, serialize::<U2>(&seed_dst)?].concat();
     let seed = <H as Digest>::digest(&h1_input);
@@ -801,11 +792,8 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
             &serialize::<U2>(&composite_dst)?,
         ]
         .concat();
-        let dst = [
-            STR_HASH_TO_SCALAR,
-            &get_context_string::<G>(Mode::Verifiable)?,
-        ]
-        .concat();
+        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+            .concat(get_context_string::<G>(Mode::Verifiable)?);
         let di = G::hash_to_scalar::<H>(&h2_input, &dst)?;
         m = c_slice[i].value * &di + &m;
         z = match k_option {
@@ -824,13 +812,10 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html>
-fn get_context_string<G: Group>(mode: Mode) -> Result<alloc::vec::Vec<u8>, InternalError> {
-    Ok([
-        STR_VOPRF,
-        &i2osp::<U1>(mode as usize)?,
-        &i2osp::<U2>(G::SUITE_ID)?,
-    ]
-    .concat())
+fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, InternalError> {
+    Ok(GenericArray::from(*STR_VOPRF)
+        .concat(i2osp::<U1>(mode as usize)?)
+        .concat(i2osp::<U2>(G::SUITE_ID)?))
 }
 
 ///////////
@@ -852,7 +837,8 @@ mod tests {
         info: &[u8],
         mode: Mode,
     ) -> GenericArray<u8, <H as Digest>::OutputSize> {
-        let dst = [STR_HASH_TO_GROUP, &get_context_string::<G>(mode).unwrap()].concat();
+        let dst =
+            GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode).unwrap());
         let point = G::hash_to_curve::<H>(input, &dst).unwrap();
 
         let context = [
@@ -861,7 +847,8 @@ mod tests {
             &serialize::<U2>(info).unwrap(),
         ]
         .concat();
-        let dst = [STR_HASH_TO_SCALAR, &get_context_string::<G>(mode).unwrap()].concat();
+        let dst =
+            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode).unwrap());
         let m = <G as Group>::hash_to_scalar::<H>(&context, &dst).unwrap();
 
         let res = point * &<G as Group>::scalar_invert(&(key + &m));
@@ -1025,11 +1012,8 @@ mod tests {
             )
             .unwrap();
 
-        let dst = [
-            STR_HASH_TO_GROUP,
-            &get_context_string::<G>(Mode::Base).unwrap(),
-        ]
-        .concat();
+        let dst = GenericArray::from(*STR_HASH_TO_GROUP)
+            .concat(get_context_string::<G>(Mode::Base).unwrap());
         let point = G::hash_to_curve::<H>(&input, &dst).unwrap();
         let res2 = finalize_after_unblind::<G, H>(&[(input.to_vec(), point)], info, Mode::Base)
             .unwrap()[0]
