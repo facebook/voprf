@@ -584,6 +584,14 @@ struct BatchItems<G: Group, H: BlockInput + Digest> {
 /// Convenience test functions for [BlindedElement], [EvaluationElement], and [Proof]
 
 impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
+    /// Only used to easier validate allocation
+    fn copy(&self) -> Self {
+        Self {
+            value: self.value,
+            hash: PhantomData,
+        }
+    }
+
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
@@ -592,6 +600,14 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
 }
 
 impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
+    /// Only used to easier validate allocation
+    fn copy(&self) -> Self {
+        Self {
+            value: self.value,
+            hash: PhantomData,
+        }
+    }
+
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
@@ -674,7 +690,12 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     cs: &[EvaluationElement<G, H>],
     ds: &[BlindedElement<G, H>],
 ) -> Result<Proof<G, H>, InternalError> {
-    let (m, z) = compute_composites::<G, H>(Some(k), b, cs, ds)?;
+    let (m, z) = compute_composites(
+        Some(k),
+        b,
+        cs.iter().map(EvaluationElement::copy),
+        ds.iter().map(BlindedElement::copy),
+    )?;
 
     let r = G::random_nonzero_scalar(rng);
     let t2 = a * &r;
@@ -713,7 +734,12 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     ds: &[BlindedElement<G, H>],
     proof: Proof<G, H>,
 ) -> Result<(), InternalError> {
-    let (m, z) = compute_composites::<G, H>(None, b, cs, ds)?;
+    let (m, z) = compute_composites(
+        None,
+        b,
+        cs.iter().map(EvaluationElement::copy),
+        ds.iter().map(BlindedElement::copy),
+    )?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
@@ -766,8 +792,8 @@ fn finalize_after_unblind<G: Group, H: BlockInput + Digest>(
 fn compute_composites<G: Group, H: BlockInput + Digest>(
     k_option: Option<<G as Group>::Scalar>,
     b: G,
-    c_slice: &[EvaluationElement<G, H>],
-    d_slice: &[BlindedElement<G, H>],
+    c_slice: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+    d_slice: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
 ) -> Result<(G, G), InternalError> {
     if c_slice.len() != d_slice.len() {
         return Err(InternalError::MismatchedLengthsForCompositeInputs);
@@ -783,7 +809,7 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
     let mut m = G::identity();
     let mut z = G::identity();
 
-    for (i, (c, d)) in c_slice.iter().zip(d_slice).enumerate() {
+    for (i, (c, d)) in c_slice.zip(d_slice).enumerate() {
         let h2_input = [
             serialize::<U2>(&seed)?.as_slice(),
             &i2osp::<U2>(i)?,
