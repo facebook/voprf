@@ -12,7 +12,6 @@ use crate::{
     group::Group,
     serialization::{i2osp, serialize},
 };
-use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
@@ -71,7 +70,7 @@ impl_traits_for! {
         pub(crate) blind: <G as Group>::Scalar,
         #[bind]
         pub(crate) blinded_element: G,
-        pub(crate) data: alloc::vec::Vec<u8>,
+        pub(crate) data: Vec<u8>,
         #[pd]
         pub(crate) hash: PhantomData<H>,
     }
