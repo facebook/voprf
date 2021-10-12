@@ -783,22 +783,22 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
     let mut m = G::identity();
     let mut z = G::identity();
 
-    for i in 0..c_slice.len() {
+    for (i, (c, d)) in c_slice.iter().zip(d_slice).enumerate() {
         let h2_input = [
             serialize::<U2>(&seed)?.as_slice(),
             &i2osp::<U2>(i)?,
-            &serialize::<U2>(&c_slice[i].value.to_arr())?,
-            &serialize::<U2>(&d_slice[i].value.to_arr())?,
+            &serialize::<U2>(&c.value.to_arr())?,
+            &serialize::<U2>(&d.value.to_arr())?,
             &serialize::<U2>(&composite_dst)?,
         ]
         .concat();
         let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let di = G::hash_to_scalar::<H>(&h2_input, &dst)?;
-        m = c_slice[i].value * &di + &m;
+        m = c.value * &di + &m;
         z = match k_option {
             Some(_) => z,
-            None => d_slice[i].value * &di + &z,
+            None => d.value * &di + &z,
         };
     }
 
