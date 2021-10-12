@@ -106,10 +106,9 @@
 //! # let mut server_rng = OsRng;
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
 //!     client_blind_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
 //!
@@ -136,12 +135,11 @@
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     client_blind_result.message,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server evaluate");
-//! use voprf::Metadata;
 //! let client_finalize_result = client_blind_result.state.finalize(
 //!     server_evaluate_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -228,11 +226,10 @@
 //! # let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
 //!     &mut server_rng,
 //!     client_blind_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
 //!
@@ -261,14 +258,13 @@
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
 //! #     client_blind_result.message,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server evaluate");
-//! use voprf::Metadata;
 //! let client_finalize_result = client_blind_result.state.finalize(
 //!     server_evaluate_result.message,
 //!     server_evaluate_result.proof,
 //!     server.get_public_key(),
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -333,7 +329,6 @@
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
@@ -341,7 +336,7 @@
 //! let server_batch_evaluate_result = server.batch_evaluate(
 //!     &mut server_rng,
 //!     &client_messages,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server batch evaluate");
 //! ```
 //!
@@ -367,7 +362,6 @@
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
@@ -375,14 +369,14 @@
 //! # let server_batch_evaluate_result = server.batch_evaluate(
 //! #     &mut server_rng,
 //! #     &client_messages,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
 //!     &client_states,
 //!     &server_batch_evaluate_result.messages,
 //!     server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client batch finalization");
 //!
 //! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
@@ -397,8 +391,7 @@
 //! This metadata can be constructed with some type of higher-level domain separation
 //! to avoid cross-protocol attacks or related issues.
 //!
-//! The default metadata simply consists of the empty vector of bytes, but a custom
-//! metadata can be specified, for example, by: `Metadata(b"custom metadata")`.
+//! A custom metadata can be specified, for example, by: `Some(b"custom metadata")`.
 //!
 //! # Features
 //!
@@ -439,8 +432,7 @@ mod tests;
 pub use rand;
 
 pub use crate::voprf::{
-    BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
-    NonVerifiableClientBlindResult, NonVerifiableServer, NonVerifiableServerEvaluateResult,
-    VerifiableClient, VerifiableClientBlindResult, VerifiableServer,
-    VerifiableServerEvaluateResult,
+    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
+    NonVerifiableServer, NonVerifiableServerEvaluateResult, VerifiableClient,
+    VerifiableClientBlindResult, VerifiableServer, VerifiableServerEvaluateResult,
 };

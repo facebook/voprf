@@ -10,8 +10,8 @@ use crate::{
     group::Group,
     tests::{mock_rng::CycleRng, parser::*},
     voprf::{
-        BlindedElement, EvaluationElement, Metadata, NonVerifiableClient, NonVerifiableServer,
-        Proof, VerifiableClient, VerifiableServer,
+        BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
+        VerifiableClient, VerifiableServer,
     },
 };
 use alloc::string::ToString;
@@ -222,7 +222,7 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
             let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
             let server_result = server.evaluate(
                 BlindedElement::deserialize(&parameters.blinded_element[i])?,
-                &Metadata(parameters.info.clone()),
+                Some(&parameters.info),
             )?;
 
             assert_eq!(
@@ -246,11 +246,8 @@ fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let batch_evaluate_result = server.batch_evaluate(
-            &mut rng,
-            &blinded_elements,
-            &Metadata(parameters.info.clone()),
-        )?;
+        let batch_evaluate_result =
+            server.batch_evaluate(&mut rng, &blinded_elements, Some(&parameters.info))?;
 
         for i in 0..parameters.evaluation_element.len() {
             assert_eq!(
@@ -279,7 +276,7 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
 
             let client_finalize_result = client.finalize(
                 EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
-                &Metadata(parameters.info.clone()),
+                Some(&parameters.info),
             )?;
 
             assert_eq!(&parameters.output[i], &client_finalize_result.to_vec());
@@ -317,7 +314,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
             &messages,
             Proof::deserialize(&parameters.proof)?,
             G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
-            &Metadata(parameters.info.clone()),
+            Some(&parameters.info),
         )?;
 
         assert_eq!(
