@@ -469,7 +469,14 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         let g = G::base_point();
         let u = g * &t;
 
-        let proof = generate_proof(rng, t, g, u, &evaluation_elements, blinded_elements)?;
+        let proof = generate_proof(
+            rng,
+            t,
+            g,
+            u,
+            evaluation_elements.iter().map(EvaluationElement::copy),
+            blinded_elements.iter().map(BlindedElement::copy),
+        )?;
 
         Ok(VerifiableServerBatchEvaluateResult {
             messages: evaluation_elements,
@@ -687,15 +694,10 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     k: <G as Group>::Scalar,
     a: G,
     b: G,
-    cs: &[EvaluationElement<G, H>],
-    ds: &[BlindedElement<G, H>],
+    cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+    ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
 ) -> Result<Proof<G, H>, InternalError> {
-    let (m, z) = compute_composites(
-        Some(k),
-        b,
-        cs.iter().map(EvaluationElement::copy),
-        ds.iter().map(BlindedElement::copy),
-    )?;
+    let (m, z) = compute_composites(Some(k), b, cs, ds)?;
 
     let r = G::random_nonzero_scalar(rng);
     let t2 = a * &r;
