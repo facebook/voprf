@@ -13,6 +13,7 @@ resolver = "2"
 
 [features]
 default = ["ristretto255_u64", "serde"]
+danger = []
 ristretto255_u64 = ["curve25519-dalek/u64_backend"]
 ristretto255_u32 = ["curve25519-dalek/u32_backend"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
@@ -44,7 +45,9 @@ hex = "0.4"
 json = "0.12"
 rand = "0.8"
 sha2 = "0.9"
+proptest = "1"
 regex = "1"
+sha2 = "0.9"
 voprf = { path = "", default-features = false, features = ["std"] }
 
 [package.metadata.docs.rs]

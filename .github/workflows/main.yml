@@ -18,6 +18,7 @@ jobs:
           - p256,ristretto255_u64
         frontend_feature:
           - serde
+          - danger
         toolchain:
           - stable
           - 1.51.0
@@ -64,6 +65,7 @@ jobs:
         frontend_feature:
           -
           - --features serde
+          - --features danger
     steps:
       - uses: actions/checkout@v2
       - uses: hecrj/setup-rust-action@v1

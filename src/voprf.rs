@@ -192,16 +192,16 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(feature = "internal", test))]
     /// Only used for test functions
     pub fn get_blind(&self) -> <G as Group>::Scalar {
         self.blind
     }
 
-    #[cfg(test)]
+    #[cfg(any(feature = "internal", test))]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![
+        alloc::vec![
             self.data.clone(),
             <G as Group>::scalar_as_bytes(self.blind).to_vec(),
         ]
@@ -334,7 +334,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![
+        alloc::vec![
             self.data.clone(),
             <G as Group>::scalar_as_bytes(self.blind).to_vec(),
             self.blinded_element.to_arr().to_vec(),
@@ -409,7 +409,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![<G as Group>::scalar_as_bytes(self.sk).to_vec()]
+        alloc::vec![<G as Group>::scalar_as_bytes(self.sk).to_vec()]
     }
 }
 
@@ -527,7 +527,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![
+        alloc::vec![
             <G as Group>::scalar_as_bytes(self.sk).to_vec(),
             self.pk.to_arr().to_vec(),
         ]
@@ -601,7 +601,23 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![self.value.to_arr().to_vec()]
+        alloc::vec![self.value.to_arr().to_vec()]
+    }
+
+    #[cfg(feature = "internal")]
+    /// Unsafely set the value. This should be used with caution, since
+    /// it does not perform any checks on the validity of the value itself!
+    pub fn set_value_unsafe(value: G) -> Self {
+        Self {
+            value,
+            hash: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "internal")]
+    /// Exposes the internal value
+    pub fn value(&self) -> G {
+        self.value
     }
 }
 
@@ -614,10 +630,26 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(feature = "internal", test))]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![self.value.to_arr().to_vec()]
+        alloc::vec![self.value.to_arr().to_vec()]
+    }
+
+    #[cfg(feature = "internal")]
+    /// Unsafely set the value. This should be used with caution, since
+    /// it does not perform any checks on the validity of the value itself!
+    pub fn set_value_unsafe(value: G) -> Self {
+        Self {
+            value,
+            hash: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "internal")]
+    /// Exposes the internal value
+    pub fn value(&self) -> G {
+        self.value
     }
 }
 
@@ -625,7 +657,7 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
     #[cfg(test)]
     /// Only used for testing zeroize
     pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        vec![
+        alloc::vec![
             <G as Group>::scalar_as_bytes(self.c_scalar).to_vec(),
             <G as Group>::scalar_as_bytes(self.s_scalar).to_vec(),
         ]
