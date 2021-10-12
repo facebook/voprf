@@ -668,28 +668,15 @@ fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
     let t = g * &m;
     let u = t + &pk;
 
-    let blinds: Vec<<G as Group>::Scalar> = batch_items.iter().map(|x| x.blind).collect();
-    let evaluation_elements: Vec<EvaluationElement<G, H>> = batch_items
-        .iter()
-        .map(|x| x.evaluation_element.clone())
-        .collect();
-    let blinded_elements: Vec<BlindedElement<G, H>> = batch_items
-        .iter()
-        .map(|x| x.blinded_element.clone())
-        .collect();
+    let blinds = batch_items.iter().map(|x| x.blind);
+    let evaluation_elements = batch_items.iter().map(|x| x.evaluation_element.copy());
+    let blinded_elements = batch_items.iter().map(|x| x.blinded_element.copy());
 
-    verify_proof(
-        g,
-        u,
-        evaluation_elements.iter().map(EvaluationElement::copy),
-        blinded_elements.iter().map(BlindedElement::copy),
-        proof,
-    )?;
+    verify_proof(g, u, evaluation_elements, blinded_elements, proof)?;
 
     let unblinded_elements = blinds
-        .iter()
-        .zip(evaluation_elements.iter())
-        .map(|(&blind, x)| x.value * &G::scalar_invert(&blind))
+        .zip(batch_items.iter().map(|x| x.evaluation_element.copy()))
+        .map(|(blind, x)| x.value * &G::scalar_invert(&blind))
         .collect();
     Ok(unblinded_elements)
 }
