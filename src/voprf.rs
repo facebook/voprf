@@ -467,7 +467,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     ) -> Result<VerifiableServerEvaluateResult<G, H>, InternalError> {
         let batch_result = self.batch_evaluate(rng, &[blinded_element], metadata)?;
         Ok(VerifiableServerEvaluateResult {
-            message: batch_result.messages[0].clone(),
+            message: batch_result.messages[0].copy(),
             proof: batch_result.proof,
         })
     }
