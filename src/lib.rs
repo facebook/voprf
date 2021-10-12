@@ -78,7 +78,7 @@
 //!
 //! let mut client_rng = OsRng;
 //! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//!     b"input",
+//!     b"input".to_vec(),
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
 //! ```
@@ -99,17 +99,16 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
 //!     client_blind_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
 //!
@@ -127,7 +126,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -136,12 +135,11 @@
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     client_blind_result.message,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server evaluate");
-//! use voprf::Metadata;
 //! let client_finalize_result = client_blind_result.state.finalize(
 //!     server_evaluate_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -200,7 +198,7 @@
 //!
 //! let mut client_rng = OsRng;
 //! let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//!     b"input",
+//!     b"input".to_vec(),
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
 //! ```
@@ -221,18 +219,17 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! use voprf::Metadata;
 //! let server_evaluate_result = server.evaluate(
 //!     &mut server_rng,
 //!     client_blind_result.message,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
 //!
@@ -251,7 +248,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -261,14 +258,13 @@
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
 //! #     client_blind_result.message,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server evaluate");
-//! use voprf::Metadata;
 //! let client_finalize_result = client_blind_result.state.finalize(
 //!     server_evaluate_result.message,
 //!     server_evaluate_result.proof,
 //!     server.get_public_key(),
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -303,7 +299,7 @@
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
 //!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//!         b"input",
+//!         b"input".to_vec(),
 //!         &mut client_rng,
 //!     ).expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
@@ -327,13 +323,12 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input",
+//! #         b"input".to_vec(),
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
@@ -341,15 +336,14 @@
 //! let server_batch_evaluate_result = server.batch_evaluate(
 //!     &mut server_rng,
 //!     &client_messages,
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform server batch evaluate");
 //! ```
 //!
 //! Then, the client calls [VerifiableClient::batch_finalize] on
 //! the client states saved from the first step, along with the messages
-//! returned by the server (constructing a [BatchFinalizeInput]), along with the
-//! server's proof, in order to produce a vector of outputs if the proof
-//! verifies correctly.
+//! returned by the server, along with the server's proof, in order to produce
+//! a vector of outputs if the proof verifies correctly.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
@@ -362,32 +356,27 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input",
+//! #         b"input".to_vec(),
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
-//! use voprf::BatchFinalizeInput;
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_batch_evaluate_result = server.batch_evaluate(
 //! #     &mut server_rng,
 //! #     &client_messages,
-//! #     &Metadata::none(),
+//! #     None,
 //! # ).expect("Unable to perform server batch evaluate");
-//! let batch_finalize_input = BatchFinalizeInput::new(
-//!     client_states,
-//!     server_batch_evaluate_result.messages,
-//! );
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
-//!     batch_finalize_input,
+//!     &client_states,
+//!     &server_batch_evaluate_result.messages,
 //!     server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
-//!     &Metadata::none(),
+//!     None,
 //! ).expect("Unable to perform client batch finalization");
 //!
 //! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
@@ -402,8 +391,7 @@
 //! This metadata can be constructed with some type of higher-level domain separation
 //! to avoid cross-protocol attacks or related issues.
 //!
-//! The default metadata simply consists of the empty vector of bytes, but a custom
-//! metadata can be specified, for example, by: `Metadata(b"custom metadata")`.
+//! A custom metadata can be specified, for example, by: `Some(b"custom metadata")`.
 //!
 //! # Features
 //!
@@ -444,8 +432,7 @@ mod tests;
 pub use rand;
 
 pub use crate::voprf::{
-    BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
-    NonVerifiableClientBlindResult, NonVerifiableServer, NonVerifiableServerEvaluateResult,
-    VerifiableClient, VerifiableClientBlindResult, VerifiableServer,
-    VerifiableServerEvaluateResult,
+    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
+    NonVerifiableServer, NonVerifiableServerEvaluateResult, VerifiableClient,
+    VerifiableClientBlindResult, VerifiableServer, VerifiableServerEvaluateResult,
 };
