@@ -647,12 +647,16 @@ fn blind<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     Ok((blind, blinded_element))
 }
 
-fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
-    batch_items: &[BatchItems<G, H>],
+fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, I>(
+    batch_items: &'a I,
     pk: G,
     proof: Proof<G, H>,
     info: &[u8],
-) -> Result<Vec<G>, InternalError> {
+) -> Result<Vec<G>, InternalError>
+where
+    &'a I: IntoIterator<Item = &'a BatchItems<G, H>>,
+    <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
+{
     let context = [
         STR_CONTEXT,
         &get_context_string::<G>(Mode::Verifiable)?,
@@ -668,14 +672,14 @@ fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
     let t = g * &m;
     let u = t + &pk;
 
-    let blinds = batch_items.iter().map(|x| x.blind);
-    let evaluation_elements = batch_items.iter().map(|x| x.evaluation_element.copy());
-    let blinded_elements = batch_items.iter().map(|x| x.blinded_element.copy());
+    let blinds = batch_items.into_iter().map(|x| x.blind);
+    let evaluation_elements = batch_items.into_iter().map(|x| x.evaluation_element.copy());
+    let blinded_elements = batch_items.into_iter().map(|x| x.blinded_element.copy());
 
     verify_proof(g, u, evaluation_elements, blinded_elements, proof)?;
 
     let unblinded_elements = blinds
-        .zip(batch_items.iter().map(|x| x.evaluation_element.copy()))
+        .zip(batch_items.into_iter().map(|x| x.evaluation_element.copy()))
         .map(|(blind, x)| x.value * &G::scalar_invert(&blind))
         .collect();
     Ok(unblinded_elements)
