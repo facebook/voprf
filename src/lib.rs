@@ -347,9 +347,8 @@
 //!
 //! Then, the client calls [VerifiableClient::batch_finalize] on
 //! the client states saved from the first step, along with the messages
-//! returned by the server (constructing a [BatchFinalizeInput]), along with the
-//! server's proof, in order to produce a vector of outputs if the proof
-//! verifies correctly.
+//! returned by the server, along with the server's proof, in order to produce
+//! a vector of outputs if the proof verifies correctly.
 //!
 //! ```
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
