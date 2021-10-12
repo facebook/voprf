@@ -894,7 +894,7 @@ mod tests {
             .state
             .finalize(server_result.message, Some(info))
             .unwrap();
-        let res2 = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Base);
+        let res2 = prf::<G, H>(input, server.get_private_key(), info, Mode::Base);
         assert_eq!(client_finalize_result, res2);
     }
 
@@ -917,7 +917,7 @@ mod tests {
                 Some(info),
             )
             .unwrap();
-        let res2 = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Verifiable);
+        let res2 = prf::<G, H>(input, server.get_private_key(), info, Mode::Verifiable);
         assert_eq!(client_finalize_result, res2);
     }
 
@@ -955,7 +955,7 @@ mod tests {
             let mut input = vec![0u8; 32];
             rng.fill_bytes(&mut input);
             let client_blind_result =
-                VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
+                VerifiableClient::<G, H>::blind(input.clone(), &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
@@ -974,7 +974,7 @@ mod tests {
         .unwrap();
         let mut res2 = vec![];
         for input in inputs.iter().take(num_iterations) {
-            let output = prf::<G, H>(&input[..], server.get_private_key(), info, Mode::Verifiable);
+            let output = prf::<G, H>(input, server.get_private_key(), info, Mode::Verifiable);
             res2.push(output);
         }
         assert_eq!(client_finalize_result, res2);
@@ -991,7 +991,7 @@ mod tests {
             let mut input = vec![0u8; 32];
             rng.fill_bytes(&mut input);
             let client_blind_result =
-                VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
+                VerifiableClient::<G, H>::blind(input.clone(), &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
