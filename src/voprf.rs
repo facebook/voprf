@@ -173,8 +173,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
         let unblinded_element =
             evaluation_element.value * &<G as Group>::scalar_invert(&self.blind);
-        let outputs = finalize_after_unblind::<G, H>(
-            &[(self.data.clone(), unblinded_element)],
+        let outputs = finalize_after_unblind::<G, H, _>(
+            Some((self.data.as_slice(), unblinded_element)).into_iter(),
             &metadata.0,
             Mode::Base,
         )?;
@@ -300,14 +300,13 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
         let unblinded_elements = verifiable_unblind(&batch_items, pk, proof, &metadata.0)?;
 
-        let inputs_and_unblinded_elements: Vec<(Vec<u8>, G)> = clients
+        let inputs_and_unblinded_elements = clients
             .into_iter()
             .zip(unblinded_elements.iter())
-            .map(|(client, &unblinded_element)| (client.data.clone(), unblinded_element))
-            .collect();
+            .map(|(client, &unblinded_element)| (client.data.as_slice(), unblinded_element));
 
-        finalize_after_unblind::<G, H>(
-            &inputs_and_unblinded_elements,
+        finalize_after_unblind::<G, H, _>(
+            inputs_and_unblinded_elements,
             &metadata.0,
             Mode::Verifiable,
         )
@@ -774,16 +773,19 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     }
 }
 
-#[allow(clippy::type_complexity)]
-fn finalize_after_unblind<G: Group, H: BlockInput + Digest>(
-    inputs_and_unblinded_elements: &[(Vec<u8>, G)],
+fn finalize_after_unblind<
+    'a,
+    G: Group,
+    H: BlockInput + Digest,
+    I: Iterator<Item = (&'a [u8], G)>,
+>(
+    inputs_and_unblinded_elements: I,
     info: &[u8],
     mode: Mode,
 ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError> {
     let finalize_dst = GenericArray::from(*STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
     inputs_and_unblinded_elements
-        .iter()
         .map(|(input, unblinded_element)| {
             Ok(<H as Digest>::digest(
                 &[
@@ -888,7 +890,8 @@ mod tests {
 
         let res = point * &<G as Group>::scalar_invert(&(key + &m));
 
-        finalize_after_unblind::<G, H>(&[(input.to_vec(), res)], info, mode).unwrap()[0].clone()
+        finalize_after_unblind::<G, H, _>(Some((input, res)).into_iter(), info, mode).unwrap()[0]
+            .clone()
     }
 
     fn base_retrieval<G: Group, H: BlockInput + Digest>() {
@@ -1050,8 +1053,12 @@ mod tests {
         let dst = GenericArray::from(*STR_HASH_TO_GROUP)
             .concat(get_context_string::<G>(Mode::Base).unwrap());
         let point = G::hash_to_curve::<H>(&input, &dst).unwrap();
-        let res2 = finalize_after_unblind::<G, H>(&[(input.to_vec(), point)], info, Mode::Base)
-            .unwrap()[0]
+        let res2 = finalize_after_unblind::<G, H, _>(
+            Some((input.as_slice(), point)).into_iter(),
+            info,
+            Mode::Base,
+        )
+        .unwrap()[0]
             .clone();
 
         assert_eq!(client_finalize_result, res2);
