@@ -13,6 +13,7 @@ use crate::{
     serialization::{i2osp, serialize},
 };
 use alloc::vec::Vec;
+use core::convert::TryInto;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
 use generic_array::sequence::Concat;
@@ -237,13 +238,10 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         pk: G,
         metadata: &Metadata,
     ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
-        let batch_result = Self::batch_finalize(
-            &vec![self.clone()],
-            &vec![evaluation_element],
-            proof,
-            pk,
-            metadata,
-        )?;
+        // circumvent `.clone()`
+        let clients: &[Self; 1] = core::slice::from_ref(self).try_into().unwrap();
+        let batch_result =
+            Self::batch_finalize(clients, &[evaluation_element], proof, pk, metadata)?;
         Ok(batch_result[0].clone())
     }
 
