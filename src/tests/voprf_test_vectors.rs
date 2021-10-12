@@ -174,7 +174,8 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let client_result = NonVerifiableClient::<G, H>::blind(&parameters.input[i], &mut rng)?;
+            let client_result =
+                NonVerifiableClient::<G, H>::blind(parameters.input[i].clone(), &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
@@ -197,7 +198,7 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.input.len() {
             let mut rng = CycleRng::new(parameters.blind[i].to_vec());
             let client_blind_result =
-                VerifiableClient::<G, H>::blind(&parameters.input[i], &mut rng)?;
+                VerifiableClient::<G, H>::blind(parameters.input[i].clone(), &mut rng)?;
 
             assert_eq!(
                 &parameters.blind[i],
