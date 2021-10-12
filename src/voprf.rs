@@ -678,7 +678,13 @@ fn verifiable_unblind<G: Group, H: BlockInput + Digest>(
         .map(|x| x.blinded_element.clone())
         .collect();
 
-    verify_proof(g, u, &evaluation_elements, &blinded_elements, proof)?;
+    verify_proof(
+        g,
+        u,
+        evaluation_elements.iter().map(EvaluationElement::copy),
+        blinded_elements.iter().map(BlindedElement::copy),
+        proof,
+    )?;
 
     let unblinded_elements = blinds
         .iter()
@@ -732,16 +738,11 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
 fn verify_proof<G: Group, H: BlockInput + Digest>(
     a: G,
     b: G,
-    cs: &[EvaluationElement<G, H>],
-    ds: &[BlindedElement<G, H>],
+    cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+    ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
     proof: Proof<G, H>,
 ) -> Result<(), InternalError> {
-    let (m, z) = compute_composites(
-        None,
-        b,
-        cs.iter().map(EvaluationElement::copy),
-        ds.iter().map(BlindedElement::copy),
-    )?;
+    let (m, z) = compute_composites(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
