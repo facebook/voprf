@@ -473,12 +473,18 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement] messages from a [VerifiableClient]
-    pub fn batch_evaluate<R: RngCore + CryptoRng>(
+    pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
         rng: &mut R,
-        blinded_elements: &[BlindedElement<G, H>],
+        blinded_elements: &'a I,
         metadata: &Metadata,
-    ) -> Result<VerifiableServerBatchEvaluateResult<G, H>, InternalError> {
+    ) -> Result<VerifiableServerBatchEvaluateResult<G, H>, InternalError>
+    where
+        G: 'a,
+        H: 'a,
+        &'a I: IntoIterator<Item = &'a BlindedElement<G, H>>,
+        <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
+    {
         let context = [
             STR_CONTEXT,
             &get_context_string::<G>(Mode::Verifiable)?,
@@ -490,7 +496,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         let m = G::hash_to_scalar::<H>(&context, &dst)?;
         let t = self.sk + &m;
         let evaluation_elements: Vec<EvaluationElement<G, H>> = blinded_elements
-            .iter()
+            .into_iter()
             .map(|x| EvaluationElement {
                 value: x.value * &G::scalar_invert(&t),
                 hash: PhantomData,
@@ -506,7 +512,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
             g,
             u,
             evaluation_elements.iter().map(EvaluationElement::copy),
-            blinded_elements.iter().map(BlindedElement::copy),
+            blinded_elements.into_iter().map(BlindedElement::copy),
         )?;
 
         Ok(VerifiableServerBatchEvaluateResult {
