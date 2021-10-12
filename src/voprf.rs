@@ -588,8 +588,6 @@ struct BatchItems<G: Group, H: BlockInput + Digest> {
     blinded_element: BlindedElement<G, H>,
 }
 
-/// Convenience test functions for [BlindedElement], [EvaluationElement], and [Proof]
-
 impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     /// Only used to easier validate allocation
     fn copy(&self) -> Self {
