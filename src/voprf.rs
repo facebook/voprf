@@ -237,39 +237,73 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         pk: G,
         metadata: &Metadata,
     ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
-        let batch_finalize_input =
-            BatchFinalizeInput::new(vec![self.clone()], vec![evaluation_element]);
-        let batch_result = Self::batch_finalize(batch_finalize_input, proof, pk, metadata)?;
+        let batch_result = Self::batch_finalize(
+            &vec![self.clone()],
+            &vec![evaluation_element],
+            proof,
+            pk,
+            metadata,
+        )?;
         Ok(batch_result[0].clone())
     }
 
     /// Allows for batching of the finalization of multiple [VerifiableClient] and [EvaluationElement] pairs
-    #[allow(clippy::type_complexity)]
-    pub fn batch_finalize(
-        batch_finalize_input: BatchFinalizeInput<G, H>,
+    pub fn batch_finalize<'a, IC, IM>(
+        clients: &'a IC,
+        messages: &'a IM,
         proof: Proof<G, H>,
         pk: G,
         metadata: &Metadata,
-    ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError> {
-        let batch_items: Vec<BatchItems<G, H>> = batch_finalize_input
-            .clients
-            .iter()
-            .zip(batch_finalize_input.messages.iter())
-            .map(|(client, evaluation_element)| BatchItems {
-                blind: client.blind,
-                evaluation_element: evaluation_element.clone(),
-                blinded_element: BlindedElement {
-                    value: client.blinded_element,
-                    hash: PhantomData,
-                },
-            })
-            .collect();
+    ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError>
+    where
+        G: 'a,
+        H: 'a,
+        &'a IC: 'a + IntoIterator<Item = &'a VerifiableClient<G, H>>,
+        <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
+        &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<G, H>>,
+        <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
+    {
+        struct Items<IC, IM> {
+            clients: IC,
+            messages: IM,
+        }
+
+        impl<'a, G: 'a + Group, H: 'a + BlockInput + Digest, IC: Copy, IM: Copy> IntoIterator
+            for &Items<IC, IM>
+        where
+            IC: IntoIterator<Item = &'a VerifiableClient<G, H>>,
+            <IC as IntoIterator>::IntoIter: ExactSizeIterator,
+            IM: IntoIterator<Item = &'a EvaluationElement<G, H>>,
+            <IM as IntoIterator>::IntoIter: ExactSizeIterator,
+        {
+            type Item = BatchItems<G, H>;
+
+            #[allow(clippy::type_complexity)]
+            type IntoIter = core::iter::Map<
+                core::iter::Zip<<IC as IntoIterator>::IntoIter, <IM as IntoIterator>::IntoIter>,
+                fn((&VerifiableClient<G, H>, &EvaluationElement<G, H>)) -> BatchItems<G, H>,
+            >;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.clients.into_iter().zip(self.messages.into_iter()).map(
+                    |(client, evaluation_element)| BatchItems {
+                        blind: client.blind,
+                        evaluation_element: evaluation_element.copy(),
+                        blinded_element: BlindedElement {
+                            value: client.blinded_element,
+                            hash: PhantomData,
+                        },
+                    },
+                )
+            }
+        }
+
+        let batch_items = Items { clients, messages };
 
         let unblinded_elements = verifiable_unblind(&batch_items, pk, proof, &metadata.0)?;
 
-        let inputs_and_unblinded_elements: Vec<(Vec<u8>, G)> = batch_finalize_input
-            .clients
-            .iter()
+        let inputs_and_unblinded_elements: Vec<(Vec<u8>, G)> = clients
+            .into_iter()
             .zip(unblinded_elements.iter())
             .map(|(client, &unblinded_element)| (client.data.clone(), unblinded_element))
             .collect();
@@ -559,23 +593,6 @@ pub struct VerifiableServerBatchEvaluateResult<G: Group, H: BlockInput + Digest>
     pub proof: Proof<G, H>,
 }
 
-/// An input to the verifiable client batch finalize function, constructed
-/// by aggregating clients and server messages
-pub struct BatchFinalizeInput<G: Group, H: BlockInput + Digest> {
-    clients: Vec<VerifiableClient<G, H>>,
-    messages: Vec<EvaluationElement<G, H>>,
-}
-
-impl<G: Group, H: BlockInput + Digest> BatchFinalizeInput<G, H> {
-    /// Create a new instance from a vector of clients and a vector of messages
-    pub fn new(
-        clients: Vec<VerifiableClient<G, H>>,
-        messages: Vec<EvaluationElement<G, H>>,
-    ) -> Self {
-        Self { clients, messages }
-    }
-}
-
 ///////////////////////////////////////////////
 // Inner functions and Trait Implementations //
 // ========================================= //
@@ -654,7 +671,7 @@ fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, I>(
     info: &[u8],
 ) -> Result<Vec<G>, InternalError>
 where
-    &'a I: IntoIterator<Item = &'a BatchItems<G, H>>,
+    &'a I: IntoIterator<Item = BatchItems<G, H>>,
     <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
 {
     let context = [
@@ -673,13 +690,13 @@ where
     let u = t + &pk;
 
     let blinds = batch_items.into_iter().map(|x| x.blind);
-    let evaluation_elements = batch_items.into_iter().map(|x| x.evaluation_element.copy());
-    let blinded_elements = batch_items.into_iter().map(|x| x.blinded_element.copy());
+    let evaluation_elements = batch_items.into_iter().map(|x| x.evaluation_element);
+    let blinded_elements = batch_items.into_iter().map(|x| x.blinded_element);
 
     verify_proof(g, u, evaluation_elements, blinded_elements, proof)?;
 
     let unblinded_elements = blinds
-        .zip(batch_items.into_iter().map(|x| x.evaluation_element.copy()))
+        .zip(batch_items.into_iter().map(|x| x.evaluation_element))
         .map(|(blind, x)| x.value * &G::scalar_invert(&blind))
         .collect();
     Ok(unblinded_elements)
@@ -965,9 +982,9 @@ mod tests {
         let server_result = server
             .batch_evaluate(&mut rng, &client_messages, &Metadata(info.to_vec()))
             .unwrap();
-        let batch_finalize_input = BatchFinalizeInput::new(client_states, server_result.messages);
         let client_finalize_result = VerifiableClient::batch_finalize(
-            batch_finalize_input,
+            &client_states,
+            &server_result.messages,
             server_result.proof,
             server.get_public_key(),
             &Metadata(info.to_vec()),
@@ -1001,13 +1018,13 @@ mod tests {
         let server_result = server
             .batch_evaluate(&mut rng, &client_messages, &Metadata(info.to_vec()))
             .unwrap();
-        let batch_finalize_input = BatchFinalizeInput::new(client_states, server_result.messages);
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
             G::hash_to_curve::<H>(b"msg", b"dst").unwrap()
         };
         let client_finalize_result = VerifiableClient::batch_finalize(
-            batch_finalize_input,
+            &client_states,
+            &server_result.messages,
             server_result.proof,
             wrong_pk,
             &Metadata(info.to_vec()),

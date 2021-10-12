@@ -370,7 +370,6 @@
 //! # }
 //! # use voprf::Metadata;
 //! # use voprf::VerifiableServer;
-//! use voprf::BatchFinalizeInput;
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
@@ -379,12 +378,9 @@
 //! #     &client_messages,
 //! #     &Metadata::none(),
 //! # ).expect("Unable to perform server batch evaluate");
-//! let batch_finalize_input = BatchFinalizeInput::new(
-//!     client_states,
-//!     server_batch_evaluate_result.messages,
-//! );
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
-//!     batch_finalize_input,
+//!     &client_states,
+//!     &server_batch_evaluate_result.messages,
 //!     server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     &Metadata::none(),
@@ -444,7 +440,7 @@ mod tests;
 pub use rand;
 
 pub use crate::voprf::{
-    BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
+    BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
     NonVerifiableClientBlindResult, NonVerifiableServer, NonVerifiableServerEvaluateResult,
     VerifiableClient, VerifiableClientBlindResult, VerifiableServer,
     VerifiableServerEvaluateResult,

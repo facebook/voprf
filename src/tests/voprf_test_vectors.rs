@@ -10,8 +10,8 @@ use crate::{
     group::Group,
     tests::{mock_rng::CycleRng, parser::*},
     voprf::{
-        BatchFinalizeInput, BlindedElement, EvaluationElement, Metadata, NonVerifiableClient,
-        NonVerifiableServer, Proof, VerifiableClient, VerifiableServer,
+        BlindedElement, EvaluationElement, Metadata, NonVerifiableClient, NonVerifiableServer,
+        Proof, VerifiableClient, VerifiableServer,
     },
 };
 use alloc::string::ToString;
@@ -305,17 +305,15 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
             clients.push(client.clone());
         }
 
-        let batch_finalize_input = BatchFinalizeInput::new(
-            clients,
-            parameters
-                .evaluation_element
-                .iter()
-                .map(|x| EvaluationElement::deserialize(x).unwrap())
-                .collect(),
-        );
+        let messages: Vec<_> = parameters
+            .evaluation_element
+            .iter()
+            .map(|x| EvaluationElement::deserialize(x).unwrap())
+            .collect();
 
         let batch_result = VerifiableClient::batch_finalize(
-            batch_finalize_input,
+            &clients,
+            &messages,
             Proof::deserialize(&parameters.proof)?,
             G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
             &Metadata(parameters.info.clone()),
