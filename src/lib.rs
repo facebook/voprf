@@ -78,7 +78,7 @@
 //!
 //! let mut client_rng = OsRng;
 //! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//!     *b"input",
+//!     b"input".to_vec(),
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
 //! ```
@@ -99,7 +99,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     *b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -126,7 +126,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     *b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -198,7 +198,7 @@
 //!
 //! let mut client_rng = OsRng;
 //! let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//!     *b"input",
+//!     b"input".to_vec(),
 //!     &mut client_rng,
 //! ).expect("Unable to construct client");
 //! ```
@@ -219,7 +219,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     *b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -248,7 +248,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     *b"input",
+//! #     b"input".to_vec(),
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -299,7 +299,7 @@
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
 //!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//!         *b"input",
+//!         b"input".to_vec(),
 //!         &mut client_rng,
 //!     ).expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
@@ -323,7 +323,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         *b"input",
+//! #         b"input".to_vec(),
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
@@ -356,7 +356,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         *b"input",
+//! #         b"input".to_vec(),
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);

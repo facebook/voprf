@@ -146,11 +146,10 @@ impl_traits_for! {
 
 impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     /// Computes the first step for the multiplicative blinding version of DH-OPRF.
-    pub fn blind<R: RngCore + CryptoRng, I: Into<Vec<u8>>>(
-        input: I,
+    pub fn blind<R: RngCore + CryptoRng>(
+        input: Vec<u8>,
         blinding_factor_rng: &mut R,
     ) -> Result<NonVerifiableClientBlindResult<G, H>, InternalError> {
-        let input = input.into();
         let (blind, blinded_element) = blind::<G, H, _>(&input, blinding_factor_rng, Mode::Base)?;
         Ok(NonVerifiableClientBlindResult {
             state: Self {
@@ -210,11 +209,10 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
 
 impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     /// Computes the first step for the multiplicative blinding version of DH-OPRF.
-    pub fn blind<R: RngCore + CryptoRng, I: Into<Vec<u8>>>(
-        input: I,
+    pub fn blind<R: RngCore + CryptoRng>(
+        input: Vec<u8>,
         blinding_factor_rng: &mut R,
     ) -> Result<VerifiableClientBlindResult<G, H>, InternalError> {
-        let input = input.into();
         let (blind, blinded_element) =
             blind::<G, H, _>(&input, blinding_factor_rng, Mode::Verifiable)?;
         Ok(VerifiableClientBlindResult {
@@ -886,7 +884,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = NonVerifiableClient::<G, H>::blind(*input, &mut rng).unwrap();
+        let client_blind_result =
+            NonVerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = NonVerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(client_blind_result.message, Some(info))
@@ -903,7 +902,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(&mut rng, client_blind_result.message, Some(info))
@@ -925,7 +925,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(&mut rng, client_blind_result.message, Some(info))
@@ -954,7 +955,7 @@ mod tests {
             let mut input = vec![0u8; 32];
             rng.fill_bytes(&mut input);
             let client_blind_result =
-                VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+                VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
@@ -990,7 +991,7 @@ mod tests {
             let mut input = vec![0u8; 32];
             rng.fill_bytes(&mut input);
             let client_blind_result =
-                VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+                VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
@@ -1048,7 +1049,8 @@ mod tests {
     fn zeroize_base_client<G: Group, H: BlockInput + Digest>() {
         let input = b"input";
         let mut rng = OsRng;
-        let client_blind_result = NonVerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            NonVerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
         Zeroize::zeroize(&mut state);
@@ -1066,7 +1068,8 @@ mod tests {
     fn zeroize_verifiable_client<G: Group, H: BlockInput + Digest>() {
         let input = b"input";
         let mut rng = OsRng;
-        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
         Zeroize::zeroize(&mut state);
@@ -1085,7 +1088,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = NonVerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            NonVerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = NonVerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(client_blind_result.message, Some(info))
@@ -1108,7 +1112,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VerifiableClient::<G, H>::blind(&input[..], &mut rng).unwrap();
+        let client_blind_result =
+            VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
             .evaluate(&mut rng, client_blind_result.message, Some(info))
