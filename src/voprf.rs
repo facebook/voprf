@@ -22,6 +22,7 @@ use generic_array::{
     GenericArray,
 };
 use rand::{CryptoRng, RngCore};
+use subtle::ConstantTimeEq;
 
 ///////////////
 // Constants //
@@ -751,7 +752,7 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
         GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
     let c = G::hash_to_scalar::<H>(&h2_input, &hash_to_scalar_dst)?;
 
-    match G::ct_equal_scalar(&c, &proof.c_scalar) {
+    match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
         false => Err(InternalError::ProofVerificationError),
     }

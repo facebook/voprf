@@ -17,7 +17,6 @@ use curve25519_dalek::{
 use digest::{BlockInput, Digest};
 use generic_array::{typenum::U32, GenericArray};
 use rand::{CryptoRng, RngCore};
-use subtle::ConstantTimeEq;
 
 /// The implementation of such a subgroup for Ristretto
 impl Group for RistrettoPoint {
@@ -120,13 +119,5 @@ impl Group for RistrettoPoint {
 
     fn scalar_zero() -> Self::Scalar {
         Self::Scalar::zero()
-    }
-
-    fn ct_equal(&self, other: &Self) -> bool {
-        ConstantTimeEq::ct_eq(self, other).into()
-    }
-
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
-        ConstantTimeEq::ct_eq(s1, s2).into()
     }
 }

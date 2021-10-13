@@ -18,6 +18,7 @@ use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest};
 use generic_array::{ArrayLength, GenericArray};
 use rand::{CryptoRng, RngCore};
+use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
@@ -25,6 +26,7 @@ use zeroize::Zeroize;
 pub trait Group:
     Copy
     + Sized
+    + ConstantTimeEq
     + for<'a> Mul<&'a <Self as Group>::Scalar, Output = Self>
     + for<'a> Add<&'a Self, Output = Self>
 {
@@ -45,6 +47,7 @@ pub trait Group:
     /// The type of base field scalars
     type Scalar: Zeroize
         + Copy
+        + ConstantTimeEq
         + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
         + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
@@ -63,7 +66,7 @@ pub trait Group:
         scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
     ) -> Result<Self::Scalar, InternalError> {
         let scalar = Self::from_scalar_slice_unchecked(scalar_bits.into())?;
-        if Self::ct_equal_scalar(&scalar, &Self::scalar_zero()) {
+        if scalar.ct_eq(&Self::scalar_zero()).into() {
             return Err(InternalError::ZeroScalarError);
         }
         Ok(scalar)
@@ -93,7 +96,7 @@ pub trait Group:
     ) -> Result<Self, InternalError> {
         let elem = Self::from_element_slice_unchecked(element_bits.into())?;
 
-        if Self::ct_equal(&elem, &<Self as Group>::identity()) {
+        if Self::ct_eq(&elem, &<Self as Group>::identity()).into() {
             // found the identity element
             return Err(InternalError::PointError);
         }
@@ -109,7 +112,7 @@ pub trait Group:
 
     /// Returns if the group element is equal to the identity (1)
     fn is_identity(&self) -> bool {
-        self.ct_equal(&<Self as Group>::identity())
+        self.ct_eq(&<Self as Group>::identity()).into()
     }
 
     /// Returns the identity group element
@@ -117,12 +120,6 @@ pub trait Group:
 
     /// Returns the scalar representing zero
     fn scalar_zero() -> Self::Scalar;
-
-    /// Compares in constant time if the group elements are equal
-    fn ct_equal(&self, other: &Self) -> bool;
-
-    /// Compares in constant time if the scalars are equal
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool;
 
     /// Set the contents of self to the identity value
     fn zeroize(&mut self) {

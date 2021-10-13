@@ -30,7 +30,7 @@ use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
 use rand::{CryptoRng, RngCore};
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable};
 
 // `L: 48`
 pub const L: usize = 48;
@@ -163,14 +163,6 @@ impl Group for ProjectivePoint {
 
     fn scalar_zero() -> Self::Scalar {
         Self::Scalar::zero()
-    }
-
-    fn ct_equal(&self, other: &Self) -> bool {
-        self.ct_eq(other).into()
-    }
-
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
-        s1.ct_eq(s2).into()
     }
 }
 
