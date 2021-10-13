@@ -35,13 +35,15 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockInput + Digest>(msg: &[u8], dst: &[u8])
-        -> Result<Self, InternalError>;
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8>>(
+        msg: &[u8],
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self, InternalError>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockInput + Digest>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8>>(
         input: &[u8],
-        dst: &[u8],
+        dst: GenericArray<u8, D>,
     ) -> Result<Self::Scalar, InternalError>;
 
     /// The type of base field scalars

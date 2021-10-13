@@ -41,6 +41,7 @@ zeroize = { version = "1", features = ["zeroize_derive"] }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [dev-dependencies]
+generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
 sha2 = "0.9"

@@ -367,7 +367,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
         let dst =
             GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
-        let sk = G::hash_to_scalar::<H>(seed, &dst)?;
+        let sk = G::hash_to_scalar::<H, _>(seed, dst)?;
         Ok(Self {
             sk,
             hash: PhantomData,
@@ -395,7 +395,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
         .concat();
         let dst =
             GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
-        let m = G::hash_to_scalar::<H>(&context, &dst)?;
+        let m = G::hash_to_scalar::<H, _>(&context, dst)?;
         let t = self.sk + &m;
         let evaluation_element = blinded_element.value * &G::scalar_invert(&t);
         Ok(NonVerifiableServerEvaluateResult {
@@ -440,7 +440,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
         let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
-        let sk = G::hash_to_scalar::<H>(seed, &dst)?;
+        let sk = G::hash_to_scalar::<H, _>(seed, dst)?;
         let pk = G::base_point() * &sk;
         Ok(Self {
             sk,
@@ -491,7 +491,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         .concat();
         let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
-        let m = G::hash_to_scalar::<H>(&context, &dst)?;
+        let m = G::hash_to_scalar::<H, _>(&context, dst)?;
         let t = self.sk + &m;
         let evaluation_elements: Vec<EvaluationElement<G, H>> = blinded_elements
             .into_iter()
@@ -641,7 +641,7 @@ fn blind<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     // Choose a random scalar that must be non-zero
     let blind = <G as Group>::random_nonzero_scalar(blinding_factor_rng);
     let dst = GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
-    let hashed_point = <G as Group>::hash_to_curve::<H>(input, &dst)?;
+    let hashed_point = <G as Group>::hash_to_curve::<H, _>(input, dst)?;
     let blinded_element = hashed_point * &blind;
     Ok((blind, blinded_element))
 }
@@ -665,7 +665,7 @@ where
 
     let dst =
         GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
-    let m = G::hash_to_scalar::<H>(&context, &dst)?;
+    let m = G::hash_to_scalar::<H, _>(&context, dst)?;
 
     let g = G::base_point();
     let t = g * &m;
@@ -714,7 +714,7 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     let hash_to_scalar_dst =
         GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
 
-    let c_scalar = G::hash_to_scalar::<H>(&h2_input, &hash_to_scalar_dst)?;
+    let c_scalar = G::hash_to_scalar::<H, _>(&h2_input, hash_to_scalar_dst)?;
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof {
@@ -750,7 +750,7 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
 
     let hash_to_scalar_dst =
         GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
-    let c = G::hash_to_scalar::<H>(&h2_input, &hash_to_scalar_dst)?;
+    let c = G::hash_to_scalar::<H, _>(&h2_input, hash_to_scalar_dst)?;
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -816,7 +816,7 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
         .concat();
         let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
-        let di = G::hash_to_scalar::<H>(&h2_input, &dst)?;
+        let di = G::hash_to_scalar::<H, _>(&h2_input, dst)?;
         m = c.value * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -861,7 +861,7 @@ mod tests {
     ) -> GenericArray<u8, <H as Digest>::OutputSize> {
         let dst =
             GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode).unwrap());
-        let point = G::hash_to_curve::<H>(input, &dst).unwrap();
+        let point = G::hash_to_curve::<H, _>(input, dst).unwrap();
 
         let context = [
             STR_CONTEXT,
@@ -871,7 +871,7 @@ mod tests {
         .concat();
         let dst =
             GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode).unwrap());
-        let m = <G as Group>::hash_to_scalar::<H>(&context, &dst).unwrap();
+        let m = <G as Group>::hash_to_scalar::<H, _>(&context, dst).unwrap();
 
         let res = point * &<G as Group>::scalar_invert(&(key + &m));
 
@@ -932,7 +932,7 @@ mod tests {
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            G::hash_to_curve::<H>(b"msg", b"dst").unwrap()
+            G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             server_result.message,
@@ -1001,7 +1001,7 @@ mod tests {
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            G::hash_to_curve::<H>(b"msg", b"dst").unwrap()
+            G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
         };
         let client_finalize_result = VerifiableClient::batch_finalize(
             &client_states,
@@ -1033,7 +1033,7 @@ mod tests {
 
         let dst = GenericArray::from(*STR_HASH_TO_GROUP)
             .concat(get_context_string::<G>(Mode::Base).unwrap());
-        let point = G::hash_to_curve::<H>(&input, &dst).unwrap();
+        let point = G::hash_to_curve::<H, _>(&input, dst).unwrap();
         let res2 = finalize_after_unblind::<G, H, _>(
             Some((input.as_slice(), point)).into_iter(),
             info,

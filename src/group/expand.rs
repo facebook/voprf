@@ -9,7 +9,10 @@ use crate::errors::InternalError;
 use crate::serialization::i2osp;
 use alloc::vec::Vec;
 use digest::{BlockInput, Digest};
-use generic_array::typenum::{Unsigned, U1, U2};
+use generic_array::{
+    typenum::{Unsigned, U1, U2},
+    ArrayLength, GenericArray,
+};
 
 // Computes ceil(x / y)
 fn div_ceil(x: usize, y: usize) -> usize {
@@ -27,16 +30,16 @@ fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<H: BlockInput + Digest>(
+pub fn expand_message_xmd<H: BlockInput + Digest, D: ArrayLength<u8>>(
     msg: &[u8],
-    dst: &[u8],
+    dst: GenericArray<u8, D>,
     len_in_bytes: usize,
 ) -> Result<Vec<u8>, InternalError> {
     let ell = div_ceil(len_in_bytes, <H as Digest>::OutputSize::USIZE);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
-    let dst_prime = [dst, &i2osp::<U1>(dst.len())?].concat();
+    let dst_prime = [dst.as_slice(), &i2osp::<U1>(dst.len())?].concat();
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
     let msg_prime = [
@@ -72,6 +75,7 @@ pub fn expand_message_xmd<H: BlockInput + Digest>(
 
 #[cfg(test)]
 mod tests {
+    use generic_array::GenericArray;
 
     struct Params {
         msg: &'static str,
@@ -180,12 +184,12 @@ mod tests {
                 378fba044a31f5cb44583a892f5969dcd73b3fa128816e",
             },
         ];
-        let dst = "QUUX-V01-CS02-with-expander";
+        let dst = GenericArray::from(*b"QUUX-V01-CS02-with-expander");
 
         for tv in test_vectors {
-            let uniform_bytes = super::expand_message_xmd::<sha2::Sha256>(
+            let uniform_bytes = super::expand_message_xmd::<sha2::Sha256, _>(
                 tv.msg.as_bytes(),
-                dst.as_bytes(),
+                dst,
                 tv.len_in_bytes,
             )
             .unwrap();
