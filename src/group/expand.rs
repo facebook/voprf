@@ -55,32 +55,29 @@ where
     let msg_prime = [&z_pad, msg, &l_i_b_str, &msg_0, &dst_prime];
 
     let mut h = H::new();
-    let mut b = Vec::with_capacity(ell);
     // b[0]
-    b.push(
-        msg_prime
-            .iter()
-            .fold(&mut h, |h, msg| {
-                h.update(msg);
-                h
-            })
-            .finalize_reset(),
-    );
+    let b_0 = msg_prime
+        .iter()
+        .fold(&mut h, |h, msg| {
+            h.update(msg);
+            h
+        })
+        .finalize_reset();
 
-    h.update(&b[0]);
+    h.update(&b_0);
     h.update(i2osp::<U1>(1)?);
     h.update(&dst_prime);
-    b.push(h.finalize_reset()); // b[1]
+    let mut b_i = h.finalize_reset(); // b[1]
 
     let mut uniform_bytes = GenericArray::default();
-    uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b[1][..digest_len.min(L::USIZE)]);
+    uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b_i[..digest_len.min(L::USIZE)]);
 
     for (i, chunk) in (2..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len).skip(1)) {
-        h.update(xor(&b[0], &b[i - 1])?);
+        h.update(xor(&b_0, &b_i)?);
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
-        b.push(h.finalize_reset()); // b[i]
-        chunk.copy_from_slice(&b[i][..digest_len.min(chunk.len())]);
+        b_i = h.finalize_reset(); // b[i]
+        chunk.copy_from_slice(&b_i[..digest_len.min(chunk.len())]);
     }
 
     Ok(uniform_bytes)
