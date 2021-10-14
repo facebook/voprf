@@ -221,6 +221,7 @@ pub(crate) fn i2osp<L: ArrayLength<u8>>(
     Ok(output)
 }
 
+/// Simplifies handling of [`serialize()`] output and implements [`Iterator`].
 pub(crate) struct Serialized<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> {
     octet: GenericArray<u8, L1>,
     input: Input<'a, L2>,
@@ -285,6 +286,8 @@ macro_rules! chain_skip {
     };
 }
 
+/// The purpose of this macro is to simplify [`concat`](alloc::slice::Concat::concat)ing
+/// slices into an [`Iterator`] to avoid allocation
 macro_rules! chain {
     (
         $var:ident,
