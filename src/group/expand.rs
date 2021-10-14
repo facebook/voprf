@@ -7,7 +7,6 @@
 
 use crate::errors::InternalError;
 use crate::serialization::i2osp;
-use alloc::vec::Vec;
 use core::ops::Add;
 use digest::{BlockInput, Digest};
 use generic_array::{
@@ -22,12 +21,8 @@ fn div_ceil(x: usize, y: usize) -> usize {
     x / y + additive
 }
 
-fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
-    if x.len() != y.len() {
-        return Err(InternalError::HashToCurveError);
-    }
-
-    Ok(x.iter().zip(y).map(|(&x1, &x2)| x1 ^ x2).collect())
+fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> GenericArray<u8, L> {
+    x.into_iter().zip(y).map(|(x1, x2)| x1 ^ x2).collect()
 }
 
 /// Corresponds to the expand_message_xmd() function defined in
@@ -73,7 +68,7 @@ where
     uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b_i[..digest_len.min(L::USIZE)]);
 
     for (i, chunk) in (2..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len).skip(1)) {
-        h.update(xor(&b_0, &b_i)?);
+        h.update(xor(b_0.clone(), b_i.clone()));
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b_i = h.finalize_reset(); // b[i]
