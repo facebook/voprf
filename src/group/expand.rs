@@ -64,7 +64,7 @@ where
     );
 
     h.update(&b[0]);
-    h.update(&i2osp::<U1>(1)?);
+    h.update(i2osp::<U1>(1)?);
     h.update(&dst_prime);
     b.push(h.finalize_reset()); // b[1]
 
@@ -73,7 +73,7 @@ where
 
     for i in 2..(ell + 1) {
         h.update(xor(&b[0], &b[i - 1])?);
-        h.update(&i2osp::<U1>(i)?);
+        h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b.push(h.finalize_reset()); // b[i]
         uniform_bytes.extend_from_slice(&b[i]);
