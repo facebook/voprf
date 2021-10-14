@@ -11,18 +11,21 @@ edition = "2018"
 readme = "README.md"
 resolver = "2"
 
+
 [features]
-default = ["u64_backend", "serialize"]
+default = ["ristretto_u64", "serialize"]
+ristretto_u64 = ["curve25519-dalek/u64_backend"]
+ristretto_u32 = ["curve25519-dalek/u32_backend"]
+ristretto_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
+ristretto_fiat_u32 = ["curve25519-dalek/fiat_u32_backend"]
+ristretto_simd = ["curve25519-dalek/simd_backend"]
 p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
 std = ["getrandom", "rand/std", "rand/std_rng"]
-u64_backend = ["curve25519-dalek/u64_backend"]
-u32_backend = ["curve25519-dalek/u32_backend"]
-simd_backend = ["curve25519-dalek/simd_backend"]
 serialize = ["serde", "base64"]
 
 [dependencies]
 base64 = { version = "0.13", default-features = false, features = ["alloc"], optional = true }
-curve25519-dalek = { version = "3", default-features = false }
+curve25519-dalek = { version = "3", default-features = false, optional = true }
 digest = "0.9"
 displaydoc = { version = "0.2", default-features = false }
 generic-array = "0.14"
@@ -46,7 +49,7 @@ hex = "0.4"
 json = "0.12"
 sha2 = "0.9"
 regex = "1"
-voprf = { path = "", default-features = false, features = ["std"] }
+voprf = { path = "", default-features = false, features = ["ristretto_u64", "std"] }
 
 [package.metadata.docs.rs]
 features = ["p256", "std"]

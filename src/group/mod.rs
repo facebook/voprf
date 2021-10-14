@@ -7,10 +7,26 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
+#[cfg(any(
+    feature = "ristretto_u64",
+    feature = "ristretto_u32",
+    feature = "ristretto_fiat_u64",
+    feature = "ristretto_fiat_u32",
+    feature = "ristretto_simd",
+    eature = "p256",
+))]
 mod expand;
 #[cfg(feature = "p256")]
 #[cfg_attr(docsrs, doc(cfg(feature = "p256")))]
 pub(crate) mod p256;
+#[cfg(any(
+    feature = "ristretto_u64",
+    feature = "ristretto_u32",
+    feature = "ristretto_fiat_u64",
+    feature = "ristretto_fiat_u32",
+    feature = "ristretto_simd",
+))]
+#[cfg_attr(docsrs, doc(cfg(feature = "p256")))]
 mod ristretto;
 
 use crate::errors::InternalError;
