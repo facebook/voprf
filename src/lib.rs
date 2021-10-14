@@ -401,8 +401,6 @@
 //! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
 //!
-//! - The `rand` feature, enabled by default, re-exports [rand] for your convenience.
-//!
 //! - The backend features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
 //! the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
@@ -431,10 +429,6 @@ mod voprf;
 mod tests;
 
 // Exports
-
-#[cfg(feature = "rand")]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "rand", feature = "std"))))]
-pub use rand;
 
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,

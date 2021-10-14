@@ -12,14 +12,14 @@ readme = "README.md"
 resolver = "2"
 
 [features]
-default = ["rand", "ristretto255_u64", "serialize"]
+default = ["ristretto255_u64", "serialize"]
 ristretto255_u64 = ["curve25519-dalek/u64_backend"]
 ristretto255_u32 = ["curve25519-dalek/u32_backend"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
 ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend"]
 ristretto255_simd = ["curve25519-dalek/simd_backend"]
 p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
-std = ["getrandom", "rand/std", "rand/std_rng"]
+std = []
 serialize = ["serde", "base64"]
 
 [dependencies]
@@ -28,25 +28,21 @@ curve25519-dalek = { version = "3", default-features = false, optional = true }
 digest = "0.9"
 displaydoc = { version = "0.2", default-features = false }
 generic-array = "0.14"
-getrandom = { version = "0.2", optional = true }
 num-bigint = { version = "0.4", default-features = false, optional = true }
 num-integer = { version = "0.1", default-features = false, optional = true }
 num-traits = { version = "0.2", default-features = false, optional = true }
 once_cell = { version = "1", default-features = false, optional = true }
 p256_ = { package = "p256", version = "0.9", default-features = false, features = ["arithmetic", "zeroize"], optional = true }
-rand = { version = "0.8", default-features = false, optional = true }
 rand_core = { version = "0.6", default-features = false }
 serde = { version = "1", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"], optional = true }
-
 [dev-dependencies]
 generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
+rand = "0.8"
 sha2 = "0.9"
 regex = "1"
 voprf = { path = "", default-features = false, features = ["std"] }
