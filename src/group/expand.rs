@@ -59,16 +59,12 @@ where
             h
         })
         .finalize_reset();
-    let mut b_i = b_0.clone();
+    let mut b_i = GenericArray::default();
 
     let mut uniform_bytes = GenericArray::default();
 
     for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len)) {
-        if i == 1 {
-            h.update(b_0.clone());
-        } else {
-            h.update(xor(b_0.clone(), b_i.clone()));
-        }
+        h.update(xor(b_0.clone(), b_i.clone()));
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b_i = h.finalize_reset();
