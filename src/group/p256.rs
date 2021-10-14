@@ -18,7 +18,7 @@ use crate::errors::InternalError;
 use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
 use digest::{BlockInput, Digest};
-use generic_array::typenum::{U32, U33};
+use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
@@ -29,21 +29,26 @@ use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
-use rand::{CryptoRng, RngCore};
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use rand_core::{CryptoRng, RngCore};
+use subtle::{Choice, ConditionallySelectable};
 
+// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
-pub const L: usize = 48;
+pub type L = U48;
 
+#[cfg(feature = "p256")]
 impl Group for ProjectivePoint {
     const SUITE_ID: usize = 0x0003;
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<H: BlockInput + Digest>(
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
-        dst: &[u8],
-    ) -> Result<Self, InternalError> {
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
         // `p: 2^256 - 2^224 + 2^192 + 2^96 - 1`
         const P: Lazy<BigInt> = Lazy::new(|| {
@@ -69,11 +74,12 @@ impl Group for ProjectivePoint {
         // `hash_to_curve` calls `hash_to_field` with a `count` of `2`
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `hash_to_field` calls `expand_message` with a `len_in_bytes` of `count * L`
-        let uniform_bytes = super::expand::expand_message_xmd::<H>(msg, dst, 2 * L)?;
+        let uniform_bytes =
+            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output, _>(msg, dst)?;
 
         // hash to curve
-        let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L], &A, &B, &P, &Z);
-        let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L..], &A, &B, &P, &Z);
+        let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L::USIZE], &A, &B, &P, &Z);
+        let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L::USIZE..], &A, &B, &P, &Z);
 
         // convert to `p256` types
         let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
@@ -91,10 +97,13 @@ impl Group for ProjectivePoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.3
-    fn hash_to_scalar<H: BlockInput + Digest>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         input: &[u8],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError> {
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
         // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf#[{%22num%22:211,%22gen%22:0},{%22name%22:%22XYZ%22},70,700,0]
         // P-256 `n` is defined as `115792089210356248762697446949407573529996955224135760342 422259061068512044369`
         const N: Lazy<BigInt> = Lazy::new(|| {
@@ -106,7 +115,7 @@ impl Group for ProjectivePoint {
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
-        let uniform_bytes = super::expand::expand_message_xmd::<H>(input, dst, L)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, L, _>(input, dst)?;
         let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
             .mod_floor(&N)
             .to_bytes_be()
@@ -163,14 +172,6 @@ impl Group for ProjectivePoint {
 
     fn scalar_zero() -> Self::Scalar {
         Self::Scalar::zero()
-    }
-
-    fn ct_equal(&self, other: &Self) -> bool {
-        self.ct_eq(other).into()
-    }
-
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
-        s1.ct_eq(s2).into()
     }
 }
 
@@ -431,6 +432,7 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use generic_array::typenum::U96;
 
     struct Params {
         msg: &'static str,
@@ -531,13 +533,12 @@ mod tests {
                 q1y: "f6ed88a7aab56a488100e6f1174fa9810b47db13e86be999644922961206e184",
             },
         ];
-        let dst = "QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_";
+        let dst = GenericArray::from(*b"QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_");
 
         for tv in test_vectors {
-            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256>(
+            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256, U96, _>(
                 tv.msg.as_bytes(),
-                dst.as_bytes(),
-                96,
+                dst,
             )
             .unwrap();
 

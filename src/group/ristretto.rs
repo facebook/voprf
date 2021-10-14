@@ -8,6 +8,7 @@
 use super::Group;
 use crate::errors::InternalError;
 use core::convert::TryInto;
+use core::ops::Add;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT,
     ristretto::{CompressedRistretto, RistrettoPoint},
@@ -15,21 +16,33 @@ use curve25519_dalek::{
     traits::Identity,
 };
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::U32, GenericArray};
-use rand::{CryptoRng, RngCore};
-use subtle::ConstantTimeEq;
+use generic_array::{
+    typenum::{U1, U32, U64},
+    ArrayLength, GenericArray,
+};
+use rand_core::{CryptoRng, RngCore};
 
 /// The implementation of such a subgroup for Ristretto
+#[cfg(any(
+    feature = "ristretto255_u64",
+    feature = "ristretto255_u32",
+    feature = "ristretto255_fiat_u64",
+    feature = "ristretto255_fiat_u32",
+    feature = "ristretto255_simd",
+))]
 impl Group for RistrettoPoint {
     const SUITE_ID: usize = 0x0001;
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockInput + Digest>(
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
-        dst: &[u8],
-    ) -> Result<Self, InternalError> {
-        let uniform_bytes = super::expand::expand_message_xmd::<H>(msg, dst, 64)?;
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(msg, dst)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
             uniform_bytes
@@ -41,11 +54,14 @@ impl Group for RistrettoPoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<H: BlockInput + Digest>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         input: &[u8],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError> {
-        let uniform_bytes = super::expand::expand_message_xmd::<H>(input, dst, 64)?;
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(input, dst)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
             uniform_bytes
@@ -120,13 +136,5 @@ impl Group for RistrettoPoint {
 
     fn scalar_zero() -> Self::Scalar {
         Self::Scalar::zero()
-    }
-
-    fn ct_equal(&self, other: &Self) -> bool {
-        ConstantTimeEq::ct_eq(self, other).into()
-    }
-
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool {
-        ConstantTimeEq::ct_eq(s1, s2).into()
     }
 }

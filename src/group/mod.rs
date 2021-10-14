@@ -7,17 +7,32 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
+#[cfg(any(
+    feature = "ristretto255_u64",
+    feature = "ristretto255_u32",
+    feature = "ristretto255_fiat_u64",
+    feature = "ristretto255_fiat_u32",
+    feature = "ristretto255_simd",
+    feature = "p256",
+))]
 mod expand;
 #[cfg(feature = "p256")]
-#[cfg_attr(docsrs, doc(cfg(feature = "p256")))]
-pub(crate) mod p256;
+mod p256;
+#[cfg(any(
+    feature = "ristretto255_u64",
+    feature = "ristretto255_u32",
+    feature = "ristretto255_fiat_u64",
+    feature = "ristretto255_fiat_u32",
+    feature = "ristretto255_simd",
+))]
 mod ristretto;
 
 use crate::errors::InternalError;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest};
-use generic_array::{ArrayLength, GenericArray};
-use rand::{CryptoRng, RngCore};
+use generic_array::{typenum::U1, ArrayLength, GenericArray};
+use rand_core::{CryptoRng, RngCore};
+use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
@@ -25,6 +40,7 @@ use zeroize::Zeroize;
 pub trait Group:
     Copy
     + Sized
+    + ConstantTimeEq
     + for<'a> Mul<&'a <Self as Group>::Scalar, Output = Self>
     + for<'a> Add<&'a Self, Output = Self>
 {
@@ -33,18 +49,25 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockInput + Digest>(msg: &[u8], dst: &[u8])
-        -> Result<Self, InternalError>;
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
+        msg: &[u8],
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockInput + Digest>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         input: &[u8],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError>;
+        dst: GenericArray<u8, D>,
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// The type of base field scalars
     type Scalar: Zeroize
         + Copy
+        + ConstantTimeEq
         + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
         + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
@@ -63,7 +86,7 @@ pub trait Group:
         scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
     ) -> Result<Self::Scalar, InternalError> {
         let scalar = Self::from_scalar_slice_unchecked(scalar_bits.into())?;
-        if Self::ct_equal_scalar(&scalar, &Self::scalar_zero()) {
+        if scalar.ct_eq(&Self::scalar_zero()).into() {
             return Err(InternalError::ZeroScalarError);
         }
         Ok(scalar)
@@ -93,7 +116,7 @@ pub trait Group:
     ) -> Result<Self, InternalError> {
         let elem = Self::from_element_slice_unchecked(element_bits.into())?;
 
-        if Self::ct_equal(&elem, &<Self as Group>::identity()) {
+        if Self::ct_eq(&elem, &<Self as Group>::identity()).into() {
             // found the identity element
             return Err(InternalError::PointError);
         }
@@ -109,7 +132,7 @@ pub trait Group:
 
     /// Returns if the group element is equal to the identity (1)
     fn is_identity(&self) -> bool {
-        self.ct_equal(&<Self as Group>::identity())
+        self.ct_eq(&<Self as Group>::identity()).into()
     }
 
     /// Returns the identity group element
@@ -117,12 +140,6 @@ pub trait Group:
 
     /// Returns the scalar representing zero
     fn scalar_zero() -> Self::Scalar;
-
-    /// Compares in constant time if the group elements are equal
-    fn ct_equal(&self, other: &Self) -> bool;
-
-    /// Compares in constant time if the scalars are equal
-    fn ct_equal_scalar(s1: &Self::Scalar, s2: &Self::Scalar) -> bool;
 
     /// Set the contents of self to the identity value
     fn zeroize(&mut self) {

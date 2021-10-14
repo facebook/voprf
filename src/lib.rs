@@ -398,16 +398,17 @@
 //! - The `p256` feature enables using p256 as the underlying group for the [Group](group::Group) choice.
 //! Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
 //!
-//! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
+//! - The `serde` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
 //!
-//! - The `u32_backend` and `u64_backend` features are re-exported from
+//! - The backend features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
-//! the corresponding backend for the curve arithmetic used. The `u64_backend` feature is included as the default.
+//! the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
+//! Other features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and `ristretto255_fiat_u32`.
 //!
-//! - The `simd_backend` feature is re-exported from
+//! - The `ristretto255_simd` feature is re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
-//! using either AVX2 or AVX512-IFMA. This will automatically enable the `u64_backend` and requires Rust nightly.
+//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` and requires Rust nightly.
 
 #![deny(unsafe_code)]
 #![warn(clippy::cargo, missing_docs)]
@@ -428,8 +429,6 @@ mod voprf;
 mod tests;
 
 // Exports
-
-pub use rand;
 
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,

@@ -7,9 +7,13 @@
 
 use crate::errors::InternalError;
 use crate::serialization::i2osp;
-use alloc::vec::Vec;
+use core::ops::Add;
 use digest::{BlockInput, Digest};
-use generic_array::typenum::{Unsigned, U1, U2};
+use generic_array::{
+    sequence::Concat,
+    typenum::{Unsigned, U1, U2},
+    ArrayLength, GenericArray,
+};
 
 // Computes ceil(x / y)
 fn div_ceil(x: usize, y: usize) -> usize {
@@ -17,61 +21,65 @@ fn div_ceil(x: usize, y: usize) -> usize {
     x / y + additive
 }
 
-fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
-    if x.len() != y.len() {
-        return Err(InternalError::HashToCurveError);
-    }
-
-    Ok(x.iter().zip(y).map(|(&x1, &x2)| x1 ^ x2).collect())
+fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> GenericArray<u8, L> {
+    x.into_iter().zip(y).map(|(x1, x2)| x1 ^ x2).collect()
 }
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<H: BlockInput + Digest>(
+pub fn expand_message_xmd<
+    H: BlockInput + Digest,
+    L: ArrayLength<u8>,
+    D: ArrayLength<u8> + Add<U1>,
+>(
     msg: &[u8],
-    dst: &[u8],
-    len_in_bytes: usize,
-) -> Result<Vec<u8>, InternalError> {
-    let ell = div_ceil(len_in_bytes, <H as Digest>::OutputSize::USIZE);
+    dst: GenericArray<u8, D>,
+) -> Result<GenericArray<u8, L>, InternalError>
+where
+    <D as Add<U1>>::Output: ArrayLength<u8>,
+{
+    let digest_len = <H as Digest>::OutputSize::USIZE;
+    let ell = div_ceil(L::USIZE, digest_len);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
-    let dst_prime = [dst, &i2osp::<U1>(dst.len())?].concat();
+    let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
-    let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
-    let msg_prime = [
-        &z_pad,
-        msg,
-        &l_i_b_str,
-        i2osp::<U1>(0)?.as_slice(),
-        &dst_prime,
-    ]
-    .concat();
-
-    let mut b: Vec<Vec<u8>> = alloc::vec![H::digest(&msg_prime).to_vec()]; // b[0]
+    let l_i_b_str = i2osp::<U2>(L::USIZE)?;
+    let msg_0 = i2osp::<U1>(0)?;
+    let msg_prime =
+        core::array::IntoIter::new([z_pad.as_slice(), msg, &l_i_b_str, &msg_0, &dst_prime]);
 
     let mut h = H::new();
-    h.update(&b[0]);
-    h.update(&i2osp::<U1>(1)?);
-    h.update(&dst_prime);
-    b.push(h.finalize_reset().to_vec()); // b[1]
+    // b[0]
+    let b_0 = msg_prime
+        .into_iter()
+        .fold(&mut h, |h, msg| {
+            h.update(msg);
+            h
+        })
+        .finalize_reset();
+    let mut b_i = GenericArray::default();
 
-    let mut uniform_bytes: Vec<u8> = Vec::new();
-    uniform_bytes.extend_from_slice(&b[1]);
+    let mut uniform_bytes = GenericArray::default();
 
-    for i in 2..(ell + 1) {
-        h.update(xor(&b[0], &b[i - 1])?);
-        h.update(&i2osp::<U1>(i)?);
+    for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len)) {
+        h.update(xor(b_0.clone(), b_i.clone()));
+        h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
-        b.push(h.finalize_reset().to_vec()); // b[i]
-        uniform_bytes.extend_from_slice(&b[i]);
+        b_i = h.finalize_reset();
+        chunk.copy_from_slice(&b_i[..digest_len.min(chunk.len())]);
     }
 
-    Ok(uniform_bytes[..len_in_bytes].to_vec())
+    Ok(uniform_bytes)
 }
 
 #[cfg(test)]
 mod tests {
+    use generic_array::{
+        typenum::{U128, U32},
+        GenericArray,
+    };
 
     struct Params {
         msg: &'static str,
@@ -180,14 +188,16 @@ mod tests {
                 378fba044a31f5cb44583a892f5969dcd73b3fa128816e",
             },
         ];
-        let dst = "QUUX-V01-CS02-with-expander";
+        let dst = GenericArray::from(*b"QUUX-V01-CS02-with-expander");
 
         for tv in test_vectors {
-            let uniform_bytes = super::expand_message_xmd::<sha2::Sha256>(
-                tv.msg.as_bytes(),
-                dst.as_bytes(),
-                tv.len_in_bytes,
-            )
+            let uniform_bytes = match tv.len_in_bytes {
+                32 => super::expand_message_xmd::<sha2::Sha256, U32, _>(tv.msg.as_bytes(), dst)
+                    .map(|bytes| bytes.to_vec()),
+                128 => super::expand_message_xmd::<sha2::Sha256, U128, _>(tv.msg.as_bytes(), dst)
+                    .map(|bytes| bytes.to_vec()),
+                _ => unimplemented!(),
+            }
             .unwrap();
             assert_eq!(tv.uniform_bytes, hex::encode(uniform_bytes));
         }

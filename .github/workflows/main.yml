@@ -13,11 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         backend_feature:
-          - u64_backend
-          - u32_backend
-          - p256,u64_backend
+          - ristretto255_u64
+          - ristretto255_u32
+          - p256,ristretto255_u64
         frontend_feature:
-          - serialize
+          - serde
         toolchain:
           - stable
           - 1.51.0
@@ -57,16 +57,18 @@ jobs:
           # for any no_std target
           - thumbv6m-none-eabi
         backend_feature:
-          - u64_backend
-          - u32_backend
-          - p256,u64_backend
+          -
+          - --features ristretto255_u64
+          - --features ristretto255_u32
+          - --features p256
         frontend_feature:
-          - serialize
+          -
+          - --features serde
     steps:
       - uses: actions/checkout@v2
       - uses: hecrj/setup-rust-action@v1
       - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features --features ${{ matrix.frontend_feature }} --features ${{ matrix.backend_feature }}
+      - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features ${{ matrix.frontend_feature }} ${{ matrix.backend_feature }}
 
 
   clippy:
