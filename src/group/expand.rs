@@ -47,12 +47,13 @@ where
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(L::USIZE)?;
     let msg_0 = i2osp::<U1>(0)?;
-    let msg_prime = [&z_pad, msg, &l_i_b_str, &msg_0, &dst_prime];
+    let msg_prime =
+        core::array::IntoIter::new([z_pad.as_slice(), msg, &l_i_b_str, &msg_0, &dst_prime]);
 
     let mut h = H::new();
     // b[0]
     let b_0 = msg_prime
-        .iter()
+        .into_iter()
         .fold(&mut h, |h, msg| {
             h.update(msg);
             h
