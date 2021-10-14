@@ -12,7 +12,7 @@ readme = "README.md"
 resolver = "2"
 
 [features]
-default = ["ristretto255_u64", "serialize"]
+default = ["ristretto255_u64", "serde"]
 ristretto255_u64 = ["curve25519-dalek/u64_backend"]
 ristretto255_u32 = ["curve25519-dalek/u32_backend"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
@@ -20,7 +20,7 @@ ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend"]
 ristretto255_simd = ["curve25519-dalek/simd_backend"]
 p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
 std = []
-serialize = ["serde", "base64"]
+serde = ["serde_", "base64"]
 
 [dependencies]
 base64 = { version = "0.13", default-features = false, features = ["alloc"], optional = true }
@@ -34,7 +34,7 @@ num-traits = { version = "0.2", default-features = false, optional = true }
 once_cell = { version = "1", default-features = false, optional = true }
 p256_ = { package = "p256", version = "0.9", default-features = false, features = ["arithmetic", "zeroize"], optional = true }
 rand_core = { version = "0.6", default-features = false }
-serde = { version = "1", default-features = false, optional = true }
+serde_ = { version = "1", package = "serde", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 
