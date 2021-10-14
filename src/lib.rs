@@ -406,7 +406,7 @@
 //! - The backend features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
 //! the corresponding backend for the curve arithmetic used. The `ristretto_u64` feature is included as the default.
-//! Other features are mappes as `ristretto_u32`, `ristretto_fiat_u64` and `ristretto_fiat_u32`.
+//! Other features are mapped as `ristretto_u32`, `ristretto_fiat_u64` and `ristretto_fiat_u32`.
 //!
 //! - The `ristretto_simd` feature is re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
