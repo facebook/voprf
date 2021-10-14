@@ -42,7 +42,7 @@ impl Group for RistrettoPoint {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(msg, dst)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64,_, _>(Some(msg), dst)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
             uniform_bytes
@@ -61,7 +61,7 @@ impl Group for RistrettoPoint {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(input, dst)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _, _>(Some(input), dst)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
             uniform_bytes

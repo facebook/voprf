@@ -75,7 +75,7 @@ impl Group for ProjectivePoint {
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `hash_to_field` calls `expand_message` with a `len_in_bytes` of `count * L`
         let uniform_bytes =
-            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output, _>(msg, dst)?;
+            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output, _, _>(Some(msg), dst)?;
 
         // hash to curve
         let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L::USIZE], &A, &B, &P, &Z);
@@ -115,7 +115,8 @@ impl Group for ProjectivePoint {
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
-        let uniform_bytes = super::expand::expand_message_xmd::<H, L, _>(input, dst)?;
+        let uniform_bytes =
+            super::expand::expand_message_xmd::<H, L, _, _>(Some(input).into_iter(), dst)?;
         let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
             .mod_floor(&N)
             .to_bytes_be()
@@ -536,11 +537,12 @@ mod tests {
         let dst = GenericArray::from(*b"QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_");
 
         for tv in test_vectors {
-            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256, U96, _>(
-                tv.msg.as_bytes(),
-                dst,
-            )
-            .unwrap();
+            let uniform_bytes =
+                super::super::expand::expand_message_xmd::<sha2::Sha256, U96, _, _>(
+                    Some(tv.msg.as_bytes()),
+                    dst,
+                )
+                .unwrap();
 
             let u0 = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes[..48]).mod_floor(&P);
             let u1 = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes[48..]).mod_floor(&P);
