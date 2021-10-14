@@ -401,6 +401,11 @@
 //! - The `serde` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
 //!
+//! - The `danger` feature, disabled by default, exposes functions for setting and getting
+//!   internal values not available in the default API. These functions are intended for use in
+//!   by higher-level cryptographic protocols that need access to these raw values and are able to
+//!   perform the necessary validations on them (such as being valid group elements).
+//!
 //! - The backend features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
 //! the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
@@ -408,7 +413,7 @@
 //!
 //! - The `ristretto255_simd` feature is re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
-//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` and requires Rust nightly.
+//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` feature and requires Rust nightly.
 
 #![deny(unsafe_code)]
 #![warn(clippy::cargo, missing_docs)]

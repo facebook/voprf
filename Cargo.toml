@@ -13,6 +13,7 @@ resolver = "2"
 
 [features]
 default = ["ristretto255_u64", "serde"]
+danger = []
 ristretto255_u64 = ["curve25519-dalek/u64_backend"]
 ristretto255_u32 = ["curve25519-dalek/u32_backend"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
@@ -42,12 +43,13 @@ zeroize = { version = "1", default-features = false }
 generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
+proptest = "1"
 rand = "0.8"
-sha2 = "0.9"
 regex = "1"
-voprf = { path = "", default-features = false, features = ["std"] }
+sha2 = "0.9"
+voprf = { path = "", default-features = false, features = ["std", "danger"] }
 
 [package.metadata.docs.rs]
-features = ["p256", "std"]
+features = ["danger", "p256", "std"]
 targets = []
 rustdoc-args = ["--cfg", "docsrs"]

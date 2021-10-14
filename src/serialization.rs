@@ -142,7 +142,7 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         let scalar_len = <G as Group>::ScalarLen::USIZE;
-        if input.len() < scalar_len + scalar_len {
+        if input.len() != scalar_len + scalar_len {
             return Err(InternalError::SizeError);
         }
         Ok(Proof {
@@ -161,6 +161,10 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+        let elem_len = <G as Group>::ElemLen::USIZE;
+        if input.len() != elem_len {
+            return Err(InternalError::SizeError);
+        }
         Ok(Self {
             value: G::from_element_slice(input)?,
             hash: PhantomData,
@@ -176,6 +180,10 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+        let elem_len = <G as Group>::ElemLen::USIZE;
+        if input.len() != elem_len {
+            return Err(InternalError::SizeError);
+        }
         Ok(Self {
             value: G::from_element_slice(input)?,
             hash: PhantomData,
@@ -218,7 +226,10 @@ pub(crate) fn serialize<L: ArrayLength<u8>>(input: &[u8]) -> Result<Vec<u8>, Int
 #[cfg(test)]
 mod unit_tests {
     use super::*;
+    use curve25519_dalek::ristretto::RistrettoPoint;
     use generic_array::typenum::{U1, U2};
+    use proptest::{collection::vec, prelude::*};
+    use sha2::Sha512;
 
     // Test the error condition for I2OSP
     #[test]
@@ -232,5 +243,43 @@ mod unit_tests {
         assert!(i2osp::<U2>(256 * 256 - 1).is_ok());
         assert!(i2osp::<U2>(256 * 256).is_err());
         assert!(i2osp::<U2>(256 * 256 + 1).is_err());
+    }
+
+    proptest! {
+        #[test]
+        fn test_nocrash_nonverifiable_client(bytes in vec(any::<u8>(), 0..200)) {
+            NonVerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_verifiable_client(bytes in vec(any::<u8>(), 0..200)) {
+            VerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_nonverifiable_server(bytes in vec(any::<u8>(), 0..200)) {
+            NonVerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_verifiable_server(bytes in vec(any::<u8>(), 0..200)) {
+            VerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
+            BlindedElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
+            EvaluationElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
+        #[test]
+        fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
+            Proof::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+        }
+
     }
 }
