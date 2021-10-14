@@ -58,20 +58,19 @@ where
             h
         })
         .finalize_reset();
-
-    h.update(&b_0);
-    h.update(i2osp::<U1>(1)?);
-    h.update(&dst_prime);
-    let mut b_i = h.finalize_reset(); // b[1]
+    let mut b_i = b_0.clone();
 
     let mut uniform_bytes = GenericArray::default();
-    uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b_i[..digest_len.min(L::USIZE)]);
 
-    for (i, chunk) in (2..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len).skip(1)) {
-        h.update(xor(b_0.clone(), b_i.clone()));
+    for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len)) {
+        if i == 1 {
+            h.update(b_0.clone());
+        } else {
+            h.update(xor(b_0.clone(), b_i.clone()));
+        }
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
-        b_i = h.finalize_reset(); // b[i]
+        b_i = h.finalize_reset();
         chunk.copy_from_slice(&b_i[..digest_len.min(chunk.len())]);
     }
 
