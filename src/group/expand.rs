@@ -47,22 +47,26 @@ where
     let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
-    let msg_prime = [
-        &z_pad,
-        msg,
-        &l_i_b_str,
-        i2osp::<U1>(0)?.as_slice(),
-        &dst_prime,
-    ]
-    .concat();
-
-    let mut b: Vec<Vec<u8>> = alloc::vec![H::digest(&msg_prime).to_vec()]; // b[0]
+    let msg_0 = i2osp::<U1>(0)?;
+    let msg_prime = [&z_pad, msg, &l_i_b_str, &msg_0, &dst_prime];
 
     let mut h = H::new();
+    let mut b = Vec::with_capacity(ell);
+    // b[0]
+    b.push(
+        msg_prime
+            .iter()
+            .fold(&mut h, |h, msg| {
+                h.update(msg);
+                h
+            })
+            .finalize_reset(),
+    );
+
     h.update(&b[0]);
     h.update(&i2osp::<U1>(1)?);
     h.update(&dst_prime);
-    b.push(h.finalize_reset().to_vec()); // b[1]
+    b.push(h.finalize_reset()); // b[1]
 
     let mut uniform_bytes: Vec<u8> = Vec::new();
     uniform_bytes.extend_from_slice(&b[1]);
@@ -71,7 +75,7 @@ where
         h.update(xor(&b[0], &b[i - 1])?);
         h.update(&i2osp::<U1>(i)?);
         h.update(&dst_prime);
-        b.push(h.finalize_reset().to_vec()); // b[i]
+        b.push(h.finalize_reset()); // b[i]
         uniform_bytes.extend_from_slice(&b[i]);
     }
 
