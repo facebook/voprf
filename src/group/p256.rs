@@ -29,7 +29,7 @@ use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2

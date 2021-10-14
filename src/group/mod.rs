@@ -33,7 +33,7 @@ use crate::errors::InternalError;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest};
 use generic_array::{typenum::U1, ArrayLength, GenericArray};
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 

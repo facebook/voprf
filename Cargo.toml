@@ -13,7 +13,7 @@ resolver = "2"
 
 
 [features]
-default = ["ristretto_u64", "serialize"]
+default = ["rand", "ristretto_u64", "serialize"]
 ristretto_u64 = ["curve25519-dalek/u64_backend"]
 ristretto_u32 = ["curve25519-dalek/u32_backend"]
 ristretto_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
@@ -35,7 +35,8 @@ num-integer = { version = "0.1", default-features = false, optional = true }
 num-traits = { version = "0.2", default-features = false, optional = true }
 once_cell = { version = "1", default-features = false, optional = true }
 p256_ = { package = "p256", version = "0.9", default-features = false, features = ["arithmetic", "zeroize"], optional = true }
-rand = { version = "0.8", default-features = false }
+rand = { version = "0.8", default-features = false, optional = true }
+rand_core = { version = "0.6", default-features = false }
 serde = { version = "1", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }

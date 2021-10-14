@@ -20,7 +20,7 @@ use generic_array::{
     typenum::{U1, U32, U64},
     ArrayLength, GenericArray,
 };
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 
 /// The implementation of such a subgroup for Ristretto
 impl Group for RistrettoPoint {

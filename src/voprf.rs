@@ -21,7 +21,7 @@ use generic_array::{
     typenum::{U1, U11, U2},
     GenericArray,
 };
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
 ///////////////

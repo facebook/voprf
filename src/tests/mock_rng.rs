@@ -7,7 +7,7 @@
 
 use alloc::vec::Vec;
 use core::cmp::min;
-use rand::{CryptoRng, Error, RngCore};
+use rand_core::{CryptoRng, Error, RngCore};
 
 /// A simple implementation of `RngCore` for testing purposes.
 ///

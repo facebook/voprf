@@ -430,6 +430,8 @@ mod tests;
 
 // Exports
 
+#[cfg(feature = "rand")]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "rand", feature = "std"))))]
 pub use rand;
 
 pub use crate::voprf::{
