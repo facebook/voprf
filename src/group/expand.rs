@@ -75,15 +75,12 @@ where
     let mut uniform_bytes = GenericArray::default();
     uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b[1][..digest_len.min(L::USIZE)]);
 
-    for i in 2..(ell + 1) {
+    for (i, chunk) in (2..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len).skip(1)) {
         h.update(xor(&b[0], &b[i - 1])?);
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b.push(h.finalize_reset()); // b[i]
-        let dest_start = digest_len * (i - 1);
-        let dest_end = (dest_start + digest_len).min(L::USIZE);
-        let src_end = digest_len.min(L::USIZE - dest_start);
-        uniform_bytes[dest_start..dest_end].copy_from_slice(&b[i][..src_end]);
+        chunk.copy_from_slice(&b[i][..digest_len.min(chunk.len())]);
     }
 
     Ok(uniform_bytes)
