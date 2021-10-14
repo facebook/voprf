@@ -8,6 +8,7 @@
 use super::Group;
 use crate::errors::InternalError;
 use core::convert::TryInto;
+use core::ops::Add;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT,
     ristretto::{CompressedRistretto, RistrettoPoint},
@@ -15,7 +16,10 @@ use curve25519_dalek::{
     traits::Identity,
 };
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::U32, ArrayLength, GenericArray};
+use generic_array::{
+    typenum::{U1, U32},
+    ArrayLength, GenericArray,
+};
 use rand::{CryptoRng, RngCore};
 
 /// The implementation of such a subgroup for Ristretto
@@ -24,10 +28,13 @@ impl Group for RistrettoPoint {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8>>(
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError> {
+    ) -> Result<Self, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
         let uniform_bytes = super::expand::expand_message_xmd::<H, _>(msg, dst, 64)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
@@ -40,10 +47,13 @@ impl Group for RistrettoPoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8>>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         input: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError> {
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>,
+    {
         let uniform_bytes = super::expand::expand_message_xmd::<H, _>(input, dst, 64)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(

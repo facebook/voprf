@@ -16,7 +16,7 @@ mod ristretto;
 use crate::errors::InternalError;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest};
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::{typenum::U1, ArrayLength, GenericArray};
 use rand::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
@@ -35,16 +35,20 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8>>(
+    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError>;
+    ) -> Result<Self, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8>>(
+    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
         input: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError>;
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// The type of base field scalars
     type Scalar: Zeroize

@@ -8,8 +8,10 @@
 use crate::errors::InternalError;
 use crate::serialization::i2osp;
 use alloc::vec::Vec;
+use core::ops::Add;
 use digest::{BlockInput, Digest};
 use generic_array::{
+    sequence::Concat,
     typenum::{Unsigned, U1, U2},
     ArrayLength, GenericArray,
 };
@@ -30,16 +32,19 @@ fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<H: BlockInput + Digest, D: ArrayLength<u8>>(
+pub fn expand_message_xmd<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
     msg: &[u8],
     dst: GenericArray<u8, D>,
     len_in_bytes: usize,
-) -> Result<Vec<u8>, InternalError> {
+) -> Result<Vec<u8>, InternalError>
+where
+    <D as Add<U1>>::Output: ArrayLength<u8>,
+{
     let ell = div_ceil(len_in_bytes, <H as Digest>::OutputSize::USIZE);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
-    let dst_prime = [dst.as_slice(), &i2osp::<U1>(dst.len())?].concat();
+    let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
     let msg_prime = [
