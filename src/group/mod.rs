@@ -26,7 +26,16 @@ pub(crate) mod p256;
     feature = "ristretto_fiat_u32",
     feature = "ristretto_simd",
 ))]
-#[cfg_attr(docsrs, doc(cfg(feature = "p256")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "ristretto_u64",
+        feature = "ristretto_u32",
+        feature = "ristretto_fiat_u64",
+        feature = "ristretto_fiat_u32",
+        feature = "ristretto_simd",
+    )))
+)]
 mod ristretto;
 
 use crate::errors::InternalError;
