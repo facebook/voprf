@@ -17,9 +17,12 @@ use crate::{
     },
 };
 use alloc::vec::Vec;
-use core::marker::PhantomData;
+use core::{array::IntoIter, marker::PhantomData};
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
+use generic_array::{
+    typenum::{Unsigned, U0},
+    ArrayLength, GenericArray,
+};
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //
@@ -218,9 +221,83 @@ pub(crate) fn i2osp<L: ArrayLength<u8>>(
     Ok(output)
 }
 
+pub(crate) struct Serialized<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> {
+    octet: GenericArray<u8, L1>,
+    input: Input<'a, L2>,
+}
+
+enum Input<'a, L: ArrayLength<u8>> {
+    Owned(GenericArray<u8, L>),
+    Borrowed(&'a [u8]),
+}
+
+impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serialized<'a, L1, L2> {
+    type Item = &'a [u8];
+
+    type IntoIter = IntoIter<&'a [u8], 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new([
+            &self.octet,
+            match self.input {
+                Input::Owned(ref bytes) => bytes,
+                Input::Borrowed(bytes) => bytes,
+            },
+        ])
+    }
+}
+
 // Computes I2OSP(len(input), max_bytes) || input
-pub(crate) fn serialize<L: ArrayLength<u8>>(input: &[u8]) -> Result<Vec<u8>, InternalError> {
-    Ok([&i2osp::<L>(input.len())?, input].concat())
+pub(crate) fn serialize<L: ArrayLength<u8>>(
+    input: &[u8],
+) -> Result<Serialized<L, U0>, InternalError> {
+    Ok(Serialized {
+        octet: i2osp::<L>(input.len())?,
+        input: Input::Borrowed(input),
+    })
+}
+
+// Variation of `serialize` that takes an owned `input`
+pub(crate) fn serialize_owned<L1: ArrayLength<u8>, L2: ArrayLength<u8>>(
+    input: GenericArray<u8, L2>,
+) -> Result<Serialized<'static, L1, L2>, InternalError> {
+    Ok(Serialized {
+        octet: i2osp::<L1>(input.len())?,
+        input: Input::Owned(input),
+    })
+}
+
+macro_rules! chain_name {
+    ($var:ident, $mod:ident) => {
+        $mod
+    };
+    ($var:ident) => {
+        $var
+    };
+}
+
+macro_rules! chain_skip {
+    ($var:ident, $feed:expr) => {
+        $feed
+    };
+    ($var:ident) => {
+        $var
+    };
+}
+
+macro_rules! chain {
+    (
+        $var:ident,
+        $item1:expr $(=> |$mod1:ident| $feed1:expr)?,
+        $($item2:expr $(=> |$mod2:ident| $feed2:expr)?),+$(,)?
+    ) => {
+        let chain_name!(__temp$(, $mod1)?) = $item1;
+        let $var = (chain_skip!(__temp$(, $feed1)?)).into_iter();
+        $(
+            let chain_name!(__temp$(, $mod2)?) = $item2;
+            let $var = $var.chain(chain_skip!(__temp$(, $feed2)?));
+        )+
+    };
 }
 
 #[cfg(test)]

@@ -54,14 +54,19 @@ impl Group for RistrettoPoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
-        input: &[u8],
+    fn hash_to_scalar<
+        'a,
+        H: BlockInput + Digest,
+        D: ArrayLength<u8> + Add<U1>,
+        I: IntoIterator<Item = &'a [u8]>,
+    >(
+        input: I,
         dst: GenericArray<u8, D>,
     ) -> Result<Self::Scalar, InternalError>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _, _>(Some(input), dst)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _, _>(input, dst)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
             uniform_bytes

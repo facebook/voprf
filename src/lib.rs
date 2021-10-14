@@ -427,6 +427,7 @@ extern crate alloc;
 mod impls;
 pub mod errors;
 pub mod group;
+#[macro_use]
 mod serialization;
 mod voprf;
 

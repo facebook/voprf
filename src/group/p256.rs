@@ -97,8 +97,13 @@ impl Group for ProjectivePoint {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.3
-    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
-        input: &[u8],
+    fn hash_to_scalar<
+        'a,
+        H: BlockInput + Digest,
+        D: ArrayLength<u8> + Add<U1>,
+        I: IntoIterator<Item = &'a [u8]>,
+    >(
+        input: I,
         dst: GenericArray<u8, D>,
     ) -> Result<Self::Scalar, InternalError>
     where
@@ -115,8 +120,7 @@ impl Group for ProjectivePoint {
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
-        let uniform_bytes =
-            super::expand::expand_message_xmd::<H, L, _, _>(Some(input).into_iter(), dst)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, L, _, _>(input, dst)?;
         let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
             .mod_floor(&N)
             .to_bytes_be()

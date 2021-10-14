@@ -57,8 +57,13 @@ pub trait Group:
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
-        input: &[u8],
+    fn hash_to_scalar<
+        'a,
+        H: BlockInput + Digest,
+        D: ArrayLength<u8> + Add<U1>,
+        I: IntoIterator<Item = &'a [u8]>,
+    >(
+        input: I,
         dst: GenericArray<u8, D>,
     ) -> Result<Self::Scalar, InternalError>
     where
