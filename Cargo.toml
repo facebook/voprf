@@ -49,7 +49,7 @@ hex = "0.4"
 json = "0.12"
 sha2 = "0.9"
 regex = "1"
-voprf = { path = "", default-features = false, features = ["ristretto_u64", "std"] }
+voprf = { path = "", default-features = false, features = ["std"] }
 
 [package.metadata.docs.rs]
 features = ["p256", "std"]
