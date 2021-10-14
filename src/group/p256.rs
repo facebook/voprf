@@ -185,7 +185,7 @@ impl Group for ProjectivePoint {
 ///
 /// `cmov`, `mod_floor` and `modpow` needs to be made constant-time, which
 /// will be supported after crypto-bigint is no longer experimental. See
-/// https://github.com/novifinancial/voprf/issues/13 for more context.
+/// <https://github.com/novifinancial/voprf/issues/13> for more context.
 
 #[allow(clippy::many_single_char_names)]
 fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
