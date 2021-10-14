@@ -118,11 +118,11 @@ macro_rules! impl_traits_for {
             }
         }
 
-        #[cfg(feature = "serialize")]
-        impl$(<$($gen$(: $bound1 $(+ $bound2)*)?),+>)? serde::Serialize for $name$(<$($gen),+>)? {
+        #[cfg(feature = "serde")]
+        impl$(<$($gen$(: $bound1 $(+ $bound2)*)?),+>)? serde_::Serialize for $name$(<$($gen),+>)? {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
-                S: serde::Serializer,
+                S: serde_::Serializer,
             {
                 if serializer.is_human_readable() {
                     serializer.serialize_str(&base64::encode(&self.serialize()))
@@ -132,13 +132,13 @@ macro_rules! impl_traits_for {
             }
         }
 
-        #[cfg(feature = "serialize")]
-        impl<'de, $($($gen$(: $bound1 $(+ $bound2)*)?),+)?> serde::Deserialize<'de> for $name$(<$($gen),+>)? {
+        #[cfg(feature = "serde")]
+        impl<'de, $($($gen$(: $bound1 $(+ $bound2)*)?),+)?> serde_::Deserialize<'de> for $name$(<$($gen),+>)? {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
-                D: serde::Deserializer<'de>,
+                D: serde_::Deserializer<'de>,
             {
-                use serde::de::Error;
+                use serde_::de::Error;
 
                 if deserializer.is_human_readable() {
                     let s = <&str>::deserialize(deserializer)?;

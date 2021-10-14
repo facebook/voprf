@@ -398,7 +398,7 @@
 //! - The `p256` feature enables using p256 as the underlying group for the [Group](group::Group) choice.
 //! Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
 //!
-//! - The `serialize` feature, enabled by default, provides convenience functions for serializing and deserializing with
+//! - The `serde` feature, enabled by default, provides convenience functions for serializing and deserializing with
 //! [serde](https://serde.rs/).
 //!
 //! - The backend features are re-exported from
