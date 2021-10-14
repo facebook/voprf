@@ -13,7 +13,7 @@
     feature = "ristretto255_fiat_u64",
     feature = "ristretto255_fiat_u32",
     feature = "ristretto255_simd",
-    eature = "p256",
+    feature = "p256",
 ))]
 mod expand;
 #[cfg(feature = "p256")]

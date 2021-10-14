@@ -60,7 +60,7 @@ jobs:
           -
           - --features ristretto255_u64
           - --features ristretto255_u32
-          - --features p256,ristretto255_u64
+          - --features p256
         frontend_feature:
           -
           - --features serialize
