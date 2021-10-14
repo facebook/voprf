@@ -14,11 +14,11 @@ resolver = "2"
 [features]
 default = ["u64_backend", "serialize"]
 p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
-std = ["curve25519-dalek/std", "getrandom", "rand/std", "rand/std_rng", "num-bigint/std", "num-integer/std", "num-traits/std"]
+std = ["getrandom", "rand/std", "rand/std_rng"]
 u64_backend = ["curve25519-dalek/u64_backend"]
 u32_backend = ["curve25519-dalek/u32_backend"]
 simd_backend = ["curve25519-dalek/simd_backend"]
-serialize = ["serde", "base64", "generic-array/serde", "curve25519-dalek/serde"]
+serialize = ["serde", "base64"]
 
 [dependencies]
 base64 = { version = "0.13", default-features = false, features = ["alloc"], optional = true }
@@ -33,9 +33,9 @@ num-traits = { version = "0.2", default-features = false, optional = true }
 once_cell = { version = "1", default-features = false, optional = true }
 p256_ = { package = "p256", version = "0.9", default-features = false, features = ["arithmetic", "zeroize"], optional = true }
 rand = { version = "0.8", default-features = false }
-serde = { version = "1", default-features = false, features = ["alloc", "derive"], optional = true }
+serde = { version = "1", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
-zeroize = { version = "1", features = ["zeroize_derive"] }
+zeroize = { version = "1", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"], optional = true }
