@@ -43,14 +43,13 @@ zeroize = { version = "1", default-features = false }
 generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
-rand = "0.8"
-sha2 = "0.9"
 proptest = "1"
+rand = "0.8"
 regex = "1"
 sha2 = "0.9"
-voprf = { path = "", default-features = false, features = ["std"] }
+voprf = { path = "", default-features = false, features = ["std", "danger"] }
 
 [package.metadata.docs.rs]
-features = ["p256", "std"]
+features = ["danger", "p256", "std"]
 targets = []
 rustdoc-args = ["--cfg", "docsrs"]

@@ -192,19 +192,10 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         }
     }
 
-    #[cfg(any(feature = "internal", test))]
-    /// Only used for test functions
+    #[cfg(feature = "danger")]
+    /// Exposes the blind group element
     pub fn get_blind(&self) -> <G as Group>::Scalar {
         self.blind
-    }
-
-    #[cfg(any(feature = "internal", test))]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![
-            self.data.clone(),
-            <G as Group>::scalar_as_bytes(self.blind).to_vec(),
-        ]
     }
 }
 
@@ -330,16 +321,6 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     pub fn get_blind(&self) -> <G as Group>::Scalar {
         self.blind
     }
-
-    #[cfg(test)]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![
-            self.data.clone(),
-            <G as Group>::scalar_as_bytes(self.blind).to_vec(),
-            self.blinded_element.to_arr().to_vec(),
-        ]
-    }
 }
 
 impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
@@ -404,12 +385,6 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
                 hash: PhantomData,
             },
         })
-    }
-
-    #[cfg(test)]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![<G as Group>::scalar_as_bytes(self.sk).to_vec()]
     }
 }
 
@@ -523,15 +498,6 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     pub fn get_public_key(&self) -> G {
         self.pk
     }
-
-    #[cfg(test)]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![
-            <G as Group>::scalar_as_bytes(self.sk).to_vec(),
-            self.pk.to_arr().to_vec(),
-        ]
-    }
 }
 
 /////////////////////////
@@ -598,23 +564,21 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
         }
     }
 
-    #[cfg(test)]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![self.value.to_arr().to_vec()]
-    }
-
-    #[cfg(feature = "internal")]
-    /// Unsafely set the value. This should be used with caution, since
+    #[cfg(feature = "danger")]
+    /// Creates a [BlindedElement] from a raw group element.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since
     /// it does not perform any checks on the validity of the value itself!
-    pub fn set_value_unsafe(value: G) -> Self {
+    pub fn from_value_unchecked(value: G) -> Self {
         Self {
             value,
             hash: PhantomData,
         }
     }
 
-    #[cfg(feature = "internal")]
+    #[cfg(feature = "danger")]
     /// Exposes the internal value
     pub fn value(&self) -> G {
         self.value
@@ -630,37 +594,24 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
         }
     }
 
-    #[cfg(any(feature = "internal", test))]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![self.value.to_arr().to_vec()]
-    }
-
-    #[cfg(feature = "internal")]
-    /// Unsafely set the value. This should be used with caution, since
+    #[cfg(feature = "danger")]
+    /// Creates an [EvaluationElement] from a raw group element.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since
     /// it does not perform any checks on the validity of the value itself!
-    pub fn set_value_unsafe(value: G) -> Self {
+    pub fn from_value_unchecked(value: G) -> Self {
         Self {
             value,
             hash: PhantomData,
         }
     }
 
-    #[cfg(feature = "internal")]
+    #[cfg(feature = "danger")]
     /// Exposes the internal value
     pub fn value(&self) -> G {
         self.value
-    }
-}
-
-impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
-    #[cfg(test)]
-    /// Only used for testing zeroize
-    pub fn as_ptrs(&self) -> Vec<Vec<u8>> {
-        alloc::vec![
-            <G as Group>::scalar_as_bytes(self.c_scalar).to_vec(),
-            <G as Group>::scalar_as_bytes(self.s_scalar).to_vec(),
-        ]
     }
 }
 
@@ -1085,15 +1036,11 @@ mod tests {
 
         let mut state = client_blind_result.state;
         Zeroize::zeroize(&mut state);
-        for bytes in state.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(state.serialize().iter().all(|&x| x == 0));
 
         let mut message = client_blind_result.message;
         Zeroize::zeroize(&mut message);
-        for bytes in message.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
     fn zeroize_verifiable_client<G: Group, H: BlockInput + Digest>() {
@@ -1104,15 +1051,11 @@ mod tests {
 
         let mut state = client_blind_result.state;
         Zeroize::zeroize(&mut state);
-        for bytes in state.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(state.serialize().iter().all(|&x| x == 0));
 
         let mut message = client_blind_result.message;
         Zeroize::zeroize(&mut message);
-        for bytes in message.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
     fn zeroize_base_server<G: Group, H: BlockInput + Digest>() {
@@ -1128,15 +1071,11 @@ mod tests {
 
         let mut state = server;
         Zeroize::zeroize(&mut state);
-        for bytes in state.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(state.serialize().iter().all(|&x| x == 0));
 
         let mut message = server_result.message;
         Zeroize::zeroize(&mut message);
-        for bytes in message.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
     fn zeroize_verifiable_server<G: Group, H: BlockInput + Digest>() {
@@ -1152,21 +1091,15 @@ mod tests {
 
         let mut state = server;
         Zeroize::zeroize(&mut state);
-        for bytes in state.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(state.serialize().iter().all(|&x| x == 0));
 
         let mut message = server_result.message;
         Zeroize::zeroize(&mut message);
-        for bytes in message.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(message.serialize().iter().all(|&x| x == 0));
 
         let mut proof = server_result.proof;
         Zeroize::zeroize(&mut proof);
-        for bytes in proof.as_ptrs() {
-            assert!(bytes.iter().all(|&x| x == 0));
-        }
+        assert!(proof.serialize().iter().all(|&x| x == 0));
     }
 
     #[test]
