@@ -18,7 +18,7 @@ use crate::errors::InternalError;
 use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
 use digest::{BlockInput, Digest};
-use generic_array::typenum::{U1, U32, U33};
+use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
@@ -32,8 +32,9 @@ use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
 use rand::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
+// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
-pub const L: usize = 48;
+pub type L = U48;
 
 impl Group for ProjectivePoint {
     const SUITE_ID: usize = 0x0003;
@@ -72,11 +73,12 @@ impl Group for ProjectivePoint {
         // `hash_to_curve` calls `hash_to_field` with a `count` of `2`
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `hash_to_field` calls `expand_message` with a `len_in_bytes` of `count * L`
-        let uniform_bytes = super::expand::expand_message_xmd::<H, _>(msg, dst, 2 * L)?;
+        let uniform_bytes =
+            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output, _>(msg, dst)?;
 
         // hash to curve
-        let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L], &A, &B, &P, &Z);
-        let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L..], &A, &B, &P, &Z);
+        let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L::USIZE], &A, &B, &P, &Z);
+        let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L::USIZE..], &A, &B, &P, &Z);
 
         // convert to `p256` types
         let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
@@ -112,7 +114,7 @@ impl Group for ProjectivePoint {
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
-        let uniform_bytes = super::expand::expand_message_xmd::<H, _>(input, dst, L)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, L, _>(input, dst)?;
         let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
             .mod_floor(&N)
             .to_bytes_be()
@@ -429,6 +431,7 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use generic_array::typenum::U96;
 
     struct Params {
         msg: &'static str,
@@ -532,10 +535,9 @@ mod tests {
         let dst = GenericArray::from(*b"QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_");
 
         for tv in test_vectors {
-            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256, _>(
+            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256, U96, _>(
                 tv.msg.as_bytes(),
                 dst,
-                96,
             )
             .unwrap();
 

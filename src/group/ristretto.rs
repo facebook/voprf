@@ -17,7 +17,7 @@ use curve25519_dalek::{
 };
 use digest::{BlockInput, Digest};
 use generic_array::{
-    typenum::{U1, U32},
+    typenum::{U1, U32, U64},
     ArrayLength, GenericArray,
 };
 use rand::{CryptoRng, RngCore};
@@ -35,7 +35,7 @@ impl Group for RistrettoPoint {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, _>(msg, dst, 64)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(msg, dst)?;
 
         Ok(RistrettoPoint::from_uniform_bytes(
             uniform_bytes
@@ -54,7 +54,7 @@ impl Group for RistrettoPoint {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, _>(input, dst, 64)?;
+        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _>(input, dst)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
             uniform_bytes

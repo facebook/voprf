@@ -32,21 +32,25 @@ fn xor(x: &[u8], y: &[u8]) -> Result<Vec<u8>, InternalError> {
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
+pub fn expand_message_xmd<
+    H: BlockInput + Digest,
+    L: ArrayLength<u8>,
+    D: ArrayLength<u8> + Add<U1>,
+>(
     msg: &[u8],
     dst: GenericArray<u8, D>,
-    len_in_bytes: usize,
-) -> Result<Vec<u8>, InternalError>
+) -> Result<GenericArray<u8, L>, InternalError>
 where
     <D as Add<U1>>::Output: ArrayLength<u8>,
 {
-    let ell = div_ceil(len_in_bytes, <H as Digest>::OutputSize::USIZE);
+    let digest_len = <H as Digest>::OutputSize::USIZE;
+    let ell = div_ceil(L::USIZE, digest_len);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
     let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
-    let l_i_b_str = i2osp::<U2>(len_in_bytes)?;
+    let l_i_b_str = i2osp::<U2>(L::USIZE)?;
     let msg_0 = i2osp::<U1>(0)?;
     let msg_prime = [&z_pad, msg, &l_i_b_str, &msg_0, &dst_prime];
 
@@ -68,23 +72,29 @@ where
     h.update(&dst_prime);
     b.push(h.finalize_reset()); // b[1]
 
-    let mut uniform_bytes: Vec<u8> = Vec::new();
-    uniform_bytes.extend_from_slice(&b[1]);
+    let mut uniform_bytes = GenericArray::default();
+    uniform_bytes[..digest_len.min(L::USIZE)].copy_from_slice(&b[1][..digest_len.min(L::USIZE)]);
 
     for i in 2..(ell + 1) {
         h.update(xor(&b[0], &b[i - 1])?);
         h.update(i2osp::<U1>(i)?);
         h.update(&dst_prime);
         b.push(h.finalize_reset()); // b[i]
-        uniform_bytes.extend_from_slice(&b[i]);
+        let dest_start = digest_len * (i - 1);
+        let dest_end = (dest_start + digest_len).min(L::USIZE);
+        let src_end = digest_len.min(L::USIZE - dest_start);
+        uniform_bytes[dest_start..dest_end].copy_from_slice(&b[i][..src_end]);
     }
 
-    Ok(uniform_bytes[..len_in_bytes].to_vec())
+    Ok(uniform_bytes)
 }
 
 #[cfg(test)]
 mod tests {
-    use generic_array::GenericArray;
+    use generic_array::{
+        typenum::{U128, U32},
+        GenericArray,
+    };
 
     struct Params {
         msg: &'static str,
@@ -196,11 +206,13 @@ mod tests {
         let dst = GenericArray::from(*b"QUUX-V01-CS02-with-expander");
 
         for tv in test_vectors {
-            let uniform_bytes = super::expand_message_xmd::<sha2::Sha256, _>(
-                tv.msg.as_bytes(),
-                dst,
-                tv.len_in_bytes,
-            )
+            let uniform_bytes = match tv.len_in_bytes {
+                32 => super::expand_message_xmd::<sha2::Sha256, U32, _>(tv.msg.as_bytes(), dst)
+                    .map(|bytes| bytes.to_vec()),
+                128 => super::expand_message_xmd::<sha2::Sha256, U128, _>(tv.msg.as_bytes(), dst)
+                    .map(|bytes| bytes.to_vec()),
+                _ => unimplemented!(),
+            }
             .unwrap();
             assert_eq!(tv.uniform_bytes, hex::encode(uniform_bytes));
         }
