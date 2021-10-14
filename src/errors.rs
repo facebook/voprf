@@ -38,5 +38,4 @@ pub enum InternalError {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl Error for InternalError {}

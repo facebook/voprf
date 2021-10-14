@@ -23,6 +23,13 @@ use generic_array::{
 use rand_core::{CryptoRng, RngCore};
 
 /// The implementation of such a subgroup for Ristretto
+#[cfg(any(
+    feature = "ristretto255_u64",
+    feature = "ristretto255_u32",
+    feature = "ristretto255_fiat_u64",
+    feature = "ristretto255_fiat_u32",
+    feature = "ristretto255_simd",
+))]
 impl Group for RistrettoPoint {
     const SUITE_ID: usize = 0x0001;
 

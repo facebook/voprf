@@ -119,7 +119,6 @@ macro_rules! impl_traits_for {
         }
 
         #[cfg(feature = "serialize")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
         impl$(<$($gen$(: $bound1 $(+ $bound2)*)?),+>)? serde::Serialize for $name$(<$($gen),+>)? {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
@@ -134,7 +133,6 @@ macro_rules! impl_traits_for {
         }
 
         #[cfg(feature = "serialize")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "serialize")))]
         impl<'de, $($($gen$(: $bound1 $(+ $bound2)*)?),+)?> serde::Deserialize<'de> for $name$(<$($gen),+>)? {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where

@@ -36,6 +36,7 @@ use subtle::{Choice, ConditionallySelectable};
 // `L: 48`
 pub type L = U48;
 
+#[cfg(feature = "p256")]
 impl Group for ProjectivePoint {
     const SUITE_ID: usize = 0x0003;
 
