@@ -12,12 +12,12 @@ readme = "README.md"
 resolver = "2"
 
 [features]
-default = ["rand", "ristretto_u64", "serialize"]
-ristretto_u64 = ["curve25519-dalek/u64_backend"]
-ristretto_u32 = ["curve25519-dalek/u32_backend"]
-ristretto_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
-ristretto_fiat_u32 = ["curve25519-dalek/fiat_u32_backend"]
-ristretto_simd = ["curve25519-dalek/simd_backend"]
+default = ["rand", "ristretto255_u64", "serialize"]
+ristretto255_u64 = ["curve25519-dalek/u64_backend"]
+ristretto255_u32 = ["curve25519-dalek/u32_backend"]
+ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend"]
+ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend"]
+ristretto255_simd = ["curve25519-dalek/simd_backend"]
 p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
 std = ["getrandom", "rand/std", "rand/std_rng"]
 serialize = ["serde", "base64"]

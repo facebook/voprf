@@ -13,9 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         backend_feature:
-          - ristretto_u64
-          - ristretto_u32
-          - p256,ristretto_u64
+          - ristretto255_u64
+          - ristretto255_u32
+          - p256,ristretto255_u64
         frontend_feature:
           - serialize
         toolchain:
@@ -58,9 +58,9 @@ jobs:
           - thumbv6m-none-eabi
         backend_feature:
           -
-          - --features ristretto_u64
-          - --features ristretto_u32
-          - --features p256,ristretto_u64
+          - --features ristretto255_u64
+          - --features ristretto255_u32
+          - --features p256,ristretto255_u64
         frontend_feature:
           -
           - --features serialize

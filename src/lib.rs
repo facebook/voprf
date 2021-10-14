@@ -405,12 +405,12 @@
 //!
 //! - The backend features are re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
-//! the corresponding backend for the curve arithmetic used. The `ristretto_u64` feature is included as the default.
-//! Other features are mapped as `ristretto_u32`, `ristretto_fiat_u64` and `ristretto_fiat_u32`.
+//! the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
+//! Other features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and `ristretto255_fiat_u32`.
 //!
-//! - The `ristretto_simd` feature is re-exported from
+//! - The `ristretto255_simd` feature is re-exported from
 //! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
-//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto_u64` and requires Rust nightly.
+//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` and requires Rust nightly.
 
 #![deny(unsafe_code)]
 #![warn(clippy::cargo, missing_docs)]
