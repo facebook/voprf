@@ -282,7 +282,7 @@ macro_rules! chain_skip {
         $feed
     };
     ($var:ident) => {
-        $var
+        &$var
     };
 }
 
