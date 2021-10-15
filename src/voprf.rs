@@ -10,7 +10,7 @@
 use crate::{
     errors::InternalError,
     group::Group,
-    serialization::{i2osp, serialize, serialize_owned},
+    util::{i2osp, serialize, serialize_owned},
 };
 use alloc::vec::Vec;
 use core::convert::TryInto;

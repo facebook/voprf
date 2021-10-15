@@ -6,7 +6,7 @@
 // of this source tree.
 
 use crate::errors::InternalError;
-use crate::serialization::i2osp;
+use crate::util::i2osp;
 use core::ops::Add;
 use digest::{BlockInput, Digest};
 use generic_array::{
