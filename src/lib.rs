@@ -425,6 +425,8 @@ extern crate alloc;
 
 #[macro_use]
 mod impls;
+#[macro_use]
+mod util;
 pub mod errors;
 pub mod group;
 mod serialization;

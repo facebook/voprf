@@ -19,7 +19,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
+use generic_array::typenum::Unsigned;
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //
@@ -188,98 +188,5 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
             value: G::from_element_slice(input)?,
             hash: PhantomData,
         })
-    }
-}
-
-//////////////////////
-// Helper Functions //
-// ================ //
-//////////////////////
-
-// Corresponds to the I2OSP() function from RFC8017
-pub(crate) fn i2osp<L: ArrayLength<u8>>(
-    input: usize,
-) -> Result<GenericArray<u8, L>, InternalError> {
-    const SIZEOF_USIZE: usize = core::mem::size_of::<usize>();
-
-    // Check if input >= 256^length
-    if (SIZEOF_USIZE as u32 - input.leading_zeros() / 8) > L::U32 {
-        return Err(InternalError::SerializationError);
-    }
-
-    if L::USIZE <= SIZEOF_USIZE {
-        return Ok(GenericArray::clone_from_slice(
-            &input.to_be_bytes()[SIZEOF_USIZE - L::USIZE..],
-        ));
-    }
-
-    let mut output = GenericArray::default();
-    output[L::USIZE - SIZEOF_USIZE..L::USIZE].copy_from_slice(&input.to_be_bytes());
-    Ok(output)
-}
-
-// Computes I2OSP(len(input), max_bytes) || input
-pub(crate) fn serialize<L: ArrayLength<u8>>(input: &[u8]) -> Result<Vec<u8>, InternalError> {
-    Ok([&i2osp::<L>(input.len())?, input].concat())
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use super::*;
-    use curve25519_dalek::ristretto::RistrettoPoint;
-    use generic_array::typenum::{U1, U2};
-    use proptest::{collection::vec, prelude::*};
-    use sha2::Sha512;
-
-    // Test the error condition for I2OSP
-    #[test]
-    fn test_i2osp_err_check() {
-        assert!(i2osp::<U1>(0).is_ok());
-
-        assert!(i2osp::<U1>(255).is_ok());
-        assert!(i2osp::<U1>(256).is_err());
-        assert!(i2osp::<U1>(257).is_err());
-
-        assert!(i2osp::<U2>(256 * 256 - 1).is_ok());
-        assert!(i2osp::<U2>(256 * 256).is_err());
-        assert!(i2osp::<U2>(256 * 256 + 1).is_err());
-    }
-
-    proptest! {
-        #[test]
-        fn test_nocrash_nonverifiable_client(bytes in vec(any::<u8>(), 0..200)) {
-            NonVerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_verifiable_client(bytes in vec(any::<u8>(), 0..200)) {
-            VerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_nonverifiable_server(bytes in vec(any::<u8>(), 0..200)) {
-            NonVerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_verifiable_server(bytes in vec(any::<u8>(), 0..200)) {
-            VerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
-            BlindedElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
-            EvaluationElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
-        #[test]
-        fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
-            Proof::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
-        }
-
     }
 }

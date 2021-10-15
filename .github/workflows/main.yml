@@ -100,7 +100,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         with:
           command: doc
-          args: --no-deps --document-private-items
+          args: --no-deps --document-private-items --features std,p256
 
 
   format:

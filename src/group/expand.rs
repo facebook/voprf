@@ -6,7 +6,7 @@
 // of this source tree.
 
 use crate::errors::InternalError;
-use crate::serialization::i2osp;
+use crate::util::i2osp;
 use core::ops::Add;
 use digest::{BlockInput, Digest};
 use generic_array::{
@@ -28,11 +28,13 @@ fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> Ge
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
 pub fn expand_message_xmd<
+    'a,
     H: BlockInput + Digest,
     L: ArrayLength<u8>,
+    M: IntoIterator<Item = &'a [u8]>,
     D: ArrayLength<u8> + Add<U1>,
 >(
-    msg: &[u8],
+    msg: M,
     dst: GenericArray<u8, D>,
 ) -> Result<GenericArray<u8, L>, InternalError>
 where
@@ -46,19 +48,20 @@ where
     let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(L::USIZE)?;
-    let msg_0 = i2osp::<U1>(0)?;
-    let msg_prime =
-        core::array::IntoIter::new([z_pad.as_slice(), msg, &l_i_b_str, &msg_0, &dst_prime]);
 
     let mut h = H::new();
+
+    // msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
+    h.update(z_pad);
+    for bytes in msg {
+        h.update(bytes)
+    }
+    h.update(l_i_b_str);
+    h.update(i2osp::<U1>(0)?);
+    h.update(&dst_prime);
+
     // b[0]
-    let b_0 = msg_prime
-        .into_iter()
-        .fold(&mut h, |h, msg| {
-            h.update(msg);
-            h
-        })
-        .finalize_reset();
+    let b_0 = h.finalize_reset();
     let mut b_i = GenericArray::default();
 
     let mut uniform_bytes = GenericArray::default();
@@ -192,10 +195,16 @@ mod tests {
 
         for tv in test_vectors {
             let uniform_bytes = match tv.len_in_bytes {
-                32 => super::expand_message_xmd::<sha2::Sha256, U32, _>(tv.msg.as_bytes(), dst)
-                    .map(|bytes| bytes.to_vec()),
-                128 => super::expand_message_xmd::<sha2::Sha256, U128, _>(tv.msg.as_bytes(), dst)
-                    .map(|bytes| bytes.to_vec()),
+                32 => super::expand_message_xmd::<sha2::Sha256, U32, _, _>(
+                    Some(tv.msg.as_bytes()),
+                    dst,
+                )
+                .map(|bytes| bytes.to_vec()),
+                128 => super::expand_message_xmd::<sha2::Sha256, U128, _, _>(
+                    Some(tv.msg.as_bytes()),
+                    dst,
+                )
+                .map(|bytes| bytes.to_vec()),
                 _ => unimplemented!(),
             }
             .unwrap();
