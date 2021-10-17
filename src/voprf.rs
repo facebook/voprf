@@ -165,6 +165,32 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         })
     }
 
+    #[cfg(feature = "danger")]
+    /// Computes the first step for the multiplicative blinding version of DH-OPRF,
+    /// taking a blinding factor scalar as input instead of sampling from an RNG.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since
+    /// it does not perform any checks on the validity of the blinding factor!
+    pub fn deterministic_blind_unchecked(
+        input: Vec<u8>,
+        blind: <G as Group>::Scalar,
+    ) -> Result<NonVerifiableClientBlindResult<G, H>, InternalError> {
+        let blinded_element = deterministic_blind_unchecked::<G, H>(&input, &blind, Mode::Base)?;
+        Ok(NonVerifiableClientBlindResult {
+            state: Self {
+                data: input,
+                blind,
+                hash: PhantomData,
+            },
+            message: BlindedElement {
+                value: blinded_element,
+                hash: PhantomData,
+            },
+        })
+    }
+
     /// Computes the third step for the multiplicative blinding version of DH-OPRF, in which
     /// the client unblinds the server's message.
     pub fn finalize(
@@ -207,6 +233,34 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     ) -> Result<VerifiableClientBlindResult<G, H>, InternalError> {
         let (blind, blinded_element) =
             blind::<G, H, _>(&input, blinding_factor_rng, Mode::Verifiable)?;
+        Ok(VerifiableClientBlindResult {
+            state: Self {
+                data: input,
+                blind,
+                blinded_element,
+                hash: PhantomData,
+            },
+            message: BlindedElement {
+                value: blinded_element,
+                hash: PhantomData,
+            },
+        })
+    }
+
+    #[cfg(feature = "danger")]
+    /// Computes the first step for the multiplicative blinding version of DH-OPRF,
+    /// taking a blinding factor scalar as input instead of sampling from an RNG.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since
+    /// it does not perform any checks on the validity of the blinding factor!
+    pub fn deterministic_blind_unchecked(
+        input: Vec<u8>,
+        blind: <G as Group>::Scalar,
+    ) -> Result<VerifiableClientBlindResult<G, H>, InternalError> {
+        let blinded_element =
+            deterministic_blind_unchecked::<G, H>(&input, &blind, Mode::Verifiable)?;
         Ok(VerifiableClientBlindResult {
             state: Self {
                 data: input,
@@ -303,7 +357,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
     #[cfg(test)]
     /// Only used for test functions
-    pub fn from_data_and_blind(
+    pub fn from_data_and_blind_and_element(
         data: &[u8],
         blind: <G as Group>::Scalar,
         blinded_element: G,
@@ -622,10 +676,20 @@ fn blind<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
 ) -> Result<(<G as Group>::Scalar, G), InternalError> {
     // Choose a random scalar that must be non-zero
     let blind = <G as Group>::random_nonzero_scalar(blinding_factor_rng);
+    let blinded_element = deterministic_blind_unchecked::<G, H>(input, &blind, mode)?;
+    Ok((blind, blinded_element))
+}
+
+// Inner function for blind that assumes that the blinding factor has already been chosen,
+// and therefore takes it as input. Does not check if the blinding factor is non-zero.
+fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
+    input: &[u8],
+    blind: &<G as Group>::Scalar,
+    mode: Mode,
+) -> Result<G, InternalError> {
     let dst = GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
     let hashed_point = <G as Group>::hash_to_curve::<H, _>(input, dst)?;
-    let blinded_element = hashed_point * &blind;
-    Ok((blind, blinded_element))
+    Ok(hashed_point * blind)
 }
 
 fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, I>(
