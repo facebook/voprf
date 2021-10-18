@@ -173,9 +173,12 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let client_result =
-                NonVerifiableClient::<G, H>::blind(parameters.input[i].clone(), &mut rng)?;
+            let blind =
+                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+            let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
+                parameters.input[i].clone(),
+                blind,
+            )?;
 
             assert_eq!(
                 &parameters.blind[i],
@@ -196,9 +199,12 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let mut rng = CycleRng::new(parameters.blind[i].to_vec());
-            let client_blind_result =
-                VerifiableClient::<G, H>::blind(parameters.input[i].clone(), &mut rng)?;
+            let blind =
+                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+            let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
+                parameters.input[i].clone(),
+                blind,
+            )?;
 
             assert_eq!(
                 &parameters.blind[i],
@@ -291,7 +297,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<G, H>::from_data_and_blind(
+            let client = VerifiableClient::<G, H>::from_data_and_blind_and_element(
                 &parameters.input[i],
                 <G as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
                     &parameters.blind[i],
