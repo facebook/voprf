@@ -1,6 +1,6 @@
 [package]
 name = "voprf"
-version = "0.1.0"
+version = "0.2.0"
 description = "An implementation of a verifiable oblivious pseudorandom function (VOPRF)"
 authors = ["Kevin Lewi <klewi@fb.com>"]
 repository = "https://github.com/novifinancial/voprf/"
