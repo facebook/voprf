@@ -74,9 +74,9 @@ macro_rules! impl_traits_for {
             |@$(#$attr1:)? $type1|, $(|@$(#$attr2:)? $type2|,)*
             core::fmt::Debug => {
                 fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                    f.debug_struct("$name")
-                    .field("$field1", &self.$field1)
-                    $(.field("$field2", &self.$field2))*
+                    f.debug_struct(core::stringify!($name))
+                    .field(core::stringify!($field1), &self.$field1)
+                    $(.field(core::stringify!($field2), &self.$field2))*
                     .finish()
                 }
             },
