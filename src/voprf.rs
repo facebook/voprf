@@ -36,7 +36,7 @@ static STR_SEED: &[u8; 5] = b"Seed-";
 static STR_CONTEXT: &[u8] = b"Context-";
 static STR_COMPOSITE: &[u8; 10] = b"Composite-";
 static STR_CHALLENGE: &[u8; 10] = b"Challenge-";
-static STR_VOPRF: &[u8; 8] = b"VOPRF07-";
+static STR_VOPRF: &[u8; 8] = b"VOPRF08-";
 
 /// Determines the mode of operation (either base mode or
 /// verifiable mode)
@@ -885,7 +885,7 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
 }
 
 /// Generates the contextString parameter as defined in
-/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html>
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
 fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, InternalError> {
     Ok(GenericArray::from(*STR_VOPRF)
         .concat(i2osp::<U1>(mode as usize)?)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 (October 25, 2021)
+
+* Updated to be in sync with draft-irtf-cfrg-voprf-08
+
 ## 0.2.0 (October 18, 2021)
 
 * Removed the CipherSuite interface

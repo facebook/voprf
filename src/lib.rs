@@ -8,7 +8,7 @@
 //! An implementation of a verifiable oblivious pseudorandom function (VOPRF)
 //!
 //! Note: This implementation is in sync with
-//! [draft-irtf-cfrg-voprf-07](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html),
+//! [draft-irtf-cfrg-voprf-08](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html),
 //! but this specification is subject to change, until the final version
 //! published by the IETF.
 //!

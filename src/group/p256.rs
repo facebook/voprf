@@ -95,8 +95,7 @@ impl Group for ProjectivePoint {
         Ok(p0 + p1)
     }
 
-    // Implements the `HashToScalar()` function from
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.3
+    // Implements the `HashToScalar()` function
     fn hash_to_scalar<
         'a,
         H: BlockInput + Digest,
