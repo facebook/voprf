@@ -29,7 +29,7 @@ pub(crate) fn i2osp<L: ArrayLength<u8>>(
     }
 
     let mut output = GenericArray::default();
-    output[L::USIZE - SIZEOF_USIZE..L::USIZE].copy_from_slice(&input.to_be_bytes());
+    output[L::USIZE - SIZEOF_USIZE..].copy_from_slice(&input.to_be_bytes());
     Ok(output)
 }
 

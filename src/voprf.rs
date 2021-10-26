@@ -29,14 +29,14 @@ use subtle::ConstantTimeEq;
 // ========= //
 ///////////////
 
-static STR_HASH_TO_SCALAR: &[u8; 13] = b"HashToScalar-";
-static STR_HASH_TO_GROUP: &[u8; 12] = b"HashToGroup-";
-static STR_FINALIZE: &[u8; 9] = b"Finalize-";
-static STR_SEED: &[u8; 5] = b"Seed-";
-static STR_CONTEXT: &[u8] = b"Context-";
-static STR_COMPOSITE: &[u8; 10] = b"Composite-";
-static STR_CHALLENGE: &[u8; 10] = b"Challenge-";
-static STR_VOPRF: &[u8; 8] = b"VOPRF08-";
+static STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
+static STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
+static STR_FINALIZE: [u8; 9] = *b"Finalize-";
+static STR_SEED: [u8; 5] = *b"Seed-";
+static STR_CONTEXT: [u8; 8] = *b"Context-";
+static STR_COMPOSITE: [u8; 10] = *b"Composite-";
+static STR_CHALLENGE: [u8; 10] = *b"Challenge-";
+static STR_VOPRF: [u8; 8] = *b"VOPRF08-";
 
 /// Determines the mode of operation (either base mode or
 /// verifiable mode)
@@ -401,7 +401,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
         let dst =
-            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
+            GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
         let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
         Ok(Self {
             sk,
@@ -424,12 +424,12 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     ) -> Result<NonVerifiableServerEvaluateResult<G, H>, InternalError> {
         chain!(
             context,
-            STR_CONTEXT => |x| Some(x),
+            STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Base)? => |x| Some(x.as_slice()),
             serialize::<U2>(metadata.unwrap_or_default())?,
         );
         let dst =
-            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
+            GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
         let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
         let t = self.sk + &m;
         let evaluation_element = blinded_element.value * &G::scalar_invert(&t);
@@ -467,7 +467,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
-        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
         let pk = G::base_point() * &sk;
@@ -513,11 +513,11 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
     {
         chain!(context,
-            STR_CONTEXT => |x| Some(x),
+            STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
             serialize::<U2>(metadata.unwrap_or_default())?,
         );
-        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
         let t = self.sk + &m;
@@ -687,7 +687,7 @@ fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
     blind: &<G as Group>::Scalar,
     mode: Mode,
 ) -> Result<G, InternalError> {
-    let dst = GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
+    let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
     let hashed_point = <G as Group>::hash_to_curve::<H, _>(input, dst)?;
     Ok(hashed_point * blind)
 }
@@ -703,13 +703,13 @@ where
     <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
 {
     chain!(context,
-        STR_CONTEXT => |x| Some(x),
+        STR_CONTEXT => |x| Some(x.as_ref()),
         get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
         serialize::<U2>(info)?,
     );
 
     let dst =
-        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
     let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
 
     let g = G::base_point();
@@ -745,7 +745,7 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     let t3 = m * &r;
 
     let challenge_dst =
-        GenericArray::from(*STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
         serialize_owned::<U2, _>(b.to_arr())?,
@@ -757,7 +757,7 @@ fn generate_proof<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     );
 
     let hash_to_scalar_dst =
-        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
 
     let c_scalar = G::hash_to_scalar::<H, _, _>(h2_input, hash_to_scalar_dst)?;
     let s_scalar = r - &(c_scalar * &k);
@@ -782,7 +782,7 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
     let challenge_dst =
-        GenericArray::from(*STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
         serialize_owned::<U2, _>(b.to_arr())?,
@@ -794,7 +794,7 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     );
 
     let hash_to_scalar_dst =
-        GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable)?);
     let c = G::hash_to_scalar::<H, _, _>(h2_input, hash_to_scalar_dst)?;
 
     match c.ct_eq(&proof.c_scalar).into() {
@@ -813,7 +813,7 @@ fn finalize_after_unblind<
     info: &[u8],
     mode: Mode,
 ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError> {
-    let finalize_dst = GenericArray::from(*STR_FINALIZE).concat(get_context_string::<G>(mode)?);
+    let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
     inputs_and_unblinded_elements
         .map(|(input, unblinded_element)| {
@@ -842,9 +842,9 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
         return Err(InternalError::MismatchedLengthsForCompositeInputs);
     }
 
-    let seed_dst = GenericArray::from(*STR_SEED).concat(get_context_string::<G>(Mode::Verifiable)?);
+    let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<G>(Mode::Verifiable)?);
     let composite_dst =
-        GenericArray::from(*STR_COMPOSITE).concat(get_context_string::<G>(Mode::Verifiable)?);
+        GenericArray::from(STR_COMPOSITE).concat(get_context_string::<G>(Mode::Verifiable)?);
 
     chain!(
         h1_input,
@@ -866,7 +866,7 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
             serialize_owned::<U2, _>(d.value.to_arr())?,
             serialize_owned::<U2, _>(composite_dst)?,
         );
-        let dst = GenericArray::from(*STR_HASH_TO_SCALAR)
+        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let di = G::hash_to_scalar::<H, _, _>(h2_input, dst)?;
         m = c.value * &di + &m;
@@ -887,7 +887,7 @@ fn compute_composites<G: Group, H: BlockInput + Digest>(
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
 fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, InternalError> {
-    Ok(GenericArray::from(*STR_VOPRF)
+    Ok(GenericArray::from(STR_VOPRF)
         .concat(i2osp::<U1>(mode as usize)?)
         .concat(i2osp::<U2>(G::SUITE_ID)?))
 }
@@ -912,17 +912,17 @@ mod tests {
         mode: Mode,
     ) -> GenericArray<u8, <H as Digest>::OutputSize> {
         let dst =
-            GenericArray::from(*STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode).unwrap());
+            GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode).unwrap());
         let point = G::hash_to_curve::<H, _>(input, dst).unwrap();
 
         chain!(context,
-            STR_CONTEXT => |x| Some(x),
+            STR_CONTEXT => |x| Some(x.as_slice()),
             get_context_string::<G>(mode).unwrap() => |x| Some(x.as_slice()),
             serialize::<U2>(info).unwrap(),
         );
 
         let dst =
-            GenericArray::from(*STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode).unwrap());
+            GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode).unwrap());
         let m = <G as Group>::hash_to_scalar::<H, _, _>(context, dst).unwrap();
 
         let res = point * &<G as Group>::scalar_invert(&(key + &m));
@@ -1083,7 +1083,7 @@ mod tests {
             )
             .unwrap();
 
-        let dst = GenericArray::from(*STR_HASH_TO_GROUP)
+        let dst = GenericArray::from(STR_HASH_TO_GROUP)
             .concat(get_context_string::<G>(Mode::Base).unwrap());
         let point = G::hash_to_curve::<H, _>(&input, dst).unwrap();
         let res2 = finalize_after_unblind::<G, H, _>(

@@ -20,7 +20,7 @@ fn parse_ciphersuites(input: &str) -> String {
     for caps in re.captures_iter(input) {
         let ciphersuite = format!(
             "\"{}\": {{ {} }}",
-            caps["ciphersuite"].to_string(),
+            &caps["ciphersuite"],
             parse_modes(chunks[count])
         );
         ciphersuites.push(ciphersuite);
@@ -39,7 +39,7 @@ fn parse_modes(input: &str) -> String {
     for caps in re.captures_iter(input) {
         let mode = format!(
             "\"{}\": [\n {} \n]",
-            caps["mode"].to_string(),
+            &caps["mode"],
             parse_vectors(chunks[count])
         );
         modes.push(mode);
