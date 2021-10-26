@@ -916,7 +916,7 @@ mod tests {
         let point = G::hash_to_curve::<H, _>(input, dst).unwrap();
 
         chain!(context,
-            STR_CONTEXT => |x| Some(x.as_slice()),
+            STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(mode).unwrap() => |x| Some(x.as_slice()),
             serialize::<U2>(info).unwrap(),
         );
