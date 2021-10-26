@@ -143,10 +143,46 @@ macro_rules! impl_traits_for {
                 if deserializer.is_human_readable() {
                     let s = <&str>::deserialize(deserializer)?;
                     Self::deserialize(&base64::decode(s).map_err(Error::custom)?)
+                        .map_err(Error::custom)
                 } else {
-                    Self::deserialize(<&[u8]>::deserialize(deserializer)?)
+                    struct ByteVisitor$(<$($gen$(: $bound1 $(+ $bound2)*)?),+>)? $(
+                        (core::marker::PhantomData<($($gen),+)>)
+                    )?;
+
+                    impl<'de, $($($gen$(: $bound1 $(+ $bound2)*)?),+)?> serde_::de::Visitor<'de> for ByteVisitor$(<$($gen),+>)? {
+                        type Value = $name$(<$($gen),+>)?;
+
+                        fn expecting(
+                            &self,
+                            formatter: &mut core::fmt::Formatter,
+                        ) -> core::fmt::Result {
+                            formatter.write_str(core::concat!(
+                                "the byte representation of a ",
+                                core::stringify!($name)
+                            ))
+                        }
+
+                        fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+                        where
+                            E: Error,
+                        {
+                            $name$(::<$($gen),+>)?::deserialize(value).map_err(|_| {
+                                Error::invalid_value(
+                                    serde_::de::Unexpected::Bytes(value),
+                                    &core::concat!(
+                                        "invalid byte sequence for ",
+                                        core::stringify!($name)
+                                    ),
+                                )
+                            })
+                        }
+                    }
+
+                    deserializer.deserialize_bytes(
+                        ByteVisitor$(::<$($gen),+> (core::marker::PhantomData))?
+                    )
+                    .map_err(Error::custom)
                 }
-                .map_err(Error::custom)
             }
         }
     };
