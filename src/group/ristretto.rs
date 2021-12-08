@@ -12,7 +12,8 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
-use digest::{BlockInput, Digest};
+use digest::core_api::BlockSizeUser;
+use digest::{Digest, FixedOutputReset};
 use generic_array::typenum::{U1, U32, U64};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
@@ -28,7 +29,7 @@ impl Group for RistrettoPoint {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
     ) -> Result<Self, InternalError>
@@ -49,7 +50,7 @@ impl Group for RistrettoPoint {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
     fn hash_to_scalar<
         'a,
-        H: BlockInput + Digest,
+        H: BlockSizeUser + Digest + FixedOutputReset,
         D: ArrayLength<u8> + Add<U1>,
         I: IntoIterator<Item = &'a [u8]>,
     >(

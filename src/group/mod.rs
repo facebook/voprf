@@ -16,7 +16,8 @@ mod ristretto;
 
 use core::ops::{Add, Mul, Sub};
 
-use digest::{BlockInput, Digest};
+use digest::core_api::BlockSizeUser;
+use digest::{Digest, FixedOutputReset};
 use generic_array::typenum::U1;
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
@@ -39,7 +40,7 @@ pub trait Group:
     const SUITE_ID: usize;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
     ) -> Result<Self, InternalError>
@@ -49,7 +50,7 @@ pub trait Group:
     /// Hashes a slice of pseudo-random bytes to a scalar
     fn hash_to_scalar<
         'a,
-        H: BlockInput + Digest,
+        H: BlockSizeUser + Digest + FixedOutputReset,
         D: ArrayLength<u8> + Add<U1>,
         I: IntoIterator<Item = &'a [u8]>,
     >(

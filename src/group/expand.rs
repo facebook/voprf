@@ -7,7 +7,8 @@
 
 use core::ops::Add;
 
-use digest::{BlockInput, Digest};
+use digest::core_api::BlockSizeUser;
+use digest::{Digest, FixedOutputReset};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{Unsigned, U1, U2};
 use generic_array::{ArrayLength, GenericArray};
@@ -29,7 +30,7 @@ fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> Ge
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
 pub fn expand_message_xmd<
     'a,
-    H: BlockInput + Digest,
+    H: BlockSizeUser + Digest + FixedOutputReset,
     L: ArrayLength<u8>,
     M: IntoIterator<Item = &'a [u8]>,
     D: ArrayLength<u8> + Add<U1>,
@@ -52,13 +53,13 @@ where
     let mut h = H::new();
 
     // msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
-    h.update(z_pad);
+    Digest::update(&mut h, z_pad);
     for bytes in msg {
-        h.update(bytes)
+        Digest::update(&mut h, bytes)
     }
-    h.update(l_i_b_str);
-    h.update(i2osp::<U1>(0)?);
-    h.update(&dst_prime);
+    Digest::update(&mut h, l_i_b_str);
+    Digest::update(&mut h, i2osp::<U1>(0)?);
+    Digest::update(&mut h, &dst_prime);
 
     // b[0]
     let b_0 = h.finalize_reset();
@@ -67,9 +68,9 @@ where
     let mut uniform_bytes = GenericArray::default();
 
     for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len)) {
-        h.update(xor(b_0.clone(), b_i.clone()));
-        h.update(i2osp::<U1>(i)?);
-        h.update(&dst_prime);
+        Digest::update(&mut h, xor(b_0.clone(), b_i.clone()));
+        Digest::update(&mut h, i2osp::<U1>(i)?);
+        Digest::update(&mut h, &dst_prime);
         b_i = h.finalize_reset();
         chunk.copy_from_slice(&b_i[..digest_len.min(chunk.len())]);
     }

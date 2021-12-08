@@ -9,7 +9,8 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
-use digest::{BlockInput, Digest};
+use digest::core_api::BlockSizeUser;
+use digest::{Digest, FixedOutputReset};
 use generic_array::GenericArray;
 use json::JsonValue;
 #[cfg(feature = "alloc")]
@@ -152,7 +153,7 @@ fn test_vectors() -> Result<(), InternalError> {
     Ok(())
 }
 
-fn test_base_seed_to_key<G: Group, H: BlockInput + Digest>(
+fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -166,7 +167,7 @@ fn test_base_seed_to_key<G: Group, H: BlockInput + Digest>(
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<G: Group, H: BlockInput + Digest>(
+fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -182,7 +183,7 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockInput + Digest>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<G: Group, H: BlockInput + Digest>(
+fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -208,7 +209,7 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
+fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -234,7 +235,7 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
+fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -255,7 +256,7 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
 }
 
 #[cfg(feature = "alloc")]
-fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
+fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError>
 where
@@ -290,7 +291,7 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<G: Group, H: BlockInput + Digest>(
+fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {
@@ -311,7 +312,7 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
     Ok(())
 }
 
-fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
+fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError> {
     for parameters in tvs {

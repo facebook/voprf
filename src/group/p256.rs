@@ -16,7 +16,8 @@
 use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
 
-use digest::{BlockInput, Digest};
+use digest::core_api::BlockSizeUser;
+use digest::{Digest, FixedOutputReset};
 use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
@@ -44,7 +45,7 @@ impl Group for ProjectivePoint {
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<H: BlockInput + Digest, D: ArrayLength<u8> + Add<U1>>(
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
     ) -> Result<Self, InternalError>
@@ -100,7 +101,7 @@ impl Group for ProjectivePoint {
     // Implements the `HashToScalar()` function
     fn hash_to_scalar<
         'a,
-        H: BlockInput + Digest,
+        H: BlockSizeUser + Digest + FixedOutputReset,
         D: ArrayLength<u8> + Add<U1>,
         I: IntoIterator<Item = &'a [u8]>,
     >(
