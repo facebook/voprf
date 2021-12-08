@@ -50,6 +50,8 @@ impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serializ
     type IntoIter = IntoIter<&'a [u8], 2>;
 
     fn into_iter(self) -> Self::IntoIter {
+        // MSRV: array `into_iter` isn't available in 1.51
+        #[allow(deprecated)]
         IntoIter::new([
             &self.octet,
             match self.input {
