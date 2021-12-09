@@ -57,7 +57,7 @@ enum Mode {
 /// verifiable.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <G as Group>::Scalar)]
 pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) blind: <G as Group>::Scalar,
     pub(crate) data: Vec<u8>,
@@ -72,7 +72,7 @@ impl_serialize_and_deserialize_for!(NonVerifiableClient);
 /// can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; G, <G as Group>::Scalar)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, <G as Group>::Scalar)]
 pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) blind: <G as Group>::Scalar,
     pub(crate) blinded_element: G,
@@ -88,7 +88,7 @@ impl_serialize_and_deserialize_for!(VerifiableClient);
 /// verifiable.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <G as Group>::Scalar)]
 pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) sk: <G as Group>::Scalar,
     #[derive_where(skip(Zeroize))]
@@ -102,7 +102,7 @@ impl_serialize_and_deserialize_for!(NonVerifiableServer);
 /// can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; G, <G as Group>::Scalar)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, <G as Group>::Scalar)]
 pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) sk: <G as Group>::Scalar,
     pub(crate) pk: G,
@@ -116,7 +116,7 @@ impl_serialize_and_deserialize_for!(VerifiableServer);
 /// the OPRF output matches against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <G as Group>::Scalar)]
 pub struct Proof<G: Group, H: BlockInput + Digest> {
     pub(crate) c_scalar: <G as Group>::Scalar,
     pub(crate) s_scalar: <G as Group>::Scalar,
@@ -130,7 +130,7 @@ impl_serialize_and_deserialize_for!(Proof);
 /// to a server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; G)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
 pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
     pub(crate) value: G,
     #[derive_where(skip(Zeroize))]
@@ -144,7 +144,7 @@ impl_serialize_and_deserialize_for!(BlindedElement);
 /// to a server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
-#[derive_where(Debug, Eq, Hash, PartialEq; G)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
 pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
     pub(crate) value: G,
     #[derive_where(skip(Zeroize))]
