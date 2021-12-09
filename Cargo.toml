@@ -26,6 +26,7 @@ serde = ["serde_", "base64"]
 [dependencies]
 base64 = { version = "0.13", default-features = false, features = ["alloc"], optional = true }
 curve25519-dalek = { version = "3", default-features = false, optional = true }
+derive-where = { version = "1.0.0-rc.1", features = ["zeroize"] }
 digest = "0.9"
 displaydoc = { version = "0.2", default-features = false }
 generic-array = "0.14"
