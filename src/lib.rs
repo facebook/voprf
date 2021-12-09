@@ -424,12 +424,11 @@
 extern crate alloc;
 
 #[macro_use]
-mod impls;
-#[macro_use]
 mod util;
+#[macro_use]
+mod serialization;
 pub mod errors;
 pub mod group;
-mod serialization;
 mod voprf;
 
 #[cfg(test)]
