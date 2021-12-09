@@ -10,6 +10,7 @@ license = "MIT"
 edition = "2018"
 readme = "README.md"
 resolver = "2"
+rust-version = "1.51.0"
 
 [features]
 default = ["ristretto255_u64", "serde"]
