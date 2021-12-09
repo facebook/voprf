@@ -1196,7 +1196,8 @@ mod tests {
 
     #[test]
     fn test_functionality() -> Result<(), InternalError> {
-        cfg_ristretto! { {
+        #[cfg(feature = "ristretto255")]
+        {
             use curve25519_dalek::ristretto::RistrettoPoint;
             use sha2::Sha512;
 
@@ -1211,7 +1212,7 @@ mod tests {
             zeroize_base_server::<RistrettoPoint, Sha512>();
             zeroize_verifiable_client::<RistrettoPoint, Sha512>();
             zeroize_verifiable_server::<RistrettoPoint, Sha512>();
-        } }
+        }
 
         #[cfg(feature = "p256")]
         {

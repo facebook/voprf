@@ -15,12 +15,13 @@ use crate::group::Group;
 
 #[test]
 fn test_group_properties() -> Result<(), InternalError> {
-    cfg_ristretto! { {
+    #[cfg(feature = "ristretto255")]
+    {
         use curve25519_dalek::ristretto::RistrettoPoint;
 
         test_identity_element_error::<RistrettoPoint>()?;
         test_zero_scalar_error::<RistrettoPoint>()?;
-    } }
+    }
 
     #[cfg(feature = "p256")]
     {

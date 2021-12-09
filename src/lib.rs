@@ -23,7 +23,7 @@
 //!
 //! We will use the following choices in this example:
 //!
-//! ```
+//! ```ignore
 //! type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! type Hash = sha2::Sha512;
 //! ```
@@ -51,8 +51,14 @@
 //! must be persisted on the server and used for online client evaluations.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::NonVerifiableServer;
@@ -71,8 +77,14 @@
 //! step of the VOPRF protocol.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::NonVerifiableClient;
@@ -92,8 +104,14 @@
 //! [EvaluationElement] to be sent to the client.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -118,8 +136,14 @@
 //! [NonVerifiableClient::finalize] to produce an output for the protocol.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -163,8 +187,14 @@
 //! must be persisted on the server and used for online client evaluations.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::VerifiableServer;
@@ -190,8 +220,14 @@
 //! of the VOPRF protocol.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::VerifiableClient;
@@ -211,8 +247,14 @@
 //! a proof.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -238,8 +280,14 @@
 //! output for the protocol.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -288,8 +336,14 @@
 //! messages:
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -311,8 +365,14 @@
 //! proof:
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -342,8 +402,14 @@
 //! outputs if the proof verifies correctly.
 //!
 //! ```
+//! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -411,7 +477,9 @@
 //!   and allow for selecting the corresponding backend for the curve arithmetic
 //!   used. The `ristretto255_u64` feature is included as the default. Other
 //!   features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and
-//!   `ristretto255_fiat_u32`.
+//!   `ristretto255_fiat_u32`. Any `ristretto255_*` backend feature will enable
+//!   the `ristretto255` feature, which can be used too, but keep in mind that
+//!   `curve25519-dalek` will fail to compile without a selected backend.
 //!
 //! - The `ristretto255_simd` feature is re-exported from [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
 //!   and enables parallel formulas, using either AVX2 or AVX512-IFMA. This will
