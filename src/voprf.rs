@@ -1186,20 +1186,22 @@ mod tests {
 
     #[test]
     fn test_functionality() -> Result<(), InternalError> {
-        use curve25519_dalek::ristretto::RistrettoPoint;
-        use sha2::Sha512;
+        cfg_ristretto! { {
+            use curve25519_dalek::ristretto::RistrettoPoint;
+            use sha2::Sha512;
 
-        base_retrieval::<RistrettoPoint, Sha512>();
-        base_inversion_unsalted::<RistrettoPoint, Sha512>();
-        verifiable_retrieval::<RistrettoPoint, Sha512>();
-        verifiable_batch_retrieval::<RistrettoPoint, Sha512>();
-        verifiable_bad_public_key::<RistrettoPoint, Sha512>();
-        verifiable_batch_bad_public_key::<RistrettoPoint, Sha512>();
+            base_retrieval::<RistrettoPoint, Sha512>();
+            base_inversion_unsalted::<RistrettoPoint, Sha512>();
+            verifiable_retrieval::<RistrettoPoint, Sha512>();
+            verifiable_batch_retrieval::<RistrettoPoint, Sha512>();
+            verifiable_bad_public_key::<RistrettoPoint, Sha512>();
+            verifiable_batch_bad_public_key::<RistrettoPoint, Sha512>();
 
-        zeroize_base_client::<RistrettoPoint, Sha512>();
-        zeroize_base_server::<RistrettoPoint, Sha512>();
-        zeroize_verifiable_client::<RistrettoPoint, Sha512>();
-        zeroize_verifiable_server::<RistrettoPoint, Sha512>();
+            zeroize_base_client::<RistrettoPoint, Sha512>();
+            zeroize_base_server::<RistrettoPoint, Sha512>();
+            zeroize_verifiable_client::<RistrettoPoint, Sha512>();
+            zeroize_verifiable_server::<RistrettoPoint, Sha512>();
+        } }
 
         #[cfg(feature = "p256")]
         {

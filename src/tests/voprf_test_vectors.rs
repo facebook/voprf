@@ -85,30 +85,32 @@ fn test_vectors() -> Result<(), InternalError> {
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
-    use curve25519_dalek::ristretto::RistrettoPoint;
-    use sha2::Sha512;
+    cfg_ristretto! { {
+        use curve25519_dalek::ristretto::RistrettoPoint;
+        use sha2::Sha512;
 
-    let ristretto_base_tvs = json_to_test_vectors!(
-        rfc,
-        String::from("ristretto255, SHA-512"),
-        String::from("Base")
-    );
+        let ristretto_base_tvs = json_to_test_vectors!(
+            rfc,
+            String::from("ristretto255, SHA-512"),
+            String::from("Base")
+        );
 
-    let ristretto_verifiable_tvs = json_to_test_vectors!(
-        rfc,
-        String::from("ristretto255, SHA-512"),
-        String::from("Verifiable")
-    );
+        let ristretto_verifiable_tvs = json_to_test_vectors!(
+            rfc,
+            String::from("ristretto255, SHA-512"),
+            String::from("Verifiable")
+        );
 
-    test_base_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-    test_base_blind::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-    test_base_evaluate::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-    test_base_finalize::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_blind::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_evaluate::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_finalize::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
 
-    test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-    test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+    } }
 
     #[cfg(feature = "p256")]
     {

@@ -18,14 +18,9 @@
 mod expand;
 #[cfg(feature = "p256")]
 mod p256;
-#[cfg(any(
-    feature = "ristretto255_u64",
-    feature = "ristretto255_u32",
-    feature = "ristretto255_fiat_u64",
-    feature = "ristretto255_fiat_u32",
-    feature = "ristretto255_simd",
-))]
-mod ristretto;
+cfg_ristretto! {
+    mod ristretto;
+}
 
 use crate::errors::InternalError;
 use core::ops::{Add, Mul, Sub};
