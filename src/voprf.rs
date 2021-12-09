@@ -15,6 +15,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::marker::PhantomData;
+use derive_where::DeriveWhere;
 use digest::{BlockInput, Digest};
 use generic_array::sequence::Concat;
 use generic_array::{
@@ -51,94 +52,106 @@ enum Mode {
 // ====================== //
 ////////////////////////////
 
-impl_traits_for! {
-    /// A client which engages with a [NonVerifiableServer]
-    /// in base mode, meaning that the OPRF outputs are not
-    /// verifiable.
-    pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) blind: <G as Group>::Scalar,
-        pub(crate) data: Vec<u8>,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+/// A client which engages with a [NonVerifiableServer]
+/// in base mode, meaning that the OPRF outputs are not
+/// verifiable.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
+    pub(crate) blind: <G as Group>::Scalar,
+    pub(crate) data: Vec<u8>,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// A client which engages with a [VerifiableServer]
-    /// in verifiable mode, meaning that the OPRF outputs
-    /// can be checked against a server public key.
-    pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) blind: <G as Group>::Scalar,
-        #[bind]
-        pub(crate) blinded_element: G,
-        pub(crate) data: Vec<u8>,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(NonVerifiableClient);
+
+/// A client which engages with a [VerifiableServer]
+/// in verifiable mode, meaning that the OPRF outputs
+/// can be checked against a server public key.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; G, <G as Group>::Scalar)]
+pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
+    pub(crate) blind: <G as Group>::Scalar,
+    pub(crate) blinded_element: G,
+    pub(crate) data: Vec<u8>,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// A server which engages with a [NonVerifiableClient]
-    /// in base mode, meaning that the OPRF outputs are not
-    /// verifiable.
-    pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) sk: <G as Group>::Scalar,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(VerifiableClient);
+
+/// A server which engages with a [NonVerifiableClient]
+/// in base mode, meaning that the OPRF outputs are not
+/// verifiable.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
+    pub(crate) sk: <G as Group>::Scalar,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// A server which engages with a [VerifiableClient]
-    /// in verifiable mode, meaning that the OPRF outputs
-    /// can be checked against a server public key.
-    pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) sk: <G as Group>::Scalar,
-        #[bind]
-        pub(crate) pk: G,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(NonVerifiableServer);
+
+/// A server which engages with a [VerifiableClient]
+/// in verifiable mode, meaning that the OPRF outputs
+/// can be checked against a server public key.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; G, <G as Group>::Scalar)]
+pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
+    pub(crate) sk: <G as Group>::Scalar,
+    pub(crate) pk: G,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// A proof produced by a [VerifiableServer] that
-    /// the OPRF output matches against a server public key.
-    pub struct Proof<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) c_scalar: <G as Group>::Scalar,
-        pub(crate) s_scalar: <G as Group>::Scalar,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(VerifiableServer);
+
+/// A proof produced by a [VerifiableServer] that
+/// the OPRF output matches against a server public key.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; <G as Group>::Scalar)]
+pub struct Proof<G: Group, H: BlockInput + Digest> {
+    pub(crate) c_scalar: <G as Group>::Scalar,
+    pub(crate) s_scalar: <G as Group>::Scalar,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// The first client message sent from a client (either verifiable or not)
-    /// to a server (either verifiable or not).
-    pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) value: G,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(Proof);
+
+/// The first client message sent from a client (either verifiable or not)
+/// to a server (either verifiable or not).
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; G)]
+pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
+    pub(crate) value: G,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
 
-impl_traits_for! {
-    /// The server's response to the [BlindedElement] message from
-    /// a client (either verifiable or not)
-    /// to a server (either verifiable or not).
-    pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
-        #[bind]
-        pub(crate) value: G,
-        #[pd]
-        pub(crate) hash: PhantomData<H>,
-    }
+impl_serialize_and_deserialize_for!(BlindedElement);
+
+/// The server's response to the [BlindedElement] message from
+/// a client (either verifiable or not)
+/// to a server (either verifiable or not).
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, PartialEq; G)]
+pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
+    pub(crate) value: G,
+    #[derive_where(skip(Zeroize))]
+    pub(crate) hash: PhantomData<H>,
 }
+
+impl_serialize_and_deserialize_for!(EvaluationElement);
 
 /////////////////////////
 // API Implementations //
