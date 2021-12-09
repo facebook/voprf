@@ -914,6 +914,7 @@ fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, Int
 mod tests {
     use super::*;
     use crate::group::Group;
+    use alloc::vec;
     use generic_array::GenericArray;
     use rand::rngs::OsRng;
     use zeroize::Zeroize;

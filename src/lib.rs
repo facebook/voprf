@@ -416,12 +416,15 @@
 //!   using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` feature and requires Rust nightly.
 
 #![deny(unsafe_code)]
+#![no_std]
 #![warn(clippy::cargo, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
-#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[macro_use]
 mod util;

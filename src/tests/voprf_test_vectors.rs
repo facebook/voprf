@@ -14,7 +14,8 @@ use crate::{
         VerifiableClient, VerifiableServer,
     },
 };
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
+use alloc::vec;
 use alloc::vec::Vec;
 use digest::{BlockInput, Digest};
 use generic_array::GenericArray;
