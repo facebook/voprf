@@ -54,4 +54,3 @@ voprf = { path = "", default-features = false, features = ["danger"] }
 [package.metadata.docs.rs]
 features = ["danger", "p256", "std"]
 targets = []
-rustdoc-args = ["--cfg", "docsrs"]

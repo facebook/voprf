@@ -419,7 +419,6 @@
 #![no_std]
 #![warn(clippy::cargo, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate alloc;
 
