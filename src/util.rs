@@ -167,11 +167,11 @@ mod unit_tests {
     macro_rules! test_deserialize {
         ($item:ident, $bytes:ident) => {
             cfg_ristretto! { {
-                $item::<curve25519_dalek::ristretto::RistrettoPoint, sha2::Sha512>::deserialize(&$bytes[..]).map_or(true, |_| true)
+                let _ = $item::<curve25519_dalek::ristretto::RistrettoPoint, sha2::Sha512>::deserialize(&$bytes[..]);
             } }
             #[cfg(feature = "p256")]
             {
-                $item::<p256_::ProjectivePoint, sha2::Sha256>::deserialize(&$bytes[..]).map_or(true, |_| true)
+                let _ = $item::<p256_::ProjectivePoint, sha2::Sha256>::deserialize(&$bytes[..]);
             }
         };
     }

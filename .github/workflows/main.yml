@@ -17,6 +17,7 @@ jobs:
           - ristretto255_u32
           # skip doc tests
           - p256 --lib
+          - ristretto255_u64,p256
         frontend_feature:
           -
           - --features serde
