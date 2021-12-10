@@ -185,7 +185,7 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_result.state.get_blind()).to_vec()
+                &G::scalar_as_bytes(client_result.state.blind).to_vec()
             );
             assert_eq!(
                 &parameters.blinded_element[i],

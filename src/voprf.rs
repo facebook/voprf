@@ -178,7 +178,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         })
     }
 
-    #[cfg(feature = "danger")]
+    #[cfg(any(feature = "danger", test))]
     /// Computes the first step for the multiplicative blinding version of DH-OPRF,
     /// taking a blinding factor scalar as input instead of sampling from an RNG.
     ///
@@ -260,7 +260,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         })
     }
 
-    #[cfg(feature = "danger")]
+    #[cfg(any(feature = "danger", test))]
     /// Computes the first step for the multiplicative blinding version of DH-OPRF,
     /// taking a blinding factor scalar as input instead of sampling from an RNG.
     ///
