@@ -5,21 +5,21 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! Handles the serialization of each of the components used
-//! in the VOPRF protocol
+//! Handles the serialization of each of the components used in the VOPRF
+//! protocol
 
-use crate::{
-    errors::InternalError,
-    group::Group,
-    voprf::{
-        BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
-        VerifiableClient, VerifiableServer,
-    },
-};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+
 use digest::{BlockInput, Digest};
 use generic_array::typenum::Unsigned;
+
+use crate::errors::InternalError;
+use crate::group::Group;
+use crate::voprf::{
+    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
+    VerifiableClient, VerifiableServer,
+};
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //

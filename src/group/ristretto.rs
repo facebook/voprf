@@ -22,8 +22,8 @@ use generic_array::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-// `cfg` here is only needed because of a bug in Rust's crate feature documentation.
-// See: https://github.com/rust-lang/rust/issues/83428
+// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See:
+// https://github.com/rust-lang/rust/issues/83428
 cfg_ristretto! {
     /// The implementation of such a subgroup for Ristretto
     impl Group for RistrettoPoint {

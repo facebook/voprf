@@ -7,21 +7,20 @@
 
 use alloc::vec::Vec;
 use core::cmp::min;
+
 use rand_core::{CryptoRng, Error, RngCore};
 
 /// A simple implementation of `RngCore` for testing purposes.
 ///
 /// This generates a cyclic sequence (i.e. cycles over an initial buffer)
-///
-///
 #[derive(Debug, Clone)]
 pub struct CycleRng {
     v: Vec<u8>,
 }
 
 impl CycleRng {
-    /// Create a `CycleRng`, yielding a sequence starting with
-    /// `initial` and looping thereafter
+    /// Create a `CycleRng`, yielding a sequence starting with `initial` and
+    /// looping thereafter
     pub fn new(initial: Vec<u8>) -> Self {
         CycleRng { v: initial }
     }

@@ -7,23 +7,21 @@
 
 //! Contains the main VOPRF API
 
-use crate::{
-    errors::InternalError,
-    group::Group,
-    util::{i2osp, serialize, serialize_owned},
-};
 use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::marker::PhantomData;
+
 use derive_where::DeriveWhere;
 use digest::{BlockInput, Digest};
 use generic_array::sequence::Concat;
-use generic_array::{
-    typenum::{U1, U11, U2},
-    GenericArray,
-};
+use generic_array::typenum::{U1, U11, U2};
+use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
+
+use crate::errors::InternalError;
+use crate::group::Group;
+use crate::util::{i2osp, serialize, serialize_owned};
 
 ///////////////
 // Constants //
@@ -39,8 +37,7 @@ static STR_COMPOSITE: [u8; 10] = *b"Composite-";
 static STR_CHALLENGE: [u8; 10] = *b"Challenge-";
 static STR_VOPRF: [u8; 8] = *b"VOPRF08-";
 
-/// Determines the mode of operation (either base mode or
-/// verifiable mode)
+/// Determines the mode of operation (either base mode or verifiable mode)
 #[derive(Clone, Copy)]
 enum Mode {
     Base = 0,
@@ -52,9 +49,8 @@ enum Mode {
 // ====================== //
 ////////////////////////////
 
-/// A client which engages with a [NonVerifiableServer]
-/// in base mode, meaning that the OPRF outputs are not
-/// verifiable.
+/// A client which engages with a [NonVerifiableServer] in base mode, meaning
+/// that the OPRF outputs are not verifiable.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
@@ -67,9 +63,8 @@ pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(NonVerifiableClient);
 
-/// A client which engages with a [VerifiableServer]
-/// in verifiable mode, meaning that the OPRF outputs
-/// can be checked against a server public key.
+/// A client which engages with a [VerifiableServer] in verifiable mode, meaning
+/// that the OPRF outputs can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, G::Scalar)]
@@ -83,9 +78,8 @@ pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(VerifiableClient);
 
-/// A server which engages with a [NonVerifiableClient]
-/// in base mode, meaning that the OPRF outputs are not
-/// verifiable.
+/// A server which engages with a [NonVerifiableClient] in base mode, meaning
+/// that the OPRF outputs are not verifiable.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
@@ -97,9 +91,8 @@ pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(NonVerifiableServer);
 
-/// A server which engages with a [VerifiableClient]
-/// in verifiable mode, meaning that the OPRF outputs
-/// can be checked against a server public key.
+/// A server which engages with a [VerifiableClient] in verifiable mode, meaning
+/// that the OPRF outputs can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, G::Scalar)]
@@ -112,8 +105,8 @@ pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(VerifiableServer);
 
-/// A proof produced by a [VerifiableServer] that
-/// the OPRF output matches against a server public key.
+/// A proof produced by a [VerifiableServer] that the OPRF output matches
+/// against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
@@ -126,8 +119,8 @@ pub struct Proof<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(Proof);
 
-/// The first client message sent from a client (either verifiable or not)
-/// to a server (either verifiable or not).
+/// The first client message sent from a client (either verifiable or not) to a
+/// server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
@@ -139,9 +132,8 @@ pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
 
 impl_serialize_and_deserialize_for!(BlindedElement);
 
-/// The server's response to the [BlindedElement] message from
-/// a client (either verifiable or not)
-/// to a server (either verifiable or not).
+/// The server's response to the [BlindedElement] message from a client (either
+/// verifiable or not) to a server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
@@ -159,7 +151,8 @@ impl_serialize_and_deserialize_for!(EvaluationElement);
 /////////////////////////
 
 impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
-    /// Computes the first step for the multiplicative blinding version of DH-OPRF.
+    /// Computes the first step for the multiplicative blinding version of
+    /// DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
         input: Vec<u8>,
         blinding_factor_rng: &mut R,
@@ -179,13 +172,14 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     }
 
     #[cfg(any(feature = "danger", test))]
-    /// Computes the first step for the multiplicative blinding version of DH-OPRF,
-    /// taking a blinding factor scalar as input instead of sampling from an RNG.
+    /// Computes the first step for the multiplicative blinding version of
+    /// DH-OPRF, taking a blinding factor scalar as input instead of sampling
+    /// from an RNG.
     ///
     /// # Caution
     ///
-    /// This should be used with caution, since
-    /// it does not perform any checks on the validity of the blinding factor!
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the blinding factor!
     pub fn deterministic_blind_unchecked(
         input: Vec<u8>,
         blind: G::Scalar,
@@ -204,8 +198,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         })
     }
 
-    /// Computes the third step for the multiplicative blinding version of DH-OPRF, in which
-    /// the client unblinds the server's message.
+    /// Computes the third step for the multiplicative blinding version of
+    /// DH-OPRF, in which the client unblinds the server's message.
     pub fn finalize(
         &self,
         evaluation_element: &EvaluationElement<G, H>,
@@ -238,7 +232,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
 }
 
 impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
-    /// Computes the first step for the multiplicative blinding version of DH-OPRF.
+    /// Computes the first step for the multiplicative blinding version of
+    /// DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
         input: Vec<u8>,
         blinding_factor_rng: &mut R,
@@ -260,13 +255,14 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     }
 
     #[cfg(any(feature = "danger", test))]
-    /// Computes the first step for the multiplicative blinding version of DH-OPRF,
-    /// taking a blinding factor scalar as input instead of sampling from an RNG.
+    /// Computes the first step for the multiplicative blinding version of
+    /// DH-OPRF, taking a blinding factor scalar as input instead of sampling
+    /// from an RNG.
     ///
     /// # Caution
     ///
-    /// This should be used with caution, since
-    /// it does not perform any checks on the validity of the blinding factor!
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the blinding factor!
     pub fn deterministic_blind_unchecked(
         input: Vec<u8>,
         blind: G::Scalar,
@@ -287,8 +283,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         })
     }
 
-    /// Computes the third step for the multiplicative blinding version of DH-OPRF, in which
-    /// the client unblinds the server's message.
+    /// Computes the third step for the multiplicative blinding version of
+    /// DH-OPRF, in which the client unblinds the server's message.
     pub fn finalize(
         &self,
         evaluation_element: &EvaluationElement<G, H>,
@@ -306,7 +302,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         Ok(batch_result[0].clone())
     }
 
-    /// Allows for batching of the finalization of multiple [VerifiableClient] and [EvaluationElement] pairs
+    /// Allows for batching of the finalization of multiple [VerifiableClient]
+    /// and [EvaluationElement] pairs
     pub fn batch_finalize<'a, IC, IM>(
         clients: &'a IC,
         messages: &'a IM,
@@ -400,8 +397,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
         Self::new_from_seed(&seed)
     }
 
-    /// Produces a new instance of a [NonVerifiableServer] using a supplied set of bytes to
-    /// represent the server's private key
+    /// Produces a new instance of a [NonVerifiableServer] using a supplied set
+    /// of bytes to represent the server's private key
     pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self, InternalError> {
         let sk = G::from_scalar_slice(private_key_bytes)?;
         Ok(Self {
@@ -410,8 +407,8 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
         })
     }
 
-    /// Produces a new instance of a [NonVerifiableServer] using a supplied set of bytes which
-    /// are used as a seed to derive the server's private key.
+    /// Produces a new instance of a [NonVerifiableServer] using a supplied set
+    /// of bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
@@ -430,8 +427,9 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
         self.sk
     }
 
-    /// Computes the second step for the multiplicative blinding version of DH-OPRF. This
-    /// message is sent from the server (who holds the OPRF key) to the client.
+    /// Computes the second step for the multiplicative blinding version of
+    /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
+    /// to the client.
     pub fn evaluate(
         &self,
         blinded_element: &BlindedElement<G, H>,
@@ -465,8 +463,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         Self::new_from_seed(&seed)
     }
 
-    /// Produces a new instance of a [VerifiableServer] using a supplied set of bytes to
-    /// represent the server's private key
+    /// Produces a new instance of a [VerifiableServer] using a supplied set of
+    /// bytes to represent the server's private key
     pub fn new_with_key(key: &[u8]) -> Result<Self, InternalError> {
         let sk = G::from_scalar_slice(key)?;
         let pk = G::base_point() * &sk;
@@ -477,8 +475,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         })
     }
 
-    /// Produces a new instance of a [VerifiableServer] using a supplied set of bytes which
-    /// are used as a seed to derive the server's private key.
+    /// Produces a new instance of a [VerifiableServer] using a supplied set of
+    /// bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
@@ -499,8 +497,9 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         self.sk
     }
 
-    /// Computes the second step for the multiplicative blinding version of DH-OPRF. This
-    /// message is sent from the server (who holds the OPRF key) to the client.
+    /// Computes the second step for the multiplicative blinding version of
+    /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
+    /// to the client.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
@@ -518,7 +517,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         })
     }
 
-    /// Allows for batching of the evaluation of multiple [BlindedElement] messages from a [VerifiableClient]
+    /// Allows for batching of the evaluation of multiple [BlindedElement]
+    /// messages from a [VerifiableClient]
     pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
         rng: &mut R,
@@ -641,8 +641,8 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     ///
     /// # Caution
     ///
-    /// This should be used with caution, since
-    /// it does not perform any checks on the validity of the value itself!
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the value itself!
     pub fn from_value_unchecked(value: G) -> Self {
         Self {
             value,
@@ -671,8 +671,8 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
     ///
     /// # Caution
     ///
-    /// This should be used with caution, since
-    /// it does not perform any checks on the validity of the value itself!
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the value itself!
     pub fn from_value_unchecked(value: G) -> Self {
         Self {
             value,
@@ -699,8 +699,9 @@ fn blind<G: Group, H: BlockInput + Digest, R: RngCore + CryptoRng>(
     Ok((blind, blinded_element))
 }
 
-// Inner function for blind that assumes that the blinding factor has already been chosen,
-// and therefore takes it as input. Does not check if the blinding factor is non-zero.
+// Inner function for blind that assumes that the blinding factor has already
+// been chosen, and therefore takes it as input. Does not check if the blinding
+// factor is non-zero.
 fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
     input: &[u8],
     blind: &G::Scalar,
@@ -918,12 +919,14 @@ fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, Int
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::group::Group;
     use alloc::vec;
+
     use generic_array::GenericArray;
     use rand::rngs::OsRng;
     use zeroize::Zeroize;
+
+    use super::*;
+    use crate::group::Group;
 
     fn prf<G: Group, H: BlockInput + Digest>(
         input: &[u8],
