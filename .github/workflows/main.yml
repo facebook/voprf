@@ -128,7 +128,7 @@ jobs:
           args: --no-deps --document-private-items --features std,p256
 
 
-  format:
+  rustfmt:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
@@ -148,3 +148,25 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  taplo:
+    name: Taplo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            ~/.cargo/bin/taplo
+          key: taplo
+
+      - name: Install Taplo
+        run: cargo install taplo-cli
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Run Taplo
+        run: taplo fmt --check
