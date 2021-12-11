@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use digest::{BlockInput, Digest};
-use generic_array::typenum::Unsigned;
+use generic_array::{typenum::Unsigned, GenericArray};
 
 use crate::errors::InternalError;
 use crate::group::Group;
@@ -155,8 +155,8 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
 
 impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> Vec<u8> {
-        self.value.to_arr().to_vec()
+    pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
+        self.value.to_arr()
     }
 
     /// Deserialization from bytes

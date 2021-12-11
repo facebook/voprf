@@ -190,8 +190,8 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
                 &G::scalar_as_bytes(client_result.state.blind).to_vec()
             );
             assert_eq!(
-                &parameters.blinded_element[i],
-                &client_result.message.serialize()
+                parameters.blinded_element[i].as_slice(),
+                client_result.message.serialize().as_slice(),
             );
         }
     }
@@ -216,8 +216,8 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
                 &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
-                &parameters.blinded_element[i],
-                &client_blind_result.message.serialize()
+                parameters.blinded_element[i].as_slice(),
+                client_blind_result.message.serialize().as_slice(),
             );
         }
     }
