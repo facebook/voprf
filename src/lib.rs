@@ -439,7 +439,8 @@
 //!     server.get_public_key(),
 //!     None,
 //! )
-//! .expect("Unable to perform client batch finalization");
+//! .expect("Unable to perform client batch finalization")
+//! .collect::<Vec<_>>();
 //!
 //! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
 //! ```

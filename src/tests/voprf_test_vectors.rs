@@ -327,9 +327,8 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
         assert_eq!(
             parameters.output,
             batch_result
-                .iter()
-                .map(|arr| arr.to_vec())
-                .collect::<Vec<Vec<u8>>>()
+                .map(|arr| arr.map(|message| message.to_vec()))
+                .collect::<Result<Vec<_>, _>>()?
         );
     }
     Ok(())

@@ -203,12 +203,12 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
         metadata: Option<&[u8]>,
     ) -> Result<GenericArray<u8, H::OutputSize>, InternalError> {
         let unblinded_element = evaluation_element.value * &G::scalar_invert(&self.blind);
-        let outputs = finalize_after_unblind::<G, H, _, _>(
+        let mut outputs = finalize_after_unblind::<G, H, _, _>(
             Some((input, unblinded_element)).into_iter(),
             metadata.unwrap_or_default(),
             Mode::Base,
         )?;
-        Ok(outputs[0].clone())
+        outputs.next().unwrap()
     }
 
     #[cfg(test)]
@@ -294,20 +294,24 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
             .try_into()
             .unwrap();
 
-        let batch_result = Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;
-        Ok(batch_result[0].clone())
+        let mut batch_result =
+            Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;
+        batch_result.next().unwrap()
     }
 
     /// Allows for batching of the finalization of multiple [VerifiableClient]
     /// and [EvaluationElement] pairs
-    pub fn batch_finalize<'a, I, II, IC, IM>(
+    pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
         inputs: &'a II,
         clients: &'a IC,
         messages: &'a IM,
         proof: &Proof<G, H>,
         pk: G,
-        metadata: Option<&[u8]>,
-    ) -> Result<Vec<GenericArray<u8, H::OutputSize>>, InternalError>
+        metadata: Option<&'a [u8]>,
+    ) -> Result<
+        impl 'a + Iterator<Item = Result<GenericArray<u8, H::OutputSize>, InternalError>>,
+        InternalError,
+    >
     where
         G: 'a,
         H: 'a,
@@ -319,50 +323,14 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<G, H>>,
         <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
     {
-        struct Items<IC, IM> {
-            clients: IC,
-            messages: IM,
-        }
-
-        impl<'a, G: 'a + Group, H: 'a + BlockInput + Digest, IC: Copy, IM: Copy> IntoIterator
-            for &Items<IC, IM>
-        where
-            IC: IntoIterator<Item = &'a VerifiableClient<G, H>>,
-            <IC as IntoIterator>::IntoIter: ExactSizeIterator,
-            IM: IntoIterator<Item = &'a EvaluationElement<G, H>>,
-            <IM as IntoIterator>::IntoIter: ExactSizeIterator,
-        {
-            type Item = BatchItems<G, H>;
-
-            #[allow(clippy::type_complexity)]
-            type IntoIter = core::iter::Map<
-                core::iter::Zip<<IC as IntoIterator>::IntoIter, <IM as IntoIterator>::IntoIter>,
-                fn((&VerifiableClient<G, H>, &EvaluationElement<G, H>)) -> BatchItems<G, H>,
-            >;
-
-            fn into_iter(self) -> Self::IntoIter {
-                self.clients.into_iter().zip(self.messages.into_iter()).map(
-                    |(client, evaluation_element)| BatchItems {
-                        blind: client.blind,
-                        evaluation_element: evaluation_element.copy(),
-                        blinded_element: BlindedElement {
-                            value: client.blinded_element,
-                            hash: PhantomData,
-                        },
-                    },
-                )
-            }
-        }
-
-        let batch_items = Items { clients, messages };
         let metadata = metadata.unwrap_or_default();
 
-        let unblinded_elements = verifiable_unblind(&batch_items, pk, proof, metadata)?;
+        let unblinded_elements = verifiable_unblind(clients, messages, pk, proof, metadata)?;
 
         let inputs_and_unblinded_elements = inputs
             .into_iter()
-            .zip(unblinded_elements.iter())
-            .map(|(input, &unblinded_element)| (input, unblinded_element));
+            .zip(unblinded_elements)
+            .map(|(input, unblinded_element)| (input, unblinded_element));
 
         finalize_after_unblind::<G, H, _, _>(
             inputs_and_unblinded_elements,
@@ -619,13 +587,6 @@ pub struct VerifiableServerBatchEvaluateResult<G: Group, H: BlockInput + Digest>
 // ========================================= //
 ///////////////////////////////////////////////
 
-/// Convenience struct only used in batching APIs
-struct BatchItems<G: Group, H: BlockInput + Digest> {
-    blind: G::Scalar,
-    evaluation_element: EvaluationElement<G, H>,
-    blinded_element: BlindedElement<G, H>,
-}
-
 impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
     /// Only used to easier validate allocation
     fn copy(&self) -> Self {
@@ -711,15 +672,18 @@ fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
     Ok(hashed_point * blind)
 }
 
-fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, I>(
-    batch_items: &'a I,
+fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, IC, IM>(
+    clients: &'a IC,
+    messages: &'a IM,
     pk: G,
     proof: &Proof<G, H>,
     info: &[u8],
-) -> Result<Vec<G>, InternalError>
+) -> Result<impl 'a + Iterator<Item = G>, InternalError>
 where
-    &'a I: IntoIterator<Item = BatchItems<G, H>>,
-    <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
+    &'a IC: 'a + IntoIterator<Item = &'a VerifiableClient<G, H>>,
+    <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
+    &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<G, H>>,
+    <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
 {
     chain!(context,
         STR_CONTEXT => |x| Some(x.as_ref()),
@@ -735,17 +699,18 @@ where
     let t = g * &m;
     let u = t + &pk;
 
-    let blinds = batch_items.into_iter().map(|x| x.blind);
-    let evaluation_elements = batch_items.into_iter().map(|x| x.evaluation_element);
-    let blinded_elements = batch_items.into_iter().map(|x| x.blinded_element);
+    let blinds = clients.into_iter().map(|x| x.blind);
+    let evaluation_elements = messages.into_iter().map(EvaluationElement::copy);
+    let blinded_elements = clients.into_iter().map(|client| BlindedElement {
+        value: client.blinded_element,
+        hash: PhantomData,
+    });
 
     verify_proof(g, u, evaluation_elements, blinded_elements, proof)?;
 
-    let unblinded_elements = blinds
-        .zip(batch_items.into_iter().map(|x| x.evaluation_element))
-        .map(|(blind, x)| x.value * &G::scalar_invert(&blind))
-        .collect();
-    Ok(unblinded_elements)
+    Ok(blinds
+        .zip(messages.into_iter())
+        .map(|(blind, x)| x.value * &G::scalar_invert(&blind)))
 }
 
 #[allow(clippy::many_single_char_names)]
@@ -823,19 +788,23 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
 }
 
 fn finalize_after_unblind<
+    'a,
     G: Group,
     H: BlockInput + Digest,
     I: AsRef<[u8]>,
-    IE: Iterator<Item = (I, G)>,
+    IE: 'a + Iterator<Item = (I, G)>,
 >(
     inputs_and_unblinded_elements: IE,
-    info: &[u8],
+    info: &'a [u8],
     mode: Mode,
-) -> Result<Vec<GenericArray<u8, H::OutputSize>>, InternalError> {
+) -> Result<
+    impl 'a + Iterator<Item = Result<GenericArray<u8, H::OutputSize>, InternalError>>,
+    InternalError,
+> {
     let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
-    inputs_and_unblinded_elements
-        .map(|(input, unblinded_element)| {
+    Ok(
+        inputs_and_unblinded_elements.map(move |(input, unblinded_element)| {
             chain!(
                 hash_input,
                 serialize::<U2>(input.as_ref())?,
@@ -847,8 +816,8 @@ fn finalize_after_unblind<
             Ok(hash_input
                 .fold(H::new(), |h, bytes| h.chain(bytes))
                 .finalize())
-        })
-        .collect()
+        }),
+    )
 }
 
 fn compute_composites<G: Group, H: BlockInput + Digest>(
@@ -949,8 +918,11 @@ mod tests {
 
         let res = point * &G::scalar_invert(&(key + &m));
 
-        finalize_after_unblind::<G, H, _, _>(Some((input, res)).into_iter(), info, mode).unwrap()[0]
-            .clone()
+        finalize_after_unblind::<G, H, _, _>(Some((input, res)).into_iter(), info, mode)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
     }
 
     fn base_retrieval<G: Group, H: BlockInput + Digest>() {
@@ -1043,6 +1015,8 @@ mod tests {
             server.get_public_key(),
             Some(info),
         )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
         .unwrap();
         let mut res2 = vec![];
         for input in inputs.iter().take(num_iterations) {
@@ -1112,8 +1086,10 @@ mod tests {
             info,
             Mode::Base,
         )
-        .unwrap()[0]
-            .clone();
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
 
         assert_eq!(client_finalize_result, res2);
     }
