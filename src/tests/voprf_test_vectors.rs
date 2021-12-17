@@ -181,7 +181,7 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
             let blind =
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
-                parameters.input[i].clone(),
+                &parameters.input[i],
                 blind,
             )?;
 
@@ -207,7 +207,7 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
             let blind =
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
-                parameters.input[i].clone(),
+                &parameters.input[i],
                 blind,
             )?;
 
@@ -278,12 +278,12 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<G, H>::from_data_and_blind(
-                &parameters.input[i],
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
-            );
+            let client = NonVerifiableClient::<G, H>::from_blind(G::from_scalar_slice(
+                &GenericArray::clone_from_slice(&parameters.blind[i]),
+            )?);
 
             let client_finalize_result = client.finalize(
+                &parameters.input[i],
                 &EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
                 Some(&parameters.info),
             )?;
@@ -300,8 +300,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<G, H>::from_data_and_blind_and_element(
-                &parameters.input[i],
+            let client = VerifiableClient::<G, H>::from_blind_and_element(
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
                 G::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
@@ -317,6 +316,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
             .collect();
 
         let batch_result = VerifiableClient::batch_finalize(
+            &parameters.input,
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,

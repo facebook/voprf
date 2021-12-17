@@ -12,7 +12,8 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::Unsigned, GenericArray};
+use generic_array::typenum::Unsigned;
+use generic_array::GenericArray;
 
 use crate::errors::InternalError;
 use crate::group::Group;
@@ -29,22 +30,20 @@ use crate::voprf::{
 impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> Vec<u8> {
-        [G::scalar_as_bytes(self.blind).as_slice(), &self.data].concat()
+        [G::scalar_as_bytes(self.blind).as_slice()].concat()
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         let scalar_len = G::ScalarLen::USIZE;
-        if input.len() < scalar_len {
+        if input.len() != scalar_len {
             return Err(InternalError::SizeError);
         }
 
         let blind = G::from_scalar_slice(&input[..scalar_len])?;
-        let data = input[scalar_len..].to_vec();
 
         Ok(Self {
             blind,
-            data,
             hash: PhantomData,
         })
     }
@@ -56,7 +55,6 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         [
             G::scalar_as_bytes(self.blind).as_slice(),
             &self.blinded_element.to_arr(),
-            &self.data,
         ]
         .concat()
     }
@@ -65,18 +63,16 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
         let scalar_len = G::ScalarLen::USIZE;
         let elem_len = G::ElemLen::USIZE;
-        if input.len() < scalar_len + elem_len {
+        if input.len() != scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
 
         let blind = G::from_scalar_slice(&input[..scalar_len])?;
         let blinded_element = G::from_element_slice(&input[scalar_len..scalar_len + elem_len])?;
-        let data = input[scalar_len + elem_len..].to_vec();
 
         Ok(Self {
             blind,
             blinded_element,
-            data,
             hash: PhantomData,
         })
     }

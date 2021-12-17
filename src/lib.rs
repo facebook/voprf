@@ -90,9 +90,8 @@
 //! use voprf::NonVerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result =
-//!     NonVerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!         .expect("Unable to construct client");
+//! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
@@ -117,7 +116,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -149,7 +148,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -162,7 +161,7 @@
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result
 //!     .state
-//!     .finalize(&server_evaluate_result.message, None)
+//!     .finalize(b"input", &server_evaluate_result.message, None)
 //!     .expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -233,9 +232,8 @@
 //! use voprf::VerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result =
-//!     VerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!         .expect("Unable to construct client");
+//! let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
@@ -260,7 +258,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -293,7 +291,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -308,6 +306,7 @@
 //! let client_finalize_result = client_blind_result
 //!     .state
 //!     .finalize(
+//!         b"input",
 //!         &server_evaluate_result.message,
 //!         &server_evaluate_result.proof,
 //!         server.get_public_key(),
@@ -351,9 +350,8 @@
 //! let mut client_states = vec![];
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
-//!     let client_blind_result =
-//!         VerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!             .expect("Unable to construct client");
+//!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!         .expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
 //! }
@@ -381,7 +379,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input".to_vec(),
+//! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
@@ -418,7 +416,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input".to_vec(),
+//! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
@@ -434,6 +432,7 @@
 //! #     None,
 //! # ).expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
+//!     &[b"input"; 10],
 //!     &client_states,
 //!     &server_batch_evaluate_result.messages,
 //!     &server_batch_evaluate_result.proof,
