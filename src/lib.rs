@@ -107,7 +107,7 @@
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server.evaluate(
-//!     client_blind_result.message,
+//!     &client_blind_result.message,
 //!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
@@ -134,11 +134,11 @@
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
-//! #     client_blind_result.message,
+//! #     &client_blind_result.message,
 //! #     None,
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result.state.finalize(
-//!     server_evaluate_result.message,
+//!     &server_evaluate_result.message,
 //!     None,
 //! ).expect("Unable to perform client finalization");
 //!
@@ -228,7 +228,7 @@
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server.evaluate(
 //!     &mut server_rng,
-//!     client_blind_result.message,
+//!     &client_blind_result.message,
 //!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
@@ -257,12 +257,12 @@
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
-//! #     client_blind_result.message,
+//! #     &client_blind_result.message,
 //! #     None,
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result.state.finalize(
-//!     server_evaluate_result.message,
-//!     server_evaluate_result.proof,
+//!     &server_evaluate_result.message,
+//!     &server_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     None,
 //! ).expect("Unable to perform client finalization");
@@ -374,7 +374,7 @@
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
 //!     &client_states,
 //!     &server_batch_evaluate_result.messages,
-//!     server_batch_evaluate_result.proof,
+//!     &server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     None,
 //! ).expect("Unable to perform client batch finalization");

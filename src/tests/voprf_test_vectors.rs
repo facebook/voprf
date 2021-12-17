@@ -230,7 +230,7 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
             let server_result = server.evaluate(
-                BlindedElement::deserialize(&parameters.blinded_element[i])?,
+                &BlindedElement::deserialize(&parameters.blinded_element[i])?,
                 Some(&parameters.info),
             )?;
 
@@ -284,7 +284,7 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
             );
 
             let client_finalize_result = client.finalize(
-                EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
+                &EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
                 Some(&parameters.info),
             )?;
 
@@ -321,7 +321,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
         let batch_result = VerifiableClient::batch_finalize(
             &clients,
             &messages,
-            Proof::deserialize(&parameters.proof)?,
+            &Proof::deserialize(&parameters.proof)?,
             G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
             Some(&parameters.info),
         )?;

@@ -208,7 +208,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
     /// the client unblinds the server's message.
     pub fn finalize(
         &self,
-        evaluation_element: EvaluationElement<G, H>,
+        evaluation_element: &EvaluationElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
         let unblinded_element =
@@ -292,15 +292,18 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     /// the client unblinds the server's message.
     pub fn finalize(
         &self,
-        evaluation_element: EvaluationElement<G, H>,
-        proof: Proof<G, H>,
+        evaluation_element: &EvaluationElement<G, H>,
+        proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&[u8]>,
     ) -> Result<GenericArray<u8, <H as Digest>::OutputSize>, InternalError> {
-        // circumvent `.clone()`
+        // `core::array::from_ref` needs a MSRV of 1.53
         let clients: &[Self; 1] = core::slice::from_ref(self).try_into().unwrap();
-        let batch_result =
-            Self::batch_finalize(clients, &[evaluation_element], proof, pk, metadata)?;
+        let messages: &[EvaluationElement<G, H>; 1] = core::slice::from_ref(evaluation_element)
+            .try_into()
+            .unwrap();
+
+        let batch_result = Self::batch_finalize(clients, messages, proof, pk, metadata)?;
         Ok(batch_result[0].clone())
     }
 
@@ -308,7 +311,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
     pub fn batch_finalize<'a, IC, IM>(
         clients: &'a IC,
         messages: &'a IM,
-        proof: Proof<G, H>,
+        proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&[u8]>,
     ) -> Result<Vec<GenericArray<u8, <H as Digest>::OutputSize>>, InternalError>
@@ -432,7 +435,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
     /// message is sent from the server (who holds the OPRF key) to the client.
     pub fn evaluate(
         &self,
-        blinded_element: BlindedElement<G, H>,
+        blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<NonVerifiableServerEvaluateResult<G, H>, InternalError> {
         chain!(
@@ -502,10 +505,14 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
-        blinded_element: BlindedElement<G, H>,
+        blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<VerifiableServerEvaluateResult<G, H>, InternalError> {
-        let batch_result = self.batch_evaluate(rng, &[blinded_element], metadata)?;
+        // `core::array::from_ref` needs a MSRV of 1.53
+        let blinded_elements: &[BlindedElement<G, H>; 1] =
+            core::slice::from_ref(blinded_element).try_into().unwrap();
+
+        let batch_result = self.batch_evaluate(rng, blinded_elements, metadata)?;
         Ok(VerifiableServerEvaluateResult {
             message: batch_result.messages[0].copy(),
             proof: batch_result.proof,
@@ -708,7 +715,7 @@ fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
 fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, I>(
     batch_items: &'a I,
     pk: G,
-    proof: Proof<G, H>,
+    proof: &Proof<G, H>,
     info: &[u8],
 ) -> Result<Vec<G>, InternalError>
 where
@@ -788,7 +795,7 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     b: G,
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-    proof: Proof<G, H>,
+    proof: &Proof<G, H>,
 ) -> Result<(), InternalError> {
     let (m, z) = compute_composites(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
@@ -953,11 +960,11 @@ mod tests {
             NonVerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = NonVerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
-            .evaluate(client_blind_result.message, Some(info))
+            .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
         let client_finalize_result = client_blind_result
             .state
-            .finalize(server_result.message, Some(info))
+            .finalize(&server_result.message, Some(info))
             .unwrap();
         let res2 = prf::<G, H>(input, server.get_private_key(), info, Mode::Base);
         assert_eq!(client_finalize_result, res2);
@@ -971,13 +978,13 @@ mod tests {
             VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
         let client_finalize_result = client_blind_result
             .state
             .finalize(
-                server_result.message,
-                server_result.proof,
+                &server_result.message,
+                &server_result.proof,
                 server.get_public_key(),
                 Some(info),
             )
@@ -994,15 +1001,15 @@ mod tests {
             VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
             G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
-            server_result.message,
-            server_result.proof,
+            &server_result.message,
+            &server_result.proof,
             wrong_pk,
             Some(info),
         );
@@ -1032,7 +1039,7 @@ mod tests {
         let client_finalize_result = VerifiableClient::batch_finalize(
             &client_states,
             &server_result.messages,
-            server_result.proof,
+            &server_result.proof,
             server.get_public_key(),
             Some(info),
         )
@@ -1072,7 +1079,7 @@ mod tests {
         let client_finalize_result = VerifiableClient::batch_finalize(
             &client_states,
             &server_result.messages,
-            server_result.proof,
+            &server_result.proof,
             wrong_pk,
             Some(info),
         );
@@ -1089,7 +1096,7 @@ mod tests {
         let client_finalize_result = client_blind_result
             .state
             .finalize(
-                EvaluationElement {
+                &EvaluationElement {
                     value: client_blind_result.message.value,
                     hash: PhantomData,
                 },
@@ -1149,7 +1156,7 @@ mod tests {
             NonVerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = NonVerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
-            .evaluate(client_blind_result.message, Some(info))
+            .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
 
         let mut state = server;
@@ -1169,7 +1176,7 @@ mod tests {
             VerifiableClient::<G, H>::blind(input.to_vec(), &mut rng).unwrap();
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
 
         let mut state = server;
