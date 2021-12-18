@@ -18,6 +18,8 @@ use generic_array::typenum::{U1, U11, U2};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
+#[cfg(feature = "serde")]
+use ::{core::ops::Add, generic_array::typenum::Sum, generic_array::ArrayLength};
 
 use crate::errors::InternalError;
 use crate::group::Group;
@@ -74,7 +76,12 @@ pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(VerifiableClient);
+impl_serialize_and_deserialize_for!(
+    VerifiableClient
+    where
+        G::ScalarLen: Add<G::ElemLen>,
+        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
+);
 
 /// A server which engages with a [NonVerifiableClient] in base mode, meaning
 /// that the OPRF outputs are not verifiable.
@@ -101,7 +108,12 @@ pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(VerifiableServer);
+impl_serialize_and_deserialize_for!(
+    VerifiableServer
+    where
+        G::ScalarLen: Add<G::ElemLen>,
+        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
+);
 
 /// A proof produced by a [VerifiableServer] that the OPRF output matches
 /// against a server public key.
@@ -115,7 +127,12 @@ pub struct Proof<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(Proof);
+impl_serialize_and_deserialize_for!(
+    Proof
+    where
+        G::ScalarLen: Add<G::ScalarLen>,
+        Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
+);
 
 /// The first client message sent from a client (either verifiable or not) to a
 /// server (either verifiable or not).
@@ -888,8 +905,10 @@ fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, Int
 #[cfg(test)]
 mod tests {
     use alloc::vec;
+    use core::ops::Add;
 
-    use generic_array::GenericArray;
+    use generic_array::typenum::Sum;
+    use generic_array::{ArrayLength, GenericArray};
     use rand::rngs::OsRng;
     use zeroize::Zeroize;
 
@@ -1108,7 +1127,11 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_verifiable_client<G: Group, H: BlockInput + Digest>() {
+    fn zeroize_verifiable_client<G: Group, H: BlockInput + Digest>()
+    where
+        G::ScalarLen: Add<G::ElemLen>,
+        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
+    {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VerifiableClient::<G, H>::blind(input, &mut rng).unwrap();
@@ -1141,7 +1164,13 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_verifiable_server<G: Group, H: BlockInput + Digest>() {
+    fn zeroize_verifiable_server<G: Group, H: BlockInput + Digest>()
+    where
+        G::ScalarLen: Add<G::ElemLen>,
+        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
+        G::ScalarLen: Add<G::ScalarLen>,
+        Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
+    {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;

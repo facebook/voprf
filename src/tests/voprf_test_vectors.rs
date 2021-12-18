@@ -8,9 +8,11 @@
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
+use core::ops::Add;
 
 use digest::{BlockInput, Digest};
-use generic_array::GenericArray;
+use generic_array::typenum::Sum;
+use generic_array::{ArrayLength, GenericArray};
 use json::JsonValue;
 
 use crate::errors::InternalError;
@@ -238,7 +240,7 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
 
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &server_result.message.serialize()
+                &server_result.message.serialize().as_slice()
             );
         }
     }
@@ -247,7 +249,11 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
 
 fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<(), InternalError>
+where
+    G::ScalarLen: Add<G::ScalarLen>,
+    Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
+{
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = VerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
@@ -263,11 +269,14 @@ fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.evaluation_element.len() {
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &batch_evaluate_result.messages[i].serialize(),
+                &batch_evaluate_result.messages[i].serialize().as_slice(),
             );
         }
 
-        assert_eq!(&parameters.proof, &batch_evaluate_result.proof.serialize());
+        assert_eq!(
+            &parameters.proof,
+            &batch_evaluate_result.proof.serialize().as_slice()
+        );
     }
     Ok(())
 }
