@@ -1150,7 +1150,7 @@ mod tests {
             .concat(get_context_string::<G>(Mode::Base).unwrap());
         let point = G::hash_to_curve::<H, _>(&input, dst).unwrap();
         let res2 = finalize_after_unblind::<G, H, _, _>(
-            Some((input.as_slice(), point)).into_iter(),
+            Some((input.as_ref(), point)).into_iter(),
             info,
             Mode::Base,
         )
