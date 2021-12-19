@@ -278,9 +278,7 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.input.len() {
             let client = NonVerifiableClient::<G, H>::from_data_and_blind(
                 &parameters.input[i],
-                <G as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
-                    &parameters.blind[i],
-                ))?,
+                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
             );
 
             let client_finalize_result = client.finalize(
@@ -302,10 +300,8 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<G, H>::from_data_and_blind_and_element(
                 &parameters.input[i],
-                <G as Group>::from_scalar_slice(&GenericArray::clone_from_slice(
-                    &parameters.blind[i],
-                ))?,
-                <G as Group>::from_element_slice(&GenericArray::clone_from_slice(
+                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
+                G::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );

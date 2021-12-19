@@ -34,7 +34,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() < scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -63,8 +63,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() < scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
@@ -90,7 +90,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() != scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -112,8 +112,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
@@ -141,7 +141,7 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() != scalar_len + scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -161,7 +161,7 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != elem_len {
             return Err(InternalError::SizeError);
         }
@@ -180,7 +180,7 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != elem_len {
             return Err(InternalError::SizeError);
         }

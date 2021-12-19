@@ -40,13 +40,13 @@ pub fn expand_message_xmd<
 where
     <D as Add<U1>>::Output: ArrayLength<u8>,
 {
-    let digest_len = <H as Digest>::OutputSize::USIZE;
+    let digest_len = H::OutputSize::USIZE;
     let ell = div_ceil(L::USIZE, digest_len);
     if ell > 255 {
         return Err(InternalError::HashToCurveError);
     }
     let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
-    let z_pad = i2osp::<<H as BlockInput>::BlockSize>(0)?;
+    let z_pad = i2osp::<H::BlockSize>(0)?;
     let l_i_b_str = i2osp::<U2>(L::USIZE)?;
 
     let mut h = H::new();
