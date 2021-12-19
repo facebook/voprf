@@ -103,7 +103,7 @@ macro_rules! chain_skip {
     };
 }
 
-/// The purpose of this macro is to simplify
+/// The purpose of this macro is to replace
 /// [`concat`](alloc::slice::Concat::concat)ing slices into an [`Iterator`] to
 /// avoid allocation
 macro_rules! chain {

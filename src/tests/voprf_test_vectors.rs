@@ -8,15 +8,19 @@
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use core::ops::Add;
 
 use digest::{BlockInput, Digest};
-use generic_array::typenum::Sum;
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::GenericArray;
 use json::JsonValue;
+#[cfg(feature = "alloc")]
+use ::{
+    core::ops::Add,
+    generic_array::{typenum::Sum, ArrayLength},
+};
 
 use crate::errors::InternalError;
 use crate::group::Group;
+#[cfg(feature = "alloc")]
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::voprf::{
@@ -35,6 +39,7 @@ struct VOPRFTestVectorParameters {
     blinded_element: Vec<Vec<u8>>,
     evaluation_element: Vec<Vec<u8>>,
     proof: Vec<u8>,
+    #[cfg(feature = "alloc")]
     proof_random_scalar: Vec<u8>,
     output: Vec<Vec<u8>>,
 }
@@ -50,6 +55,7 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
         blinded_element: decode_vec(values, "BlindedElement"),
         evaluation_element: decode_vec(values, "EvaluationElement"),
         proof: decode(values, "Proof"),
+        #[cfg(feature = "alloc")]
         proof_random_scalar: decode(values, "ProofRandomScalar"),
         output: decode_vec(values, "Output"),
     }
@@ -113,6 +119,7 @@ fn test_vectors() -> Result<(), InternalError> {
 
         test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        #[cfg(feature = "alloc")]
         test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
     }
@@ -247,6 +254,7 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
     Ok(())
 }
 
+#[cfg(feature = "alloc")]
 fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<(), InternalError>

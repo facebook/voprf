@@ -7,6 +7,7 @@
 
 //! Contains the main VOPRF API
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::marker::PhantomData;
@@ -490,19 +491,28 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<VerifiableServerEvaluateResult<G, H>, InternalError> {
-        // `core::array::from_ref` needs a MSRV of 1.53
-        let blinded_elements: &[BlindedElement<G, H>; 1] =
-            core::slice::from_ref(blinded_element).try_into().unwrap();
+        let (mut evaluation_elements, t) =
+            self.batch_evaluate_1(Some(blinded_element.copy()).into_iter(), metadata)?;
 
-        let batch_result = self.batch_evaluate(rng, blinded_elements, metadata)?;
+        let evaluation_element = evaluation_elements.next().unwrap();
+
+        let proof = Self::batch_evaluate_2(
+            rng,
+            Some(blinded_element.copy()).into_iter(),
+            Some(evaluation_element.copy()).into_iter(),
+            t,
+        )?;
+
+        //let batch_result = self.batch_evaluate(rng, blinded_elements, metadata)?;
         Ok(VerifiableServerEvaluateResult {
-            message: batch_result.messages[0].copy(),
-            proof: batch_result.proof,
+            message: evaluation_element,
+            proof,
         })
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
     /// messages from a [VerifiableClient]
+    #[cfg(feature = "alloc")]
     pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
         rng: &mut R,
@@ -515,6 +525,40 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
         &'a I: IntoIterator<Item = &'a BlindedElement<G, H>>,
         <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
     {
+        let (evaluation_elements, t) = self.batch_evaluate_1(
+            blinded_elements.into_iter().map(BlindedElement::copy),
+            metadata,
+        )?;
+
+        let evaluation_elements: Vec<_> = evaluation_elements.collect();
+
+        let proof = Self::batch_evaluate_2(
+            rng,
+            blinded_elements.into_iter().map(BlindedElement::copy),
+            evaluation_elements.iter().map(EvaluationElement::copy),
+            t,
+        )?;
+
+        Ok(VerifiableServerBatchEvaluateResult {
+            messages: evaluation_elements,
+            proof,
+        })
+    }
+
+    fn batch_evaluate_1<I>(
+        &self,
+        blinded_elements: I,
+        metadata: Option<&[u8]>,
+    ) -> Result<
+        (
+            impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+            G::Scalar,
+        ),
+        InternalError,
+    >
+    where
+        I: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
+    {
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
@@ -524,30 +568,30 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
         let t = self.sk + &m;
-        let evaluation_elements: Vec<EvaluationElement<G, H>> = blinded_elements
-            .into_iter()
-            .map(|x| EvaluationElement {
-                value: x.value * &G::scalar_invert(&t),
-                hash: PhantomData,
-            })
-            .collect();
+        let evaluation_elements = blinded_elements.map(move |x| EvaluationElement {
+            value: x.value * &G::scalar_invert(&t),
+            hash: PhantomData,
+        });
 
+        Ok((evaluation_elements, t))
+    }
+
+    /// Allows for batching of the evaluation of multiple [BlindedElement]
+    /// messages from a [VerifiableClient]
+    fn batch_evaluate_2<R: RngCore + CryptoRng, IE, IB>(
+        rng: &mut R,
+        blinded_elements: IB,
+        evaluation_elements: IE,
+        t: G::Scalar,
+    ) -> Result<Proof<G, H>, InternalError>
+    where
+        IB: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
+        IE: Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+    {
         let g = G::base_point();
         let u = g * &t;
 
-        let proof = generate_proof(
-            rng,
-            t,
-            g,
-            u,
-            evaluation_elements.iter().map(EvaluationElement::copy),
-            blinded_elements.into_iter().map(BlindedElement::copy),
-        )?;
-
-        Ok(VerifiableServerBatchEvaluateResult {
-            messages: evaluation_elements,
-            proof,
-        })
+        generate_proof(rng, t, g, u, evaluation_elements, blinded_elements)
     }
 
     /// Retrieves the server's public key
@@ -592,9 +636,10 @@ pub struct VerifiableServerEvaluateResult<G: Group, H: BlockInput + Digest> {
 }
 
 /// Contains the fields that are returned by a verifiable server batch evaluate
+#[cfg(feature = "alloc")]
 pub struct VerifiableServerBatchEvaluateResult<G: Group, H: BlockInput + Digest> {
     /// The messages to send to the client
-    pub messages: Vec<EvaluationElement<G, H>>,
+    pub messages: alloc::vec::Vec<EvaluationElement<G, H>>,
     /// The proof for the client to verify
     pub proof: Proof<G, H>,
 }
@@ -904,13 +949,14 @@ fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, Int
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use core::ops::Add;
 
     use generic_array::typenum::Sum;
     use generic_array::{ArrayLength, GenericArray};
     use rand::rngs::OsRng;
     use zeroize::Zeroize;
+    #[cfg(feature = "alloc")]
+    use ::{alloc::vec, alloc::vec::Vec};
 
     use super::*;
     use crate::group::Group;
@@ -984,6 +1030,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
+    #[cfg(feature = "alloc")]
     fn verifiable_bad_public_key<G: Group, H: BlockInput + Digest>() {
         let input = b"input";
         let info = b"info";
@@ -1007,6 +1054,7 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
+    #[cfg(feature = "alloc")]
     fn verifiable_batch_retrieval<G: Group, H: BlockInput + Digest>() {
         let info = b"info";
         let mut rng = OsRng;
@@ -1045,6 +1093,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
+    #[cfg(feature = "alloc")]
     fn verifiable_batch_bad_public_key<G: Group, H: BlockInput + Digest>() {
         let info = b"info";
         let mut rng = OsRng;
@@ -1203,8 +1252,11 @@ mod tests {
             base_retrieval::<RistrettoPoint, Sha512>();
             base_inversion_unsalted::<RistrettoPoint, Sha512>();
             verifiable_retrieval::<RistrettoPoint, Sha512>();
+            #[cfg(feature = "alloc")]
             verifiable_batch_retrieval::<RistrettoPoint, Sha512>();
+            #[cfg(feature = "alloc")]
             verifiable_bad_public_key::<RistrettoPoint, Sha512>();
+            #[cfg(feature = "alloc")]
             verifiable_batch_bad_public_key::<RistrettoPoint, Sha512>();
 
             zeroize_base_client::<RistrettoPoint, Sha512>();

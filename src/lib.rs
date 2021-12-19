@@ -331,10 +331,13 @@
 //! this case. In the following example, we show how to use the batch API to
 //! produce a single proof for 10 parallel VOPRF evaluations.
 //!
+//! This requires the crate feature `alloc`.
+//!
 //! First, the client produces 10 blindings, storing their resulting states and
 //! messages:
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -355,6 +358,7 @@
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
 //! }
+//! # }
 //! ```
 //!
 //! Next, the server calls the [VerifiableServer::batch_evaluate] function on a
@@ -363,6 +367,7 @@
 //! proof:
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -392,6 +397,7 @@
 //! let server_batch_evaluate_result = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
 //!     .expect("Unable to perform server batch evaluate");
+//! # }
 //! ```
 //!
 //! Then, the client calls [VerifiableClient::batch_finalize] on the client
@@ -400,6 +406,7 @@
 //! outputs if the proof verifies correctly.
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -443,6 +450,7 @@
 //! .collect::<Vec<_>>();
 //!
 //! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
+//! # }
 //! ```
 //!
 //! ## Metadata
@@ -459,6 +467,9 @@
 //! `Some(b"custom metadata")`.
 //!
 //! # Features
+//!
+//! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
+//!   VOPRF evaluations.
 //!
 //! - The `p256` feature enables using p256 as the underlying group for the
 //!   [Group](group::Group) choice. Note that this is currently an experimental
@@ -491,6 +502,7 @@
 #![warn(clippy::cargo, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
 
+#[cfg(any(feature = "alloc", test))]
 extern crate alloc;
 
 #[cfg(feature = "std")]
