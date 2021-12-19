@@ -10,12 +10,13 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::convert::TryInto;
+use core::iter::{self, Map, Repeat, Zip};
 use core::marker::PhantomData;
 
 use derive_where::DeriveWhere;
 use digest::{BlockInput, Digest};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{U1, U11, U2};
+use generic_array::typenum::{U1, U11, U2, U20};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -326,10 +327,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
         proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&'a [u8]>,
-    ) -> Result<
-        impl 'a + Iterator<Item = Result<GenericArray<u8, H::OutputSize>, InternalError>>,
-        InternalError,
-    >
+    ) -> Result<VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM>, InternalError>
     where
         G: 'a,
         H: 'a,
@@ -345,10 +343,7 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
         let unblinded_elements = verifiable_unblind(clients, messages, pk, proof, metadata)?;
 
-        let inputs_and_unblinded_elements = inputs
-            .into_iter()
-            .zip(unblinded_elements)
-            .map(|(input, unblinded_element)| (input, unblinded_element));
+        let inputs_and_unblinded_elements = inputs.into_iter().zip(unblinded_elements);
 
         finalize_after_unblind::<G, H, _, _>(
             inputs_and_unblinded_elements,
@@ -627,6 +622,14 @@ pub struct VerifiableClientBlindResult<G: Group, H: BlockInput + Digest> {
     pub message: BlindedElement<G, H>,
 }
 
+pub type VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM> = FinalizeAfterUnblindResult<
+    'a,
+    G,
+    H,
+    I,
+    Zip<<&'a II as IntoIterator>::IntoIter, VerifiableUnblindResult<'a, G, H, IC, IM>>,
+>;
+
 /// Contains the fields that are returned by a verifiable server evaluate
 pub struct VerifiableServerEvaluateResult<G: Group, H: BlockInput + Digest> {
     /// The message to send to the client
@@ -734,13 +737,22 @@ fn deterministic_blind_unchecked<G: Group, H: BlockInput + Digest>(
     Ok(hashed_point * blind)
 }
 
+#[allow(type_alias_bounds)]
+type VerifiableUnblindResult<'a, G: Group, H, IC, IM> = Map<
+    Zip<
+        Map<<&'a IC as IntoIterator>::IntoIter, fn(&VerifiableClient<G, H>) -> G::Scalar>,
+        <&'a IM as IntoIterator>::IntoIter,
+    >,
+    fn((G::Scalar, &EvaluationElement<G, H>)) -> G,
+>;
+
 fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockInput + Digest, IC, IM>(
     clients: &'a IC,
     messages: &'a IM,
     pk: G,
     proof: &Proof<G, H>,
     info: &[u8],
-) -> Result<impl 'a + Iterator<Item = G>, InternalError>
+) -> Result<VerifiableUnblindResult<'a, G, H, IC, IM>, InternalError>
 where
     &'a IC: 'a + IntoIterator<Item = &'a VerifiableClient<G, H>>,
     <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
@@ -761,7 +773,10 @@ where
     let t = g * &m;
     let u = t + &pk;
 
-    let blinds = clients.into_iter().map(|x| x.blind);
+    let blinds = clients
+        .into_iter()
+        // Convert to `fn` pointer to make a return type possible.
+        .map(<fn(&VerifiableClient<G, H>) -> _>::from(|x| x.blind));
     let evaluation_elements = messages.into_iter().map(EvaluationElement::copy);
     let blinded_elements = clients.into_iter().map(|client| BlindedElement {
         value: client.blinded_element,
@@ -849,6 +864,14 @@ fn verify_proof<G: Group, H: BlockInput + Digest>(
     }
 }
 
+#[allow(type_alias_bounds)]
+type FinalizeAfterUnblindResult<'a, G, H: Digest, I, IE> = Map<
+    Zip<IE, Repeat<(&'a [u8], GenericArray<u8, U20>)>>,
+    fn(
+        ((I, G), (&'a [u8], GenericArray<u8, U20>)),
+    ) -> Result<GenericArray<u8, H::OutputSize>, InternalError>,
+>;
+
 fn finalize_after_unblind<
     'a,
     G: Group,
@@ -859,14 +882,14 @@ fn finalize_after_unblind<
     inputs_and_unblinded_elements: IE,
     info: &'a [u8],
     mode: Mode,
-) -> Result<
-    impl 'a + Iterator<Item = Result<GenericArray<u8, H::OutputSize>, InternalError>>,
-    InternalError,
-> {
+) -> Result<FinalizeAfterUnblindResult<G, H, I, IE>, InternalError> {
     let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
-    Ok(
-        inputs_and_unblinded_elements.map(move |(input, unblinded_element)| {
+    Ok(inputs_and_unblinded_elements
+        // To make a return type possible, we have to convert to a `fn` pointer,
+        // which isn't possible if we `move` from context.
+        .zip(iter::repeat((info, finalize_dst)))
+        .map(|((input, unblinded_element), (info, finalize_dst))| {
             chain!(
                 hash_input,
                 serialize::<U2>(input.as_ref())?,
@@ -878,8 +901,7 @@ fn finalize_after_unblind<
             Ok(hash_input
                 .fold(H::new(), |h, bytes| h.chain(bytes))
                 .finalize())
-        }),
-    )
+        }))
 }
 
 fn compute_composites<G: Group, H: BlockInput + Digest>(
