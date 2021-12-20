@@ -85,6 +85,13 @@ pub(crate) fn serialize_owned<L1: ArrayLength<u8>, L2: ArrayLength<u8>>(
     })
 }
 
+pub(crate) fn deserialize<L: ArrayLength<u8>>(
+    input: &mut impl Iterator<Item = u8>,
+) -> Result<GenericArray<u8, L>, InternalError> {
+    let input = input.by_ref().take(L::USIZE);
+    GenericArray::from_exact_iter(input).ok_or(InternalError::SizeError)
+}
+
 macro_rules! chain_name {
     ($var:ident, $mod:ident) => {
         $mod

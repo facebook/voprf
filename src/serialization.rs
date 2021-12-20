@@ -13,11 +13,12 @@ use core::ops::Add;
 
 use digest::{BlockInput, Digest};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{Sum, Unsigned};
+use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::errors::InternalError;
 use crate::group::Group;
+use crate::util::deserialize;
 use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
     VerifiableClient, VerifiableServer,
@@ -36,12 +37,9 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = G::ScalarLen::USIZE;
-        if input.len() != scalar_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&input[..scalar_len])?;
+        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -62,14 +60,10 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = G::ScalarLen::USIZE;
-        let elem_len = G::ElemLen::USIZE;
-        if input.len() != scalar_len + elem_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&input[..scalar_len])?;
-        let blinded_element = G::from_element_slice(&input[scalar_len..scalar_len + elem_len])?;
+        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let blinded_element = G::from_element_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -87,12 +81,9 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = G::ScalarLen::USIZE;
-        if input.len() != scalar_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(input)?;
+        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -113,14 +104,10 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = G::ScalarLen::USIZE;
-        let elem_len = G::ElemLen::USIZE;
-        if input.len() != scalar_len + elem_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(&input[..scalar_len])?;
-        let pk = G::from_element_slice(&input[scalar_len..])?;
+        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let pk = G::from_element_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -142,13 +129,14 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = G::ScalarLen::USIZE;
-        if input.len() != scalar_len + scalar_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
+
+        let c_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let s_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
+
         Ok(Proof {
-            c_scalar: G::from_scalar_slice(&input[..scalar_len])?,
-            s_scalar: G::from_scalar_slice(&input[scalar_len..])?,
+            c_scalar,
+            s_scalar,
             hash: PhantomData,
         })
     }
@@ -162,12 +150,12 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = G::ElemLen::USIZE;
-        if input.len() != elem_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
+
+        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+
         Ok(Self {
-            value: G::from_element_slice(input)?,
+            value,
             hash: PhantomData,
         })
     }
@@ -181,12 +169,12 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = G::ElemLen::USIZE;
-        if input.len() != elem_len {
-            return Err(InternalError::SizeError);
-        }
+        let mut input = input.iter().copied();
+
+        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+
         Ok(Self {
-            value: G::from_element_slice(input)?,
+            value,
             hash: PhantomData,
         })
     }
