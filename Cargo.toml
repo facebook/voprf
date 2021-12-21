@@ -46,7 +46,7 @@ json = "0.12"
 proptest = "1"
 rand = "0.8"
 regex = "1"
-sha2 = "0.9"
+sha2 = "0.10"
 
 [package.metadata.docs.rs]
 features = ["danger", "p256", "std"]
