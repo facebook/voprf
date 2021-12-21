@@ -34,7 +34,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() < scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -63,8 +63,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableClient<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() < scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
@@ -90,7 +90,7 @@ impl<G: Group, H: BlockInput + Digest> NonVerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() != scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -112,8 +112,8 @@ impl<G: Group, H: BlockInput + Digest> VerifiableServer<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != scalar_len + elem_len {
             return Err(InternalError::SizeError);
         }
@@ -141,7 +141,7 @@ impl<G: Group, H: BlockInput + Digest> Proof<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let scalar_len = <G as Group>::ScalarLen::USIZE;
+        let scalar_len = G::ScalarLen::USIZE;
         if input.len() != scalar_len + scalar_len {
             return Err(InternalError::SizeError);
         }
@@ -161,7 +161,7 @@ impl<G: Group, H: BlockInput + Digest> BlindedElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != elem_len {
             return Err(InternalError::SizeError);
         }
@@ -180,7 +180,7 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
-        let elem_len = <G as Group>::ElemLen::USIZE;
+        let elem_len = G::ElemLen::USIZE;
         if input.len() != elem_len {
             return Err(InternalError::SizeError);
         }
@@ -189,4 +189,69 @@ impl<G: Group, H: BlockInput + Digest> EvaluationElement<G, H> {
             hash: PhantomData,
         })
     }
+}
+
+/////////////////////////////////////////////
+// Serde implementation for High-Level API //
+// ======================================= //
+/////////////////////////////////////////////
+
+/// Macro used for deriving `serde`'s `Serialize` and `Deserialize` traits.
+macro_rules! impl_serialize_and_deserialize_for {
+    ($item:ident) => {
+        #[cfg(feature = "serde")]
+        impl<G: Group, H: BlockInput + Digest> serde::Serialize for $item<G, H> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.serialize_bytes(&self.serialize())
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl<'de, G: Group, H: BlockInput + Digest> serde::Deserialize<'de> for $item<G, H> {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                use serde::de::Error;
+
+                struct ByteVisitor<G: Group, H: BlockInput + Digest>(core::marker::PhantomData<(G, H)>);
+
+                impl<'de, G: Group, H: BlockInput + Digest> serde::de::Visitor<'de> for ByteVisitor<G, H> {
+                    type Value = $item<G, H>;
+
+                    fn expecting(
+                        &self,
+                        formatter: &mut core::fmt::Formatter,
+                    ) -> core::fmt::Result {
+                        formatter.write_str(core::concat!(
+                            "the byte representation of a ",
+                            core::stringify!($item)
+                        ))
+                    }
+
+                    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+                    where
+                        E: Error,
+                    {
+                        $item::<G, H>::deserialize(value).map_err(|_| {
+                            Error::invalid_value(
+                                serde::de::Unexpected::Bytes(value),
+                                &core::concat!(
+                                    "invalid byte sequence for ",
+                                    core::stringify!($item)
+                                ),
+                            )
+                        })
+                    }
+                }
+
+                deserializer
+                    .deserialize_bytes(ByteVisitor::<G, H>(core::marker::PhantomData))
+                    .map_err(Error::custom)
+            }
+        }
+    };
 }

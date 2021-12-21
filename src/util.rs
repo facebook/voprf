@@ -29,7 +29,7 @@ pub(crate) fn i2osp<L: ArrayLength<u8>>(
     }
 
     let mut output = GenericArray::default();
-    output[L::USIZE - SIZEOF_USIZE..L::USIZE].copy_from_slice(&input.to_be_bytes());
+    output[L::USIZE - SIZEOF_USIZE..].copy_from_slice(&input.to_be_bytes());
     Ok(output)
 }
 
@@ -50,6 +50,8 @@ impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serializ
     type IntoIter = IntoIter<&'a [u8], 2>;
 
     fn into_iter(self) -> Self::IntoIter {
+        // MSRV: array `into_iter` isn't available in 1.51
+        #[allow(deprecated)]
         IntoIter::new([
             &self.octet,
             match self.input {
@@ -115,6 +117,29 @@ macro_rules! chain {
     };
 }
 
+macro_rules! cfg_ristretto {
+    ($tree:tt) => {
+        #[cfg(any(
+            feature = "ristretto255_u64",
+            feature = "ristretto255_u32",
+            feature = "ristretto255_fiat_u64",
+            feature = "ristretto255_fiat_u32",
+            feature = "ristretto255_simd",
+        ))]
+        $tree
+    };
+    ($($item:item)+) => {
+        $(#[cfg(any(
+            feature = "ristretto255_u64",
+            feature = "ristretto255_u32",
+            feature = "ristretto255_fiat_u64",
+            feature = "ristretto255_fiat_u32",
+            feature = "ristretto255_simd",
+        ))]
+        $item)+
+    };
+}
+
 #[cfg(test)]
 mod unit_tests {
     use super::*;
@@ -122,10 +147,8 @@ mod unit_tests {
         BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
         VerifiableClient, VerifiableServer,
     };
-    use curve25519_dalek::ristretto::RistrettoPoint;
     use generic_array::typenum::{U1, U2};
     use proptest::{collection::vec, prelude::*};
-    use sha2::Sha512;
 
     // Test the error condition for I2OSP
     #[test]
@@ -141,40 +164,52 @@ mod unit_tests {
         assert!(i2osp::<U2>(256 * 256 + 1).is_err());
     }
 
+    macro_rules! test_deserialize {
+        ($item:ident, $bytes:ident) => {
+            cfg_ristretto! { {
+                let _ = $item::<curve25519_dalek::ristretto::RistrettoPoint, sha2::Sha512>::deserialize(&$bytes[..]);
+            } }
+            #[cfg(feature = "p256")]
+            {
+                let _ = $item::<p256_::ProjectivePoint, sha2::Sha256>::deserialize(&$bytes[..]);
+            }
+        };
+    }
+
     proptest! {
         #[test]
         fn test_nocrash_nonverifiable_client(bytes in vec(any::<u8>(), 0..200)) {
-            NonVerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(NonVerifiableClient, bytes);
         }
 
         #[test]
         fn test_nocrash_verifiable_client(bytes in vec(any::<u8>(), 0..200)) {
-            VerifiableClient::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(VerifiableClient, bytes);
         }
 
         #[test]
         fn test_nocrash_nonverifiable_server(bytes in vec(any::<u8>(), 0..200)) {
-            NonVerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(NonVerifiableServer, bytes);
         }
 
         #[test]
         fn test_nocrash_verifiable_server(bytes in vec(any::<u8>(), 0..200)) {
-            VerifiableServer::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(VerifiableServer, bytes);
         }
 
         #[test]
         fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
-            BlindedElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(BlindedElement, bytes);
         }
 
         #[test]
         fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
-            EvaluationElement::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(EvaluationElement, bytes);
         }
 
         #[test]
         fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
-            Proof::<RistrettoPoint, Sha512>::deserialize(&bytes[..]).map_or(true, |_| true);
+            test_deserialize!(Proof, bytes);
         }
     }
 }

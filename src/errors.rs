@@ -12,7 +12,7 @@ use std::error::Error;
 use displaydoc::Display;
 
 /// Represents an error in the manipulation of internal cryptographic data
-#[derive(Clone, Debug, Display, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum InternalError {
     /// Could not parse byte sequence for key
     InvalidByteSequence,

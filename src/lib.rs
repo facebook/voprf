@@ -107,7 +107,7 @@
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server.evaluate(
-//!     client_blind_result.message,
+//!     &client_blind_result.message,
 //!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
@@ -134,11 +134,11 @@
 //! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
-//! #     client_blind_result.message,
+//! #     &client_blind_result.message,
 //! #     None,
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result.state.finalize(
-//!     server_evaluate_result.message,
+//!     &server_evaluate_result.message,
 //!     None,
 //! ).expect("Unable to perform client finalization");
 //!
@@ -228,7 +228,7 @@
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server.evaluate(
 //!     &mut server_rng,
-//!     client_blind_result.message,
+//!     &client_blind_result.message,
 //!     None,
 //! ).expect("Unable to perform server evaluate");
 //! ```
@@ -257,12 +257,12 @@
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
-//! #     client_blind_result.message,
+//! #     &client_blind_result.message,
 //! #     None,
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result.state.finalize(
-//!     server_evaluate_result.message,
-//!     server_evaluate_result.proof,
+//!     &server_evaluate_result.message,
+//!     &server_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     None,
 //! ).expect("Unable to perform client finalization");
@@ -374,7 +374,7 @@
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
 //!     &client_states,
 //!     &server_batch_evaluate_result.messages,
-//!     server_batch_evaluate_result.proof,
+//!     &server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     None,
 //! ).expect("Unable to perform client batch finalization");
@@ -396,10 +396,10 @@
 //! # Features
 //!
 //! - The `p256` feature enables using p256 as the underlying group for the [Group](group::Group) choice.
-//! Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
+//!   Note that this is currently an experimental feature ⚠️, and is not yet ready for production use.
 //!
 //! - The `serde` feature, enabled by default, provides convenience functions for serializing and deserializing with
-//! [serde](https://serde.rs/).
+//!   [serde](https://serde.rs/).
 //!
 //! - The `danger` feature, disabled by default, exposes functions for setting and getting
 //!   internal values not available in the default API. These functions are intended for use in
@@ -407,29 +407,30 @@
 //!   perform the necessary validations on them (such as being valid group elements).
 //!
 //! - The backend features are re-exported from
-//! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
-//! the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
-//! Other features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and `ristretto255_fiat_u32`.
+//!   [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and allow for selecting
+//!   the corresponding backend for the curve arithmetic used. The `ristretto255_u64` feature is included as the default.
+//!   Other features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and `ristretto255_fiat_u32`.
 //!
 //! - The `ristretto255_simd` feature is re-exported from
-//! [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
-//! using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` feature and requires Rust nightly.
+//!   [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features) and enables parallel formulas,
+//!   using either AVX2 or AVX512-IFMA. This will automatically enable the `ristretto255_u64` feature and requires Rust nightly.
 
 #![deny(unsafe_code)]
+#![no_std]
 #![warn(clippy::cargo, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate alloc;
 
-#[macro_use]
-mod impls;
+#[cfg(feature = "std")]
+extern crate std;
+
 #[macro_use]
 mod util;
+#[macro_use]
+mod serialization;
 pub mod errors;
 pub mod group;
-mod serialization;
 mod voprf;
 
 #[cfg(test)]

@@ -5,7 +5,9 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use alloc::{format, vec};
 
 pub(crate) fn rfc_to_json(input: &str) -> String {
     format!("{{\n{}\n}}", parse_ciphersuites(input))
@@ -20,7 +22,7 @@ fn parse_ciphersuites(input: &str) -> String {
     for caps in re.captures_iter(input) {
         let ciphersuite = format!(
             "\"{}\": {{ {} }}",
-            caps["ciphersuite"].to_string(),
+            &caps["ciphersuite"],
             parse_modes(chunks[count])
         );
         ciphersuites.push(ciphersuite);
@@ -39,7 +41,7 @@ fn parse_modes(input: &str) -> String {
     for caps in re.captures_iter(input) {
         let mode = format!(
             "\"{}\": [\n {} \n]",
-            caps["mode"].to_string(),
+            &caps["mode"],
             parse_vectors(chunks[count])
         );
         modes.push(mode);
