@@ -121,29 +121,6 @@ macro_rules! chain {
     };
 }
 
-macro_rules! cfg_ristretto {
-    ($tree:tt) => {
-        #[cfg(any(
-            feature = "ristretto255_u64",
-            feature = "ristretto255_u32",
-            feature = "ristretto255_fiat_u64",
-            feature = "ristretto255_fiat_u32",
-            feature = "ristretto255_simd",
-        ))]
-        $tree
-    };
-    ($($item:item)+) => {
-        $(#[cfg(any(
-            feature = "ristretto255_u64",
-            feature = "ristretto255_u32",
-            feature = "ristretto255_fiat_u64",
-            feature = "ristretto255_fiat_u32",
-            feature = "ristretto255_simd",
-        ))]
-        $item)+
-    };
-}
-
 #[cfg(test)]
 mod unit_tests {
     use generic_array::typenum::{U1, U2};
@@ -172,9 +149,13 @@ mod unit_tests {
 
     macro_rules! test_deserialize {
         ($item:ident, $bytes:ident) => {
-            cfg_ristretto! { {
-                let _ = $item::<curve25519_dalek::ristretto::RistrettoPoint, sha2::Sha512>::deserialize(&$bytes[..]);
-            } }
+            #[cfg(feature = "ristretto255")]
+            {
+                let _ =
+                    $item::<curve25519_dalek::ristretto::RistrettoPoint, sha2::Sha512>::deserialize(
+                        &$bytes[..],
+                    );
+            }
             #[cfg(feature = "p256")]
             {
                 let _ = $item::<p256_::ProjectivePoint, sha2::Sha256>::deserialize(&$bytes[..]);

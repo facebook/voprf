@@ -7,20 +7,12 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
-#[cfg(any(
-    feature = "ristretto255_u64",
-    feature = "ristretto255_u32",
-    feature = "ristretto255_fiat_u64",
-    feature = "ristretto255_fiat_u32",
-    feature = "ristretto255_simd",
-    feature = "p256",
-))]
+#[cfg(any(feature = "ristretto255", feature = "p256",))]
 mod expand;
 #[cfg(feature = "p256")]
 mod p256;
-cfg_ristretto! {
-    mod ristretto;
-}
+#[cfg(feature = "ristretto255")]
+mod ristretto;
 
 use core::ops::{Add, Mul, Sub};
 

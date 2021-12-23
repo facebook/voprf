@@ -87,7 +87,8 @@ fn test_vectors() -> Result<(), InternalError> {
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
-    cfg_ristretto! { {
+    #[cfg(feature = "ristretto255")]
+    {
         use curve25519_dalek::ristretto::RistrettoPoint;
         use sha2::Sha512;
 
@@ -112,7 +113,7 @@ fn test_vectors() -> Result<(), InternalError> {
         test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-    } }
+    }
 
     #[cfg(feature = "p256")]
     {

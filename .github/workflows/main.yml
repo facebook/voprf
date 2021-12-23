@@ -37,8 +37,7 @@ jobs:
         backend_feature:
           - ristretto255_u64
           - ristretto255_u32
-          # skip doc tests
-          - p256 --lib
+          - p256
           - ristretto255_u64,p256
         frontend_feature:
           -
