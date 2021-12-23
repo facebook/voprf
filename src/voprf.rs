@@ -20,8 +20,6 @@ use generic_array::typenum::{U1, U11, U2, U20};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
-#[cfg(feature = "serde")]
-use ::{core::ops::Add, generic_array::typenum::Sum, generic_array::ArrayLength};
 
 use crate::errors::InternalError;
 use crate::group::Group;
@@ -58,19 +56,33 @@ enum Mode {
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G::Scalar: serde::Deserialize<'de>",
+        serialize = "G::Scalar: serde::Serialize"
+    ))
+)]
 pub struct NonVerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) blind: G::Scalar,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(NonVerifiableClient);
-
 /// A client which engages with a [VerifiableServer] in verifiable mode, meaning
 /// that the OPRF outputs can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, G::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G::Scalar: serde::Deserialize<'de>, G: serde::Deserialize<'de>",
+        serialize = "G::Scalar: serde::Serialize, G: serde::Serialize"
+    ))
+)]
 pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) blind: G::Scalar,
     pub(crate) blinded_element: G,
@@ -78,31 +90,38 @@ pub struct VerifiableClient<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(
-    VerifiableClient
-    where
-        G::ScalarLen: Add<G::ElemLen>,
-        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
-);
-
 /// A server which engages with a [NonVerifiableClient] in base mode, meaning
 /// that the OPRF outputs are not verifiable.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G::Scalar: serde::Deserialize<'de>",
+        serialize = "G::Scalar: serde::Serialize"
+    ))
+)]
 pub struct NonVerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) sk: G::Scalar,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(NonVerifiableServer);
-
 /// A server which engages with a [VerifiableClient] in verifiable mode, meaning
 /// that the OPRF outputs can be checked against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G, G::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G::Scalar: serde::Deserialize<'de>, G: serde::Deserialize<'de>",
+        serialize = "G::Scalar: serde::Serialize, G: serde::Serialize"
+    ))
+)]
 pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) sk: G::Scalar,
     pub(crate) pk: G,
@@ -110,18 +129,19 @@ pub struct VerifiableServer<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(
-    VerifiableServer
-    where
-        G::ScalarLen: Add<G::ElemLen>,
-        Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
-);
-
 /// A proof produced by a [VerifiableServer] that the OPRF output matches
 /// against a server public key.
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G::Scalar: serde::Deserialize<'de>",
+        serialize = "G::Scalar: serde::Serialize"
+    ))
+)]
 pub struct Proof<G: Group, H: BlockInput + Digest> {
     pub(crate) c_scalar: G::Scalar,
     pub(crate) s_scalar: G::Scalar,
@@ -129,38 +149,43 @@ pub struct Proof<G: Group, H: BlockInput + Digest> {
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(
-    Proof
-    where
-        G::ScalarLen: Add<G::ScalarLen>,
-        Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
-);
-
 /// The first client message sent from a client (either verifiable or not) to a
 /// server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G: serde::Deserialize<'de>",
+        serialize = "G: serde::Serialize"
+    ))
+)]
 pub struct BlindedElement<G: Group, H: BlockInput + Digest> {
     pub(crate) value: G,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
 }
 
-impl_serialize_and_deserialize_for!(BlindedElement);
-
 /// The server's response to the [BlindedElement] message from a client (either
 /// verifiable or not) to a server (either verifiable or not).
 #[derive(DeriveWhere)]
 #[derive_where(Clone, Zeroize(drop))]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; G)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(bound(
+        deserialize = "G: serde::Deserialize<'de>",
+        serialize = "G: serde::Serialize"
+    ))
+)]
 pub struct EvaluationElement<G: Group, H: BlockInput + Digest> {
     pub(crate) value: G,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
 }
-
-impl_serialize_and_deserialize_for!(EvaluationElement);
 
 /////////////////////////
 // API Implementations //

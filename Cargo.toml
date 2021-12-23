@@ -47,7 +47,9 @@ p256_ = { package = "p256", version = "0.9", default-features = false, features 
   "zeroize",
 ], optional = true }
 rand_core = { version = "0.6", default-features = false }
-serde = { version = "1", default-features = false, optional = true }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+], optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 
