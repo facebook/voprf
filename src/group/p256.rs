@@ -5,18 +5,17 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-// Note: This group implementation of p256 is experimental for now,
-// until hash-to-curve or crypto-bigint are fully supported.
+// Note: This group implementation of p256 is experimental for now, until
+// hash-to-curve or crypto-bigint are fully supported.
 
 #![allow(
     clippy::borrow_interior_mutable_const,
     clippy::declare_interior_mutable_const
 )]
 
-use super::Group;
-use crate::errors::InternalError;
 use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
+
 use digest::{BlockInput, Digest};
 use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
@@ -31,6 +30,9 @@ use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
+
+use super::Group;
+use crate::errors::InternalError;
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
@@ -109,7 +111,9 @@ impl Group for ProjectivePoint {
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
         // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf#[{%22num%22:211,%22gen%22:0},{%22name%22:%22XYZ%22},70,700,0]
-        // P-256 `n` is defined as `115792089210356248762697446949407573529996955224135760342 422259061068512044369`
+        // P-256 `n` is defined as
+        // `115792089210356248762697446949407573529996955224135760342
+        // 422259061068512044369`
         const N: Lazy<BigInt> = Lazy::new(|| {
             BigInt::from_str(
                 "115792089210356248762697446949407573529996955224135760342422259061068512044369",
@@ -182,8 +186,8 @@ impl Group for ProjectivePoint {
 /// Corresponds to the hash_to_curve_simple_swu() function defined in
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#appendix-F.2>
 ///
-/// `cmov`, `mod_floor` and `modpow` needs to be made constant-time, which
-/// will be supported after crypto-bigint is no longer experimental. See
+/// `cmov`, `mod_floor` and `modpow` needs to be made constant-time, which will
+/// be supported after crypto-bigint is no longer experimental. See
 /// <https://github.com/novifinancial/voprf/issues/13> for more context.
 
 #[allow(clippy::many_single_char_names)]
@@ -435,8 +439,9 @@ fn hash_to_curve_simple_swu<N: ArrayLength<u8>>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use generic_array::typenum::U96;
+
+    use super::*;
 
     struct Params {
         msg: &'static str,

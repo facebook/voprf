@@ -5,15 +5,15 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
+use core::ops::Add;
+
+use digest::{BlockInput, Digest};
+use generic_array::sequence::Concat;
+use generic_array::typenum::{Unsigned, U1, U2};
+use generic_array::{ArrayLength, GenericArray};
+
 use crate::errors::InternalError;
 use crate::util::i2osp;
-use core::ops::Add;
-use digest::{BlockInput, Digest};
-use generic_array::{
-    sequence::Concat,
-    typenum::{Unsigned, U1, U2},
-    ArrayLength, GenericArray,
-};
 
 // Computes ceil(x / y)
 fn div_ceil(x: usize, y: usize) -> usize {
@@ -79,10 +79,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use generic_array::{
-        typenum::{U128, U32},
-        GenericArray,
-    };
+    use generic_array::typenum::{U128, U32};
+    use generic_array::GenericArray;
 
     struct Params {
         msg: &'static str,

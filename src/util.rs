@@ -7,9 +7,12 @@
 
 //! Helper functions
 
-use crate::errors::InternalError;
 use core::array::IntoIter;
-use generic_array::{typenum::U0, ArrayLength, GenericArray};
+
+use generic_array::typenum::U0;
+use generic_array::{ArrayLength, GenericArray};
+
+use crate::errors::InternalError;
 
 // Corresponds to the I2OSP() function from RFC8017
 pub(crate) fn i2osp<L: ArrayLength<u8>>(
@@ -100,8 +103,9 @@ macro_rules! chain_skip {
     };
 }
 
-/// The purpose of this macro is to simplify [`concat`](alloc::slice::Concat::concat)ing
-/// slices into an [`Iterator`] to avoid allocation
+/// The purpose of this macro is to simplify
+/// [`concat`](alloc::slice::Concat::concat)ing slices into an [`Iterator`] to
+/// avoid allocation
 macro_rules! chain {
     (
         $var:ident,
@@ -142,13 +146,15 @@ macro_rules! cfg_ristretto {
 
 #[cfg(test)]
 mod unit_tests {
+    use generic_array::typenum::{U1, U2};
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+
     use super::*;
     use crate::voprf::{
         BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
         VerifiableClient, VerifiableServer,
     };
-    use generic_array::typenum::{U1, U2};
-    use proptest::{collection::vec, prelude::*};
 
     // Test the error condition for I2OSP
     #[test]

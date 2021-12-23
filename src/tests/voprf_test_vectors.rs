@@ -5,21 +5,22 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-use crate::{
-    errors::InternalError,
-    group::Group,
-    tests::{mock_rng::CycleRng, parser::*},
-    voprf::{
-        BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
-        VerifiableClient, VerifiableServer,
-    },
-};
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
+
 use digest::{BlockInput, Digest};
 use generic_array::GenericArray;
 use json::JsonValue;
+
+use crate::errors::InternalError;
+use crate::group::Group;
+use crate::tests::mock_rng::CycleRng;
+use crate::tests::parser::*;
+use crate::voprf::{
+    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
+    VerifiableClient, VerifiableServer,
+};
 
 #[derive(Debug)]
 struct VOPRFTestVectorParameters {

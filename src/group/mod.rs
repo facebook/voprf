@@ -22,13 +22,16 @@ cfg_ristretto! {
     mod ristretto;
 }
 
-use crate::errors::InternalError;
 use core::ops::{Add, Mul, Sub};
+
 use digest::{BlockInput, Digest};
-use generic_array::{typenum::U1, ArrayLength, GenericArray};
+use generic_array::typenum::U1;
+use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
+
+use crate::errors::InternalError;
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
@@ -80,8 +83,8 @@ pub trait Group:
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar, InternalError>;
 
-    /// Return a scalar from its fixed-length bytes representation. If the scalar
-    /// is zero, then return an error.
+    /// Return a scalar from its fixed-length bytes representation. If the
+    /// scalar is zero, then return an error.
     fn from_scalar_slice<'a>(
         scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
     ) -> Result<Self::Scalar, InternalError> {
@@ -103,14 +106,14 @@ pub trait Group:
     type ElemLen: ArrayLength<u8> + 'static;
 
     /// Return an element from its fixed-length bytes representation. This is
-    /// the unchecked version, which does not check for deserializing the identity
-    /// element
+    /// the unchecked version, which does not check for deserializing the
+    /// identity element
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
     ) -> Result<Self, InternalError>;
 
-    /// Return an element from its fixed-length bytes representation. If the element
-    /// is the identity element, return an error.
+    /// Return an element from its fixed-length bytes representation. If the
+    /// element is the identity element, return an error.
     fn from_element_slice<'a>(
         element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
     ) -> Result<Self, InternalError> {

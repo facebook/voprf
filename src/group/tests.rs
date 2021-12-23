@@ -10,8 +10,8 @@
 use crate::errors::InternalError;
 use crate::group::Group;
 
-// Test that the deserialization of a group element should throw an error
-// if the identity element can be deserialized properly
+// Test that the deserialization of a group element should throw an error if the
+// identity element can be deserialized properly
 
 #[test]
 fn test_group_properties() -> Result<(), InternalError> {
