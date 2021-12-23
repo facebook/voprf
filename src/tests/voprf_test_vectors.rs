@@ -12,9 +12,15 @@ use alloc::vec::Vec;
 use digest::{BlockInput, Digest};
 use generic_array::GenericArray;
 use json::JsonValue;
+#[cfg(feature = "alloc")]
+use ::{
+    core::ops::Add,
+    generic_array::{typenum::Sum, ArrayLength},
+};
 
 use crate::errors::InternalError;
 use crate::group::Group;
+#[cfg(feature = "alloc")]
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::voprf::{
@@ -33,6 +39,7 @@ struct VOPRFTestVectorParameters {
     blinded_element: Vec<Vec<u8>>,
     evaluation_element: Vec<Vec<u8>>,
     proof: Vec<u8>,
+    #[cfg(feature = "alloc")]
     proof_random_scalar: Vec<u8>,
     output: Vec<Vec<u8>>,
 }
@@ -48,6 +55,7 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
         blinded_element: decode_vec(values, "BlindedElement"),
         evaluation_element: decode_vec(values, "EvaluationElement"),
         proof: decode(values, "Proof"),
+        #[cfg(feature = "alloc")]
         proof_random_scalar: decode(values, "ProofRandomScalar"),
         output: decode_vec(values, "Output"),
     }
@@ -111,6 +119,7 @@ fn test_vectors() -> Result<(), InternalError> {
 
         test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        #[cfg(feature = "alloc")]
         test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
     }
@@ -181,7 +190,7 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
             let blind =
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
-                parameters.input[i].clone(),
+                &parameters.input[i],
                 blind,
             )?;
 
@@ -190,8 +199,8 @@ fn test_base_blind<G: Group, H: BlockInput + Digest>(
                 &G::scalar_as_bytes(client_result.state.blind).to_vec()
             );
             assert_eq!(
-                &parameters.blinded_element[i],
-                &client_result.message.serialize()
+                parameters.blinded_element[i].as_slice(),
+                client_result.message.serialize().as_slice(),
             );
         }
     }
@@ -207,7 +216,7 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
             let blind =
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
-                parameters.input[i].clone(),
+                &parameters.input[i],
                 blind,
             )?;
 
@@ -216,8 +225,8 @@ fn test_verifiable_blind<G: Group, H: BlockInput + Digest>(
                 &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
-                &parameters.blinded_element[i],
-                &client_blind_result.message.serialize()
+                parameters.blinded_element[i].as_slice(),
+                client_blind_result.message.serialize().as_slice(),
             );
         }
     }
@@ -238,16 +247,21 @@ fn test_base_evaluate<G: Group, H: BlockInput + Digest>(
 
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &server_result.message.serialize()
+                &server_result.message.serialize().as_slice()
             );
         }
     }
     Ok(())
 }
 
+#[cfg(feature = "alloc")]
 fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<(), InternalError>
+where
+    G::ScalarLen: Add<G::ScalarLen>,
+    Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
+{
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = VerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
@@ -263,11 +277,14 @@ fn test_verifiable_evaluate<G: Group, H: BlockInput + Digest>(
         for i in 0..parameters.evaluation_element.len() {
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &batch_evaluate_result.messages[i].serialize(),
+                &batch_evaluate_result.messages[i].serialize().as_slice(),
             );
         }
 
-        assert_eq!(&parameters.proof, &batch_evaluate_result.proof.serialize());
+        assert_eq!(
+            &parameters.proof,
+            &batch_evaluate_result.proof.serialize().as_slice()
+        );
     }
     Ok(())
 }
@@ -278,12 +295,12 @@ fn test_base_finalize<G: Group, H: BlockInput + Digest>(
 ) -> Result<(), InternalError> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<G, H>::from_data_and_blind(
-                &parameters.input[i],
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
-            );
+            let client = NonVerifiableClient::<G, H>::from_blind(G::from_scalar_slice(
+                &GenericArray::clone_from_slice(&parameters.blind[i]),
+            )?);
 
             let client_finalize_result = client.finalize(
+                &parameters.input[i],
                 &EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
                 Some(&parameters.info),
             )?;
@@ -300,8 +317,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<G, H>::from_data_and_blind_and_element(
-                &parameters.input[i],
+            let client = VerifiableClient::<G, H>::from_blind_and_element(
                 G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
                 G::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
@@ -317,6 +333,7 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
             .collect();
 
         let batch_result = VerifiableClient::batch_finalize(
+            &parameters.input,
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
@@ -327,9 +344,8 @@ fn test_verifiable_finalize<G: Group, H: BlockInput + Digest>(
         assert_eq!(
             parameters.output,
             batch_result
-                .iter()
-                .map(|arr| arr.to_vec())
-                .collect::<Vec<Vec<u8>>>()
+                .map(|arr| arr.map(|message| message.to_vec()))
+                .collect::<Result<Vec<_>, _>>()?
         );
     }
     Ok(())

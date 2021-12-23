@@ -13,16 +13,24 @@ rust-version = "1.51.0"
 version = "0.3.0"
 
 [features]
+alloc = []
 danger = []
 default = ["ristretto255_u64", "serde"]
-p256 = ["num-bigint", "num-integer", "num-traits", "once_cell", "p256_"]
+p256 = [
+  "alloc",
+  "num-bigint",
+  "num-integer",
+  "num-traits",
+  "once_cell",
+  "p256_",
+]
 ristretto255 = []
 ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend", "ristretto255"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend", "ristretto255"]
 ristretto255_simd = ["curve25519-dalek/simd_backend", "ristretto255"]
 ristretto255_u32 = ["curve25519-dalek/u32_backend", "ristretto255"]
 ristretto255_u64 = ["curve25519-dalek/u64_backend", "ristretto255"]
-std = []
+std = ["alloc"]
 
 [dependencies]
 curve25519-dalek = { version = "3", default-features = false, optional = true }
@@ -39,7 +47,9 @@ p256_ = { package = "p256", version = "0.9", default-features = false, features 
   "zeroize",
 ], optional = true }
 rand_core = { version = "0.6", default-features = false }
-serde = { version = "1", default-features = false, optional = true }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+], optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 

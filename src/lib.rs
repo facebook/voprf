@@ -90,9 +90,8 @@
 //! use voprf::NonVerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result =
-//!     NonVerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!         .expect("Unable to construct client");
+//! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
@@ -117,7 +116,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -149,7 +148,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
@@ -162,7 +161,7 @@
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result
 //!     .state
-//!     .finalize(&server_evaluate_result.message, None)
+//!     .finalize(b"input", &server_evaluate_result.message, None)
 //!     .expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -233,9 +232,8 @@
 //! use voprf::VerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result =
-//!     VerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!         .expect("Unable to construct client");
+//! let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
@@ -260,7 +258,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -293,7 +291,7 @@
 //! #
 //! # let mut client_rng = OsRng;
 //! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #     b"input".to_vec(),
+//! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
@@ -308,6 +306,7 @@
 //! let client_finalize_result = client_blind_result
 //!     .state
 //!     .finalize(
+//!         b"input",
 //!         &server_evaluate_result.message,
 //!         &server_evaluate_result.proof,
 //!         server.get_public_key(),
@@ -332,10 +331,13 @@
 //! this case. In the following example, we show how to use the batch API to
 //! produce a single proof for 10 parallel VOPRF evaluations.
 //!
+//! This requires the crate feature `alloc`.
+//!
 //! First, the client produces 10 blindings, storing their resulting states and
 //! messages:
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -351,12 +353,12 @@
 //! let mut client_states = vec![];
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
-//!     let client_blind_result =
-//!         VerifiableClient::<Group, Hash>::blind(b"input".to_vec(), &mut client_rng)
-//!             .expect("Unable to construct client");
+//!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!         .expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
 //! }
+//! # }
 //! ```
 //!
 //! Next, the server calls the [VerifiableServer::batch_evaluate] function on a
@@ -365,6 +367,7 @@
 //! proof:
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -381,7 +384,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input".to_vec(),
+//! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
@@ -394,6 +397,7 @@
 //! let server_batch_evaluate_result = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
 //!     .expect("Unable to perform server batch evaluate");
+//! # }
 //! ```
 //!
 //! Then, the client calls [VerifiableClient::batch_finalize] on the client
@@ -402,6 +406,7 @@
 //! outputs if the proof verifies correctly.
 //!
 //! ```
+//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -418,7 +423,7 @@
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
 //! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
-//! #         b"input".to_vec(),
+//! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
@@ -434,15 +439,18 @@
 //! #     None,
 //! # ).expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
+//!     &[b"input"; 10],
 //!     &client_states,
 //!     &server_batch_evaluate_result.messages,
 //!     &server_batch_evaluate_result.proof,
 //!     server.get_public_key(),
 //!     None,
 //! )
-//! .expect("Unable to perform client batch finalization");
+//! .expect("Unable to perform client batch finalization")
+//! .collect::<Vec<_>>();
 //!
 //! println!("VOPRF batch outputs: {:?}", client_batch_finalize_result);
+//! # }
 //! ```
 //!
 //! ## Metadata
@@ -459,6 +467,9 @@
 //! `Some(b"custom metadata")`.
 //!
 //! # Features
+//!
+//! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
+//!   VOPRF evaluations.
 //!
 //! - The `p256` feature enables using p256 as the underlying group for the
 //!   [Group](group::Group) choice. Note that this is currently an experimental
@@ -491,6 +502,7 @@
 #![warn(clippy::cargo, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
 
+#[cfg(any(feature = "alloc", test))]
 extern crate alloc;
 
 #[cfg(feature = "std")]
