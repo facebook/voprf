@@ -29,8 +29,9 @@ pub(crate) fn i2osp<L: ArrayLength<u8>>(input: usize) -> Result<GenericArray<u8,
     Ok(output)
 }
 
-/// Simplifies handling of [`serialize()`] output and implements [`Iterator`].
-pub(crate) struct Serialized<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> {
+/// Computes `I2OSP(len(input), max_bytes) || input` and helps hold output
+/// without allocation.
+pub(crate) struct Serialize<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8> = U0> {
     octet: GenericArray<u8, L1>,
     input: Input<'a, L2>,
 }
@@ -40,7 +41,7 @@ enum Input<'a, L: ArrayLength<u8>> {
     Borrowed(&'a [u8]),
 }
 
-impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serialized<'a, L1, L2> {
+impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serialize<'a, L1, L2> {
     type Item = &'a [u8];
 
     type IntoIter = IntoIter<&'a [u8], 2>;
@@ -58,22 +59,21 @@ impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serializ
     }
 }
 
-// Computes I2OSP(len(input), max_bytes) || input
-pub(crate) fn serialize<L: ArrayLength<u8>>(input: &[u8]) -> Result<Serialized<L, U0>> {
-    Ok(Serialized {
-        octet: i2osp::<L>(input.len())?,
-        input: Input::Borrowed(input),
-    })
-}
+impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> Serialize<'a, L1, L2> {
+    // Variation of `serialize` that takes a borrowed `input.
+    pub(crate) fn from(input: &[u8]) -> Result<Serialize<L1>> {
+        Ok(Serialize {
+            octet: i2osp::<L1>(input.len())?,
+            input: Input::Borrowed(input),
+        })
+    }
 
-// Variation of `serialize` that takes an owned `input`
-pub(crate) fn serialize_owned<L1: ArrayLength<u8>, L2: ArrayLength<u8>>(
-    input: GenericArray<u8, L2>,
-) -> Result<Serialized<'static, L1, L2>> {
-    Ok(Serialized {
-        octet: i2osp::<L1>(input.len())?,
-        input: Input::Owned(input),
-    })
+    pub(crate) fn from_owned(input: GenericArray<u8, L2>) -> Result<Serialize<'static, L1, L2>> {
+        Ok(Serialize {
+            octet: i2osp::<L1>(input.len())?,
+            input: Input::Owned(input),
+        })
+    }
 }
 
 macro_rules! chain_name {

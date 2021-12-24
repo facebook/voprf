@@ -22,7 +22,7 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::util::{i2osp, serialize, serialize_owned};
+use crate::util::{i2osp, Serialize};
 use crate::{Error, Group, Result};
 
 ///////////////
@@ -444,7 +444,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
             context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Base)? => |x| Some(x.as_slice()),
-            serialize::<U2>(metadata.unwrap_or_default())?,
+            Serialize::<U2>::from(metadata.unwrap_or_default())?,
         );
         let dst =
             GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
@@ -579,7 +579,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
-            serialize::<U2>(metadata.unwrap_or_default())?,
+            Serialize::<U2>::from(metadata.unwrap_or_default())?,
         );
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
@@ -795,7 +795,7 @@ where
     chain!(context,
         STR_CONTEXT => |x| Some(x.as_ref()),
         get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
-        serialize::<U2>(info)?,
+        Serialize::<U2>::from(info)?,
     );
 
     let dst =
@@ -846,12 +846,12 @@ fn generate_proof<
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(m.to_arr())?,
-        serialize_owned::<U2, _>(z.to_arr())?,
-        serialize_owned::<U2, _>(t2.to_arr())?,
-        serialize_owned::<U2, _>(t3.to_arr())?,
-        serialize_owned::<U2, _>(challenge_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(m.to_arr())?,
+        Serialize::<U2, _>::from_owned(z.to_arr())?,
+        Serialize::<U2, _>::from_owned(t2.to_arr())?,
+        Serialize::<U2, _>::from_owned(t3.to_arr())?,
+        Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
     let hash_to_scalar_dst =
@@ -883,12 +883,12 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(m.to_arr())?,
-        serialize_owned::<U2, _>(z.to_arr())?,
-        serialize_owned::<U2, _>(t2.to_arr())?,
-        serialize_owned::<U2, _>(t3.to_arr())?,
-        serialize_owned::<U2, _>(challenge_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(m.to_arr())?,
+        Serialize::<U2, _>::from_owned(z.to_arr())?,
+        Serialize::<U2, _>::from_owned(t2.to_arr())?,
+        Serialize::<U2, _>::from_owned(t3.to_arr())?,
+        Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
     let hash_to_scalar_dst =
@@ -927,10 +927,10 @@ fn finalize_after_unblind<
         .map(|((input, unblinded_element), (info, finalize_dst))| {
             chain!(
                 hash_input,
-                serialize::<U2>(input.as_ref())?,
-                serialize::<U2>(info)?,
-                serialize_owned::<U2, _>(unblinded_element.to_arr())?,
-                serialize_owned::<U2, _>(finalize_dst)?,
+                Serialize::<U2>::from(input.as_ref())?,
+                Serialize::<U2>::from(info)?,
+                Serialize::<U2, _>::from_owned(unblinded_element.to_arr())?,
+                Serialize::<U2, _>::from_owned(finalize_dst)?,
             );
 
             Ok(hash_input
@@ -955,8 +955,8 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     chain!(
         h1_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(seed_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(seed_dst)?,
     );
     let seed = h1_input
         .fold(H::new(), |h, bytes| h.chain_update(bytes))
@@ -967,11 +967,11 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     for (i, (c, d)) in c_slice.zip(d_slice).enumerate() {
         chain!(h2_input,
-            serialize_owned::<U2, _>(seed.clone())?,
+            Serialize::<U2, _>::from_owned(seed.clone())?,
             i2osp::<U2>(i)? => |x| Some(x.as_slice()),
-            serialize_owned::<U2, _>(c.value.to_arr())?,
-            serialize_owned::<U2, _>(d.value.to_arr())?,
-            serialize_owned::<U2, _>(composite_dst)?,
+            Serialize::<U2, _>::from_owned(c.value.to_arr())?,
+            Serialize::<U2, _>::from_owned(d.value.to_arr())?,
+            Serialize::<U2, _>::from_owned(composite_dst)?,
         );
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
@@ -1031,7 +1031,7 @@ mod tests {
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(mode).unwrap() => |x| Some(x.as_slice()),
-            serialize::<U2>(info).unwrap(),
+            Serialize::<U2>::from(info).unwrap(),
         );
 
         let dst =
