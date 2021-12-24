@@ -17,13 +17,11 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::group::Group;
 use crate::util::deserialize;
-use crate::voprf::{
-    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
-    VerifiableClient, VerifiableServer,
+use crate::{
+    BlindedElement, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer, Proof,
+    Result, VerifiableClient, VerifiableServer,
 };
-use crate::Result;
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //

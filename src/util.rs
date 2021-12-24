@@ -131,7 +131,7 @@ mod unit_tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::voprf::{
+    use crate::{
         BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
         VerifiableClient, VerifiableServer,
     };

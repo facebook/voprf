@@ -22,9 +22,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::group::Group;
 use crate::util::{i2osp, serialize, serialize_owned};
-use crate::{Error, Result};
+use crate::{Error, Group, Result};
 
 ///////////////
 // Constants //
@@ -646,6 +645,7 @@ pub struct VerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest + Fix
     pub message: BlindedElement<G, H>,
 }
 
+/// Concrete return type for [`VerifiableClient::batch_finalize`].
 pub type VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM> = FinalizeAfterUnblindResult<
     'a,
     G,
@@ -1016,7 +1016,7 @@ mod tests {
     use ::{alloc::vec, alloc::vec::Vec};
 
     use super::*;
-    use crate::group::Group;
+    use crate::Group;
 
     fn prf<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
         input: &[u8],

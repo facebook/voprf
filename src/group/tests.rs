@@ -7,8 +7,7 @@
 
 //! Includes a series of tests for the group implementations
 
-use crate::group::Group;
-use crate::{Error, Result};
+use crate::{Error, Group, Result};
 
 // Test that the deserialization of a group element should throw an error if the
 // identity element can be deserialized properly

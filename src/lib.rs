@@ -472,8 +472,8 @@
 //!   VOPRF evaluations.
 //!
 //! - The `p256` feature enables using p256 as the underlying group for the
-//!   [Group](group::Group) choice. Note that this is currently an experimental
-//!   feature ⚠️, and is not yet ready for production use.
+//!   [Group] choice. Note that this is currently an experimental feature ⚠️, and
+//!   is not yet ready for production use.
 //!
 //! - The `serde` feature, enabled by default, provides convenience functions
 //!   for serializing and deserializing with [serde](https://serde.rs/).
@@ -513,7 +513,7 @@ mod util;
 #[macro_use]
 mod serialization;
 mod error;
-pub mod group;
+mod group;
 mod voprf;
 
 #[cfg(test)]
@@ -522,8 +522,12 @@ mod tests;
 // Exports
 
 pub use crate::error::{Error, Result};
+pub use crate::group::Group;
+#[cfg(feature = "alloc")]
+pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
-    NonVerifiableServer, NonVerifiableServerEvaluateResult, VerifiableClient,
-    VerifiableClientBlindResult, VerifiableServer, VerifiableServerEvaluateResult,
+    NonVerifiableServer, NonVerifiableServerEvaluateResult, Proof, VerifiableClient,
+    VerifiableClientBatchFinalizeResult, VerifiableClientBlindResult, VerifiableServer,
+    VerifiableServerEvaluateResult,
 };

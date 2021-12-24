@@ -19,15 +19,13 @@ use ::{
     generic_array::{typenum::Sum, ArrayLength},
 };
 
-use crate::group::Group;
 #[cfg(feature = "alloc")]
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
-use crate::voprf::{
-    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
-    VerifiableClient, VerifiableServer,
+use crate::{
+    BlindedElement, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer, Proof,
+    Result, VerifiableClient, VerifiableServer,
 };
-use crate::Result;
 
 #[derive(Debug)]
 struct VOPRFTestVectorParameters {
