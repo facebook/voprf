@@ -18,19 +18,14 @@ use crate::{Error, Result};
 pub(crate) fn i2osp<L: ArrayLength<u8>>(input: usize) -> Result<GenericArray<u8, L>> {
     const SIZEOF_USIZE: usize = core::mem::size_of::<usize>();
 
-    // Check if input >= 256^length
+    // Make sure input fits in output.
     if (SIZEOF_USIZE as u32 - input.leading_zeros() / 8) > L::U32 {
         return Err(Error::SerializationError);
     }
 
-    if L::USIZE <= SIZEOF_USIZE {
-        return Ok(GenericArray::clone_from_slice(
-            &input.to_be_bytes()[SIZEOF_USIZE - L::USIZE..],
-        ));
-    }
-
     let mut output = GenericArray::default();
-    output[L::USIZE - SIZEOF_USIZE..].copy_from_slice(&input.to_be_bytes());
+    output[L::USIZE.saturating_sub(SIZEOF_USIZE)..]
+        .copy_from_slice(&input.to_be_bytes()[SIZEOF_USIZE.saturating_sub(L::USIZE)..]);
     Ok(output)
 }
 
