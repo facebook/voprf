@@ -17,10 +17,9 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::util::deserialize;
 use crate::{
-    BlindedElement, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer, Proof,
-    Result, VerifiableClient, VerifiableServer,
+    BlindedElement, Error, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer,
+    Proof, Result, VerifiableClient, VerifiableServer,
 };
 
 //////////////////////////////////////////////////////////
@@ -177,4 +176,11 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G
             hash: PhantomData,
         })
     }
+}
+
+fn deserialize<L: ArrayLength<u8>>(
+    input: &mut impl Iterator<Item = u8>,
+) -> Result<GenericArray<u8, L>> {
+    let input = input.by_ref().take(L::USIZE);
+    GenericArray::from_exact_iter(input).ok_or(Error::SizeError)
 }
