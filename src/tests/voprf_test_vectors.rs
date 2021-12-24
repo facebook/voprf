@@ -8,18 +8,14 @@
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
+use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, FixedOutputReset};
-use generic_array::GenericArray;
+use generic_array::typenum::Sum;
+use generic_array::{ArrayLength, GenericArray};
 use json::JsonValue;
-#[cfg(feature = "alloc")]
-use ::{
-    core::ops::Add,
-    generic_array::{typenum::Sum, ArrayLength},
-};
 
-#[cfg(feature = "alloc")]
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::{
@@ -38,7 +34,6 @@ struct VOPRFTestVectorParameters {
     blinded_element: Vec<Vec<u8>>,
     evaluation_element: Vec<Vec<u8>>,
     proof: Vec<u8>,
-    #[cfg(feature = "alloc")]
     proof_random_scalar: Vec<u8>,
     output: Vec<Vec<u8>>,
 }
@@ -54,7 +49,6 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
         blinded_element: decode_vec(values, "BlindedElement"),
         evaluation_element: decode_vec(values, "EvaluationElement"),
         proof: decode(values, "Proof"),
-        #[cfg(feature = "alloc")]
         proof_random_scalar: decode(values, "ProofRandomScalar"),
         output: decode_vec(values, "Output"),
     }
@@ -118,7 +112,6 @@ fn test_vectors() -> Result<()> {
 
         test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        #[cfg(feature = "alloc")]
         test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
         test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
     }
@@ -253,7 +246,6 @@ fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-#[cfg(feature = "alloc")]
 fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()>
@@ -261,6 +253,10 @@ where
     G::ScalarLen: Add<G::ScalarLen>,
     Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
 {
+    use crate::{
+        VerifiableServerBatchEvaluateFinishResult, VerifiableServerBatchEvaluatePrepareResult,
+    };
+
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = VerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
@@ -270,20 +266,25 @@ where
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let batch_evaluate_result =
-            server.batch_evaluate(&mut rng, &blinded_elements, Some(&parameters.info))?;
+        let VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements,
+            t,
+        } = server.batch_evaluate_prepare(blinded_elements.iter(), Some(&parameters.info))?;
+        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
+        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
+            VerifiableServer::batch_evaluate_finish(
+                &mut rng,
+                blinded_elements.iter(),
+                &prepared_elements,
+                &t,
+            )?;
+        let messages: Vec<_> = messages.collect();
 
-        for i in 0..parameters.evaluation_element.len() {
-            assert_eq!(
-                &parameters.evaluation_element[i],
-                &batch_evaluate_result.messages[i].serialize().as_slice(),
-            );
+        for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
+            assert_eq!(&parameter, &message.serialize().as_slice(),);
         }
 
-        assert_eq!(
-            &parameters.proof,
-            &batch_evaluate_result.proof.serialize().as_slice()
-        );
+        assert_eq!(&parameters.proof, &proof.serialize().as_slice());
     }
     Ok(())
 }

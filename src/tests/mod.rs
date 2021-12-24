@@ -5,7 +5,6 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-#[cfg(feature = "alloc")]
 mod mock_rng;
 mod parser;
 mod voprf_test_vectors;
