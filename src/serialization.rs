@@ -17,13 +17,13 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::errors::InternalError;
 use crate::group::Group;
 use crate::util::deserialize;
 use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
     VerifiableClient, VerifiableServer,
 };
+use crate::Result;
 
 //////////////////////////////////////////////////////////
 // Serialization and Deserialization for High-Level API //
@@ -37,7 +37,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
@@ -60,7 +60,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
@@ -81,7 +81,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
@@ -104,7 +104,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
@@ -129,7 +129,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let c_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
@@ -150,7 +150,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let value = G::from_element_slice(&deserialize(&mut input)?)?;
@@ -169,7 +169,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G
     }
 
     /// Deserialization from bytes
-    pub fn deserialize(input: &[u8]) -> Result<Self, InternalError> {
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
         let value = G::from_element_slice(&deserialize(&mut input)?)?;

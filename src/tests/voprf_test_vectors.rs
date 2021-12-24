@@ -19,7 +19,6 @@ use ::{
     generic_array::{typenum::Sum, ArrayLength},
 };
 
-use crate::errors::InternalError;
 use crate::group::Group;
 #[cfg(feature = "alloc")]
 use crate::tests::mock_rng::CycleRng;
@@ -28,6 +27,7 @@ use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
     VerifiableClient, VerifiableServer,
 };
+use crate::Result;
 
 #[derive(Debug)]
 struct VOPRFTestVectorParameters {
@@ -92,7 +92,7 @@ macro_rules! json_to_test_vectors {
 }
 
 #[test]
-fn test_vectors() -> Result<(), InternalError> {
+fn test_vectors() -> Result<()> {
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
@@ -155,7 +155,7 @@ fn test_vectors() -> Result<(), InternalError> {
 
 fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         let server = NonVerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
@@ -169,7 +169,7 @@ fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
 fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         let server = VerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
@@ -185,7 +185,7 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
 // Tests input -> blind, blinded_element
 fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
@@ -211,7 +211,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 // Tests input -> blind, blinded_element
 fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
@@ -237,7 +237,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 // Tests sksm, blinded_element -> evaluation_element
 fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
@@ -258,7 +258,7 @@ fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 #[cfg(feature = "alloc")]
 fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError>
+) -> Result<()>
 where
     G::ScalarLen: Add<G::ScalarLen>,
     Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
@@ -293,7 +293,7 @@ where
 // Tests input, blind, evaluation_element -> output
 fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let client = NonVerifiableClient::<G, H>::from_blind(G::from_scalar_slice(
@@ -314,7 +314,7 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
 fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<(), InternalError> {
+) -> Result<()> {
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
@@ -346,7 +346,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
             parameters.output,
             batch_result
                 .map(|arr| arr.map(|message| message.to_vec()))
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>>>()?
         );
     }
     Ok(())

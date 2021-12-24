@@ -33,7 +33,7 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
 use super::Group;
-use crate::errors::InternalError;
+use crate::{Error, Result};
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
@@ -48,7 +48,7 @@ impl Group for ProjectivePoint {
     fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError>
+    ) -> Result<Self>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -88,12 +88,12 @@ impl Group for ProjectivePoint {
         let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
             &q0x, &q0y, false,
         ))
-        .ok_or(InternalError::PointError)?
+        .ok_or(Error::PointError)?
         .to_curve();
         let p1 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
             &q1x, &q1y, false,
         ))
-        .ok_or(InternalError::PointError)?;
+        .ok_or(Error::PointError)?;
 
         Ok(p0 + p1)
     }
@@ -107,7 +107,7 @@ impl Group for ProjectivePoint {
     >(
         input: I,
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError>
+    ) -> Result<Self::Scalar>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -141,7 +141,7 @@ impl Group for ProjectivePoint {
 
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar, InternalError> {
+    ) -> Result<Self::Scalar> {
         Ok(Self::Scalar::from_bytes_reduced(scalar_bits))
     }
 
@@ -159,8 +159,8 @@ impl Group for ProjectivePoint {
 
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self, InternalError> {
-        Option::from(Self::from_bytes(element_bits)).ok_or(InternalError::PointError)
+    ) -> Result<Self> {
+        Option::from(Self::from_bytes(element_bits)).ok_or(Error::PointError)
     }
 
     fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {

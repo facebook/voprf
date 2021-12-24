@@ -512,7 +512,7 @@ extern crate std;
 mod util;
 #[macro_use]
 mod serialization;
-pub mod errors;
+mod error;
 pub mod group;
 mod voprf;
 
@@ -521,6 +521,7 @@ mod tests;
 
 // Exports
 
+pub use crate::error::{Error, Result};
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
     NonVerifiableServer, NonVerifiableServerEvaluateResult, VerifiableClient,

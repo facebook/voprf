@@ -13,8 +13,8 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::{Unsigned, U1, U2};
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::errors::InternalError;
 use crate::util::i2osp;
+use crate::{Error, Result};
 
 // Computes ceil(x / y)
 fn div_ceil(x: usize, y: usize) -> usize {
@@ -37,14 +37,14 @@ pub fn expand_message_xmd<
 >(
     msg: M,
     dst: GenericArray<u8, D>,
-) -> Result<GenericArray<u8, L>, InternalError>
+) -> Result<GenericArray<u8, L>>
 where
     <D as Add<U1>>::Output: ArrayLength<u8>,
 {
     let digest_len = H::OutputSize::USIZE;
     let ell = div_ceil(L::USIZE, digest_len);
     if ell > 255 {
-        return Err(InternalError::HashToCurveError);
+        return Err(Error::HashToCurveError);
     }
     let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
     let z_pad = i2osp::<H::BlockSize>(0)?;
