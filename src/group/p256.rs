@@ -26,6 +26,7 @@ use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::group::GroupEncoding;
+use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
@@ -85,13 +86,13 @@ impl Group for ProjectivePoint {
         let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L::USIZE..], &A, &B, &P, &Z);
 
         // convert to `p256` types
-        let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
-            &q0x, &q0y, false,
+        let p0 = Option::<AffinePoint>::from(AffinePoint::from_encoded_point(
+            &EncodedPoint::from_affine_coordinates(&q0x, &q0y, false),
         ))
         .ok_or(Error::PointError)?
         .to_curve();
-        let p1 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
-            &q1x, &q1y, false,
+        let p1 = Option::<AffinePoint>::from(AffinePoint::from_encoded_point(
+            &EncodedPoint::from_affine_coordinates(&q1x, &q1y, false),
         ))
         .ok_or(Error::PointError)?;
 
@@ -132,7 +133,7 @@ impl Group for ProjectivePoint {
         let mut result = GenericArray::default();
         result[..bytes.len()].copy_from_slice(&bytes);
 
-        Ok(p256_::Scalar::from_bytes_reduced(&result))
+        Ok(p256_::Scalar::from_be_bytes_reduced(result))
     }
 
     type ElemLen = U33;
@@ -142,7 +143,7 @@ impl Group for ProjectivePoint {
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar> {
-        Ok(Self::Scalar::from_bytes_reduced(scalar_bits))
+        Ok(Self::Scalar::from_be_bytes_reduced(*scalar_bits))
     }
 
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
