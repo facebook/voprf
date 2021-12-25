@@ -19,7 +19,7 @@ use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 
 use super::Group;
-use crate::errors::InternalError;
+use crate::{Error, Result};
 
 // `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "ristretto255")]
@@ -32,7 +32,7 @@ impl Group for RistrettoPoint {
     fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError>
+    ) -> Result<Self>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -42,7 +42,7 @@ impl Group for RistrettoPoint {
             uniform_bytes
                 .as_slice()
                 .try_into()
-                .map_err(|_| InternalError::HashToCurveError)?,
+                .map_err(|_| Error::HashToCurveError)?,
         ))
     }
 
@@ -56,7 +56,7 @@ impl Group for RistrettoPoint {
     >(
         input: I,
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError>
+    ) -> Result<Self::Scalar>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -66,7 +66,7 @@ impl Group for RistrettoPoint {
             uniform_bytes
                 .as_slice()
                 .try_into()
-                .map_err(|_| InternalError::HashToCurveError)?,
+                .map_err(|_| Error::HashToCurveError)?,
         ))
     }
 
@@ -74,7 +74,7 @@ impl Group for RistrettoPoint {
     type ScalarLen = U32;
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar, InternalError> {
+    ) -> Result<Self::Scalar> {
         Ok(Scalar::from_bytes_mod_order(*scalar_bits.as_ref()))
     }
 
@@ -104,10 +104,10 @@ impl Group for RistrettoPoint {
     type ElemLen = U32;
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self, InternalError> {
+    ) -> Result<Self> {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
-            .ok_or(InternalError::PointError)
+            .ok_or(Error::PointError)
     }
     // serialization of a group element
     fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {

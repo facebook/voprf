@@ -24,7 +24,7 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
-use crate::errors::InternalError;
+use crate::{Error, Result};
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
@@ -43,7 +43,7 @@ pub trait Group:
     fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError>
+    ) -> Result<Self>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
@@ -56,7 +56,7 @@ pub trait Group:
     >(
         input: I,
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError>
+    ) -> Result<Self::Scalar>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
@@ -74,16 +74,16 @@ pub trait Group:
     /// checking if the scalar is zero.
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar, InternalError>;
+    ) -> Result<Self::Scalar>;
 
     /// Return a scalar from its fixed-length bytes representation. If the
     /// scalar is zero, then return an error.
     fn from_scalar_slice<'a>(
         scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
-    ) -> Result<Self::Scalar, InternalError> {
+    ) -> Result<Self::Scalar> {
         let scalar = Self::from_scalar_slice_unchecked(scalar_bits.into())?;
         if scalar.ct_eq(&Self::scalar_zero()).into() {
-            return Err(InternalError::ZeroScalarError);
+            return Err(Error::ZeroScalarError);
         }
         Ok(scalar)
     }
@@ -101,20 +101,19 @@ pub trait Group:
     /// Return an element from its fixed-length bytes representation. This is
     /// the unchecked version, which does not check for deserializing the
     /// identity element
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self, InternalError>;
+    fn from_element_slice_unchecked(element_bits: &GenericArray<u8, Self::ElemLen>)
+        -> Result<Self>;
 
     /// Return an element from its fixed-length bytes representation. If the
     /// element is the identity element, return an error.
     fn from_element_slice<'a>(
         element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
-    ) -> Result<Self, InternalError> {
+    ) -> Result<Self> {
         let elem = Self::from_element_slice_unchecked(element_bits.into())?;
 
         if Self::ct_eq(&elem, &<Self as Group>::identity()).into() {
             // found the identity element
-            return Err(InternalError::PointError);
+            return Err(Error::PointError);
         }
 
         Ok(elem)

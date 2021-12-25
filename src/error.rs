@@ -5,15 +5,16 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! A list of error types which are produced during an execution of the protocol
-#[cfg(feature = "std")]
-use std::error::Error;
+//! Errors which are produced during an execution of the protocol
 
 use displaydoc::Display;
 
+/// [`Result`](core::result::Result) shorthand that uses [`Error`].
+pub type Result<T> = core::result::Result<T, Error>;
+
 /// Represents an error in the manipulation of internal cryptographic data
 #[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum InternalError {
+pub enum Error {
     /// Could not parse byte sequence for key
     InvalidByteSequence,
     /// Could not deserialize element, or deserialized to the identity element
@@ -38,4 +39,4 @@ pub enum InternalError {
 }
 
 #[cfg(feature = "std")]
-impl Error for InternalError {}
+impl std::error::Error for Error {}

@@ -7,14 +7,13 @@
 
 //! Includes a series of tests for the group implementations
 
-use crate::errors::InternalError;
-use crate::group::Group;
+use crate::{Error, Group, Result};
 
 // Test that the deserialization of a group element should throw an error if the
 // identity element can be deserialized properly
 
 #[test]
-fn test_group_properties() -> Result<(), InternalError> {
+fn test_group_properties() -> Result<()> {
     #[cfg(feature = "ristretto255")]
     {
         use curve25519_dalek::ristretto::RistrettoPoint;
@@ -35,19 +34,19 @@ fn test_group_properties() -> Result<(), InternalError> {
 }
 
 // Checks that the identity element cannot be deserialized
-fn test_identity_element_error<G: Group>() -> Result<(), InternalError> {
+fn test_identity_element_error<G: Group>() -> Result<()> {
     let identity = G::identity();
     let result = G::from_element_slice(&identity.to_arr());
-    assert!(matches!(result, Err(InternalError::PointError)));
+    assert!(matches!(result, Err(Error::PointError)));
 
     Ok(())
 }
 
 // Checks that the zero scalar cannot be deserialized
-fn test_zero_scalar_error<G: Group>() -> Result<(), InternalError> {
+fn test_zero_scalar_error<G: Group>() -> Result<()> {
     let zero_scalar = G::scalar_zero();
     let result = G::from_scalar_slice(&G::scalar_as_bytes(zero_scalar));
-    assert!(matches!(result, Err(InternalError::ZeroScalarError)));
+    assert!(matches!(result, Err(Error::ZeroScalarError)));
 
     Ok(())
 }

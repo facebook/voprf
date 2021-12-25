@@ -12,32 +12,26 @@ use core::array::IntoIter;
 use generic_array::typenum::U0;
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::errors::InternalError;
+use crate::{Error, Result};
 
 // Corresponds to the I2OSP() function from RFC8017
-pub(crate) fn i2osp<L: ArrayLength<u8>>(
-    input: usize,
-) -> Result<GenericArray<u8, L>, InternalError> {
+pub(crate) fn i2osp<L: ArrayLength<u8>>(input: usize) -> Result<GenericArray<u8, L>> {
     const SIZEOF_USIZE: usize = core::mem::size_of::<usize>();
 
-    // Check if input >= 256^length
+    // Make sure input fits in output.
     if (SIZEOF_USIZE as u32 - input.leading_zeros() / 8) > L::U32 {
-        return Err(InternalError::SerializationError);
-    }
-
-    if L::USIZE <= SIZEOF_USIZE {
-        return Ok(GenericArray::clone_from_slice(
-            &input.to_be_bytes()[SIZEOF_USIZE - L::USIZE..],
-        ));
+        return Err(Error::SerializationError);
     }
 
     let mut output = GenericArray::default();
-    output[L::USIZE - SIZEOF_USIZE..].copy_from_slice(&input.to_be_bytes());
+    output[L::USIZE.saturating_sub(SIZEOF_USIZE)..]
+        .copy_from_slice(&input.to_be_bytes()[SIZEOF_USIZE.saturating_sub(L::USIZE)..]);
     Ok(output)
 }
 
-/// Simplifies handling of [`serialize()`] output and implements [`Iterator`].
-pub(crate) struct Serialized<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> {
+/// Computes `I2OSP(len(input), max_bytes) || input` and helps hold output
+/// without allocation.
+pub(crate) struct Serialize<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8> = U0> {
     octet: GenericArray<u8, L1>,
     input: Input<'a, L2>,
 }
@@ -47,7 +41,7 @@ enum Input<'a, L: ArrayLength<u8>> {
     Borrowed(&'a [u8]),
 }
 
-impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serialized<'a, L1, L2> {
+impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serialize<'a, L1, L2> {
     type Item = &'a [u8];
 
     type IntoIter = IntoIter<&'a [u8], 2>;
@@ -65,31 +59,21 @@ impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> IntoIterator for &'a Serializ
     }
 }
 
-// Computes I2OSP(len(input), max_bytes) || input
-pub(crate) fn serialize<L: ArrayLength<u8>>(
-    input: &[u8],
-) -> Result<Serialized<L, U0>, InternalError> {
-    Ok(Serialized {
-        octet: i2osp::<L>(input.len())?,
-        input: Input::Borrowed(input),
-    })
-}
+impl<'a, L1: ArrayLength<u8>, L2: ArrayLength<u8>> Serialize<'a, L1, L2> {
+    // Variation of `serialize` that takes a borrowed `input.
+    pub(crate) fn from(input: &[u8]) -> Result<Serialize<L1>> {
+        Ok(Serialize {
+            octet: i2osp::<L1>(input.len())?,
+            input: Input::Borrowed(input),
+        })
+    }
 
-// Variation of `serialize` that takes an owned `input`
-pub(crate) fn serialize_owned<L1: ArrayLength<u8>, L2: ArrayLength<u8>>(
-    input: GenericArray<u8, L2>,
-) -> Result<Serialized<'static, L1, L2>, InternalError> {
-    Ok(Serialized {
-        octet: i2osp::<L1>(input.len())?,
-        input: Input::Owned(input),
-    })
-}
-
-pub(crate) fn deserialize<L: ArrayLength<u8>>(
-    input: &mut impl Iterator<Item = u8>,
-) -> Result<GenericArray<u8, L>, InternalError> {
-    let input = input.by_ref().take(L::USIZE);
-    GenericArray::from_exact_iter(input).ok_or(InternalError::SizeError)
+    pub(crate) fn from_owned(input: GenericArray<u8, L2>) -> Result<Serialize<'static, L1, L2>> {
+        Ok(Serialize {
+            octet: i2osp::<L1>(input.len())?,
+            input: Input::Owned(input),
+        })
+    }
 }
 
 macro_rules! chain_name {
@@ -135,7 +119,7 @@ mod unit_tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::voprf::{
+    use crate::{
         BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableServer, Proof,
         VerifiableClient, VerifiableServer,
     };

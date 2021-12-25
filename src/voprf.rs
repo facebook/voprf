@@ -22,9 +22,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::errors::InternalError;
-use crate::group::Group;
-use crate::util::{i2osp, serialize, serialize_owned};
+use crate::util::{i2osp, Serialize};
+use crate::{Error, Group, Result};
 
 ///////////////
 // Constants //
@@ -199,7 +198,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<NonVerifiableClientBlindResult<G, H>, InternalError> {
+    ) -> Result<NonVerifiableClientBlindResult<G, H>> {
         let (blind, blinded_element) = blind::<G, H, _>(input, blinding_factor_rng, Mode::Base)?;
         Ok(NonVerifiableClientBlindResult {
             state: Self {
@@ -225,7 +224,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: G::Scalar,
-    ) -> Result<NonVerifiableClientBlindResult<G, H>, InternalError> {
+    ) -> Result<NonVerifiableClientBlindResult<G, H>> {
         let blinded_element = deterministic_blind_unchecked::<G, H>(input, &blind, Mode::Base)?;
         Ok(NonVerifiableClientBlindResult {
             state: Self {
@@ -246,7 +245,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
         input: &[u8],
         evaluation_element: &EvaluationElement<G, H>,
         metadata: Option<&[u8]>,
-    ) -> Result<GenericArray<u8, H::OutputSize>, InternalError> {
+    ) -> Result<GenericArray<u8, H::OutputSize>> {
         let unblinded_element = evaluation_element.value * &G::scalar_invert(&self.blind);
         let mut outputs = finalize_after_unblind::<G, H, _, _>(
             Some((input, unblinded_element)).into_iter(),
@@ -278,7 +277,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<VerifiableClientBlindResult<G, H>, InternalError> {
+    ) -> Result<VerifiableClientBlindResult<G, H>> {
         let (blind, blinded_element) =
             blind::<G, H, _>(input, blinding_factor_rng, Mode::Verifiable)?;
         Ok(VerifiableClientBlindResult {
@@ -306,7 +305,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: G::Scalar,
-    ) -> Result<VerifiableClientBlindResult<G, H>, InternalError> {
+    ) -> Result<VerifiableClientBlindResult<G, H>> {
         let blinded_element =
             deterministic_blind_unchecked::<G, H>(input, &blind, Mode::Verifiable)?;
         Ok(VerifiableClientBlindResult {
@@ -331,7 +330,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&[u8]>,
-    ) -> Result<GenericArray<u8, H::OutputSize>, InternalError> {
+    ) -> Result<GenericArray<u8, H::OutputSize>> {
         // `core::array::from_ref` needs a MSRV of 1.53
         let inputs: &[&[u8]; 1] = core::slice::from_ref(&input).try_into().unwrap();
         let clients: &[Self; 1] = core::slice::from_ref(self).try_into().unwrap();
@@ -353,7 +352,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&'a [u8]>,
-    ) -> Result<VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM>, InternalError>
+    ) -> Result<VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM>>
     where
         G: 'a,
         H: 'a,
@@ -397,7 +396,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
 
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
     /// Produces a new instance of a [NonVerifiableServer] using a supplied RNG
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, InternalError> {
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, H::OutputSize>::default();
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
@@ -405,7 +404,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
 
     /// Produces a new instance of a [NonVerifiableServer] using a supplied set
     /// of bytes to represent the server's private key
-    pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self, InternalError> {
+    pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self> {
         let sk = G::from_scalar_slice(private_key_bytes)?;
         Ok(Self {
             sk,
@@ -417,7 +416,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     /// of bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
-    pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
+    pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
         let dst =
             GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
         let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
@@ -440,12 +439,12 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
         &self,
         blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
-    ) -> Result<NonVerifiableServerEvaluateResult<G, H>, InternalError> {
+    ) -> Result<NonVerifiableServerEvaluateResult<G, H>> {
         chain!(
             context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Base)? => |x| Some(x.as_slice()),
-            serialize::<U2>(metadata.unwrap_or_default())?,
+            Serialize::<U2>::from(metadata.unwrap_or_default())?,
         );
         let dst =
             GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base)?);
@@ -463,7 +462,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
 
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G, H> {
     /// Produces a new instance of a [VerifiableServer] using a supplied RNG
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, InternalError> {
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, H::OutputSize>::default();
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
@@ -471,7 +470,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
 
     /// Produces a new instance of a [VerifiableServer] using a supplied set of
     /// bytes to represent the server's private key
-    pub fn new_with_key(key: &[u8]) -> Result<Self, InternalError> {
+    pub fn new_with_key(key: &[u8]) -> Result<Self> {
         let sk = G::from_scalar_slice(key)?;
         let pk = G::base_point() * &sk;
         Ok(Self {
@@ -485,7 +484,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     /// bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
-    pub fn new_from_seed(seed: &[u8]) -> Result<Self, InternalError> {
+    pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
@@ -511,7 +510,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         rng: &mut R,
         blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
-    ) -> Result<VerifiableServerEvaluateResult<G, H>, InternalError> {
+    ) -> Result<VerifiableServerEvaluateResult<G, H>> {
         let (mut evaluation_elements, t) =
             self.batch_evaluate_1(Some(blinded_element.copy()).into_iter(), metadata)?;
 
@@ -539,7 +538,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         rng: &mut R,
         blinded_elements: &'a I,
         metadata: Option<&[u8]>,
-    ) -> Result<VerifiableServerBatchEvaluateResult<G, H>, InternalError>
+    ) -> Result<VerifiableServerBatchEvaluateResult<G, H>>
     where
         G: 'a,
         H: 'a,
@@ -570,20 +569,17 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         &self,
         blinded_elements: I,
         metadata: Option<&[u8]>,
-    ) -> Result<
-        (
-            impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
-            G::Scalar,
-        ),
-        InternalError,
-    >
+    ) -> Result<(
+        impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+        G::Scalar,
+    )>
     where
         I: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
     {
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
-            serialize::<U2>(metadata.unwrap_or_default())?,
+            Serialize::<U2>::from(metadata.unwrap_or_default())?,
         );
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
@@ -604,7 +600,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         blinded_elements: IB,
         evaluation_elements: IE,
         t: G::Scalar,
-    ) -> Result<Proof<G, H>, InternalError>
+    ) -> Result<Proof<G, H>>
     where
         IB: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
         IE: Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
@@ -649,6 +645,7 @@ pub struct VerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest + Fix
     pub message: BlindedElement<G, H>,
 }
 
+/// Concrete return type for [`VerifiableClient::batch_finalize`].
 pub type VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM> = FinalizeAfterUnblindResult<
     'a,
     G,
@@ -747,7 +744,7 @@ fn blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset, R: RngCore + Cr
     input: &[u8],
     blinding_factor_rng: &mut R,
     mode: Mode,
-) -> Result<(G::Scalar, G), InternalError> {
+) -> Result<(G::Scalar, G)> {
     // Choose a random scalar that must be non-zero
     let blind = G::random_nonzero_scalar(blinding_factor_rng);
     let blinded_element = deterministic_blind_unchecked::<G, H>(input, &blind, mode)?;
@@ -761,7 +758,7 @@ fn deterministic_blind_unchecked<G: Group, H: BlockSizeUser + Digest + FixedOutp
     input: &[u8],
     blind: &G::Scalar,
     mode: Mode,
-) -> Result<G, InternalError> {
+) -> Result<G> {
     let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode)?);
     let hashed_point = G::hash_to_curve::<H, _>(input, dst)?;
     Ok(hashed_point * blind)
@@ -788,7 +785,7 @@ fn verifiable_unblind<
     pk: G,
     proof: &Proof<G, H>,
     info: &[u8],
-) -> Result<VerifiableUnblindResult<'a, G, H, IC, IM>, InternalError>
+) -> Result<VerifiableUnblindResult<'a, G, H, IC, IM>>
 where
     &'a IC: 'a + IntoIterator<Item = &'a VerifiableClient<G, H>>,
     <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
@@ -798,7 +795,7 @@ where
     chain!(context,
         STR_CONTEXT => |x| Some(x.as_ref()),
         get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
-        serialize::<U2>(info)?,
+        Serialize::<U2>::from(info)?,
     );
 
     let dst =
@@ -838,7 +835,7 @@ fn generate_proof<
     b: G,
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-) -> Result<Proof<G, H>, InternalError> {
+) -> Result<Proof<G, H>> {
     let (m, z) = compute_composites(Some(k), b, cs, ds)?;
 
     let r = G::random_nonzero_scalar(rng);
@@ -849,12 +846,12 @@ fn generate_proof<
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(m.to_arr())?,
-        serialize_owned::<U2, _>(z.to_arr())?,
-        serialize_owned::<U2, _>(t2.to_arr())?,
-        serialize_owned::<U2, _>(t3.to_arr())?,
-        serialize_owned::<U2, _>(challenge_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(m.to_arr())?,
+        Serialize::<U2, _>::from_owned(z.to_arr())?,
+        Serialize::<U2, _>::from_owned(t2.to_arr())?,
+        Serialize::<U2, _>::from_owned(t3.to_arr())?,
+        Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
     let hash_to_scalar_dst =
@@ -877,7 +874,7 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
     proof: &Proof<G, H>,
-) -> Result<(), InternalError> {
+) -> Result<()> {
     let (m, z) = compute_composites(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
@@ -886,12 +883,12 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable)?);
     chain!(
         h2_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(m.to_arr())?,
-        serialize_owned::<U2, _>(z.to_arr())?,
-        serialize_owned::<U2, _>(t2.to_arr())?,
-        serialize_owned::<U2, _>(t3.to_arr())?,
-        serialize_owned::<U2, _>(challenge_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(m.to_arr())?,
+        Serialize::<U2, _>::from_owned(z.to_arr())?,
+        Serialize::<U2, _>::from_owned(t2.to_arr())?,
+        Serialize::<U2, _>::from_owned(t3.to_arr())?,
+        Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
     let hash_to_scalar_dst =
@@ -900,16 +897,14 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
-        false => Err(InternalError::ProofVerificationError),
+        false => Err(Error::ProofVerificationError),
     }
 }
 
 #[allow(type_alias_bounds)]
 type FinalizeAfterUnblindResult<'a, G, H: Digest, I, IE> = Map<
     Zip<IE, Repeat<(&'a [u8], GenericArray<u8, U20>)>>,
-    fn(
-        ((I, G), (&'a [u8], GenericArray<u8, U20>)),
-    ) -> Result<GenericArray<u8, H::OutputSize>, InternalError>,
+    fn(((I, G), (&'a [u8], GenericArray<u8, U20>))) -> Result<GenericArray<u8, H::OutputSize>>,
 >;
 
 fn finalize_after_unblind<
@@ -922,7 +917,7 @@ fn finalize_after_unblind<
     inputs_and_unblinded_elements: IE,
     info: &'a [u8],
     mode: Mode,
-) -> Result<FinalizeAfterUnblindResult<G, H, I, IE>, InternalError> {
+) -> Result<FinalizeAfterUnblindResult<G, H, I, IE>> {
     let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<G>(mode)?);
 
     Ok(inputs_and_unblinded_elements
@@ -932,10 +927,10 @@ fn finalize_after_unblind<
         .map(|((input, unblinded_element), (info, finalize_dst))| {
             chain!(
                 hash_input,
-                serialize::<U2>(input.as_ref())?,
-                serialize::<U2>(info)?,
-                serialize_owned::<U2, _>(unblinded_element.to_arr())?,
-                serialize_owned::<U2, _>(finalize_dst)?,
+                Serialize::<U2>::from(input.as_ref())?,
+                Serialize::<U2>::from(info)?,
+                Serialize::<U2, _>::from_owned(unblinded_element.to_arr())?,
+                Serialize::<U2, _>::from_owned(finalize_dst)?,
             );
 
             Ok(hash_input
@@ -949,9 +944,9 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     b: G,
     c_slice: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     d_slice: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-) -> Result<(G, G), InternalError> {
+) -> Result<(G, G)> {
     if c_slice.len() != d_slice.len() {
-        return Err(InternalError::MismatchedLengthsForCompositeInputs);
+        return Err(Error::MismatchedLengthsForCompositeInputs);
     }
 
     let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<G>(Mode::Verifiable)?);
@@ -960,8 +955,8 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     chain!(
         h1_input,
-        serialize_owned::<U2, _>(b.to_arr())?,
-        serialize_owned::<U2, _>(seed_dst)?,
+        Serialize::<U2, _>::from_owned(b.to_arr())?,
+        Serialize::<U2, _>::from_owned(seed_dst)?,
     );
     let seed = h1_input
         .fold(H::new(), |h, bytes| h.chain_update(bytes))
@@ -972,11 +967,11 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     for (i, (c, d)) in c_slice.zip(d_slice).enumerate() {
         chain!(h2_input,
-            serialize_owned::<U2, _>(seed.clone())?,
+            Serialize::<U2, _>::from_owned(seed.clone())?,
             i2osp::<U2>(i)? => |x| Some(x.as_slice()),
-            serialize_owned::<U2, _>(c.value.to_arr())?,
-            serialize_owned::<U2, _>(d.value.to_arr())?,
-            serialize_owned::<U2, _>(composite_dst)?,
+            Serialize::<U2, _>::from_owned(c.value.to_arr())?,
+            Serialize::<U2, _>::from_owned(d.value.to_arr())?,
+            Serialize::<U2, _>::from_owned(composite_dst)?,
         );
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable)?);
@@ -998,7 +993,7 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
-fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>, InternalError> {
+fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>> {
     Ok(GenericArray::from(STR_VOPRF)
         .concat(i2osp::<U1>(mode as usize)?)
         .concat(i2osp::<U2>(G::SUITE_ID)?))
@@ -1021,7 +1016,7 @@ mod tests {
     use ::{alloc::vec, alloc::vec::Vec};
 
     use super::*;
-    use crate::group::Group;
+    use crate::Group;
 
     fn prf<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
         input: &[u8],
@@ -1036,7 +1031,7 @@ mod tests {
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(mode).unwrap() => |x| Some(x.as_slice()),
-            serialize::<U2>(info).unwrap(),
+            Serialize::<U2>::from(info).unwrap(),
         );
 
         let dst =
@@ -1145,7 +1140,7 @@ mod tests {
             Some(info),
         )
         .unwrap()
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>>>()
         .unwrap();
         let mut res2 = vec![];
         for input in inputs.iter().take(num_iterations) {
@@ -1305,7 +1300,7 @@ mod tests {
     }
 
     #[test]
-    fn test_functionality() -> Result<(), InternalError> {
+    fn test_functionality() -> Result<()> {
         #[cfg(feature = "ristretto255")]
         {
             use curve25519_dalek::ristretto::RistrettoPoint;

@@ -26,6 +26,7 @@ use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::group::GroupEncoding;
+use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
@@ -33,7 +34,7 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
 use super::Group;
-use crate::errors::InternalError;
+use crate::{Error, Result};
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
@@ -48,7 +49,7 @@ impl Group for ProjectivePoint {
     fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self, InternalError>
+    ) -> Result<Self>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -85,15 +86,15 @@ impl Group for ProjectivePoint {
         let (q1x, q1y) = hash_to_curve_simple_swu(&uniform_bytes[L::USIZE..], &A, &B, &P, &Z);
 
         // convert to `p256` types
-        let p0 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
-            &q0x, &q0y, false,
+        let p0 = Option::<AffinePoint>::from(AffinePoint::from_encoded_point(
+            &EncodedPoint::from_affine_coordinates(&q0x, &q0y, false),
         ))
-        .ok_or(InternalError::PointError)?
+        .ok_or(Error::PointError)?
         .to_curve();
-        let p1 = AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
-            &q1x, &q1y, false,
+        let p1 = Option::<AffinePoint>::from(AffinePoint::from_encoded_point(
+            &EncodedPoint::from_affine_coordinates(&q1x, &q1y, false),
         ))
-        .ok_or(InternalError::PointError)?;
+        .ok_or(Error::PointError)?;
 
         Ok(p0 + p1)
     }
@@ -107,7 +108,7 @@ impl Group for ProjectivePoint {
     >(
         input: I,
         dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar, InternalError>
+    ) -> Result<Self::Scalar>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -132,7 +133,7 @@ impl Group for ProjectivePoint {
         let mut result = GenericArray::default();
         result[..bytes.len()].copy_from_slice(&bytes);
 
-        Ok(p256_::Scalar::from_bytes_reduced(&result))
+        Ok(p256_::Scalar::from_be_bytes_reduced(result))
     }
 
     type ElemLen = U33;
@@ -141,8 +142,8 @@ impl Group for ProjectivePoint {
 
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar, InternalError> {
-        Ok(Self::Scalar::from_bytes_reduced(scalar_bits))
+    ) -> Result<Self::Scalar> {
+        Ok(Self::Scalar::from_be_bytes_reduced(*scalar_bits))
     }
 
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
@@ -159,8 +160,8 @@ impl Group for ProjectivePoint {
 
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self, InternalError> {
-        Option::from(Self::from_bytes(element_bits)).ok_or(InternalError::PointError)
+    ) -> Result<Self> {
+        Option::from(Self::from_bytes(element_bits)).ok_or(Error::PointError)
     }
 
     fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {
