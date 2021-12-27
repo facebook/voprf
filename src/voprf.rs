@@ -601,7 +601,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
 
         Ok(VerifiableServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements: evaluation_elements,
-            t: PreparedT {
+            t: PreparedTscalar {
                 t,
                 hash: PhantomData,
             },
@@ -614,7 +614,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         rng: &mut R,
         blinded_elements: IB,
         evaluation_elements: &'b IE,
-        PreparedT { t, .. }: &PreparedT<G, H>,
+        PreparedTscalar { t, .. }: &PreparedTscalar<G, H>,
     ) -> Result<VerifiableServerBatchEvaluateFinishResult<'b, G, H, IE>>
     where
         G: 'a + 'b,
@@ -706,7 +706,7 @@ pub struct PreparedEvaluationElement<G: Group, H: BlockSizeUser + Digest + Fixed
 /// Contains the prepared `t` by a verifiable server batch evaluate preparation.
 #[derive(DeriveWhere)]
 #[derive_where(Zeroize(drop))]
-pub struct PreparedT<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct PreparedTscalar<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
     t: G::Scalar,
     #[derive_where(skip)]
     hash: PhantomData<H>,
@@ -727,7 +727,7 @@ pub struct VerifiableServerBatchEvaluatePrepareResult<
         fn((&BlindedElement<G, H>, G::Scalar)) -> PreparedEvaluationElement<G, H>,
     >,
     /// Prepared `t` needed to finish the verifiable server batch evaluation.
-    pub t: PreparedT<G, H>,
+    pub t: PreparedTscalar<G, H>,
 }
 
 /// Contains the fields that are returned by a verifiable server batch evaluate

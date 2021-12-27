@@ -563,8 +563,8 @@ pub use crate::group::Group;
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
-    NonVerifiableServer, NonVerifiableServerEvaluateResult, PreparedEvaluationElement, PreparedT,
-    Proof, VerifiableClient, VerifiableClientBatchFinalizeResult, VerifiableClientBlindResult,
-    VerifiableServer, VerifiableServerBatchEvaluateFinishResult,
+    NonVerifiableServer, NonVerifiableServerEvaluateResult, PreparedEvaluationElement,
+    PreparedTscalar, Proof, VerifiableClient, VerifiableClientBatchFinalizeResult,
+    VerifiableClientBlindResult, VerifiableServer, VerifiableServerBatchEvaluateFinishResult,
     VerifiableServerBatchEvaluatePrepareResult, VerifiableServerEvaluateResult,
 };
