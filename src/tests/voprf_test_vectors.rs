@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, HashMarker};
 use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 use json::JsonValue;
@@ -20,7 +20,7 @@ use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::{
     BlindedElement, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer, Proof,
-    Result, VerifiableClient, VerifiableServer,
+    Result, VerifiableClient, VerifiableServer, Voprf,
 };
 
 #[derive(Debug)]
@@ -90,8 +90,9 @@ fn test_vectors() -> Result<()> {
 
     #[cfg(feature = "ristretto255")]
     {
-        use curve25519_dalek::ristretto::RistrettoPoint;
         use sha2::Sha512;
+
+        use crate::Ristretto255;
 
         let ristretto_base_tvs = json_to_test_vectors!(
             rfc,
@@ -105,20 +106,20 @@ fn test_vectors() -> Result<()> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_blind::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_evaluate::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_finalize::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_seed_to_key::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_blind::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_evaluate::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_finalize::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
 
-        test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_blind::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_evaluate::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_finalize::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
     }
 
     #[cfg(feature = "p256")]
     {
-        use p256_::ProjectivePoint;
+        use p256_::NistP256;
         use sha2::Sha256;
 
         let p256_base_tvs =
@@ -130,21 +131,24 @@ fn test_vectors() -> Result<()> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_blind::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_evaluate::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_finalize::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
+        test_base_seed_to_key::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_blind::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_evaluate::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_finalize::<NistP256, Sha256>(&p256_base_tvs)?;
 
-        test_verifiable_seed_to_key::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_blind::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_evaluate::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_finalize::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_blind::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_evaluate::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_finalize::<NistP256, Sha256>(&p256_verifiable_tvs)?;
     }
 
     Ok(())
 }
 
-fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_seed_to_key<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -152,13 +156,16 @@ fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::scalar_to_bytes(server.get_private_key()).to_vec()
         );
     }
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_seed_to_key<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -166,15 +173,21 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::scalar_to_bytes(server.get_private_key()).to_vec()
         );
-        assert_eq!(&parameters.pksm, &server.get_public_key().to_arr().to_vec());
+        assert_eq!(
+            &parameters.pksm,
+            &G::element_to_bytes(server.get_public_key()).to_vec()
+        );
     }
     Ok(())
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_blind<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -188,7 +201,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_result.state.blind).to_vec()
+                &G::scalar_to_bytes(client_result.state.blind).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -200,7 +213,10 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_blind<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -214,7 +230,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
+                &G::scalar_to_bytes(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -226,7 +242,10 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_evaluate<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -246,7 +265,10 @@ fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_evaluate<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()>
 where
@@ -290,7 +312,10 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_finalize<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {
@@ -311,7 +336,10 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_finalize<
+    G: Group + Voprf<H>,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()> {
     for parameters in tvs {

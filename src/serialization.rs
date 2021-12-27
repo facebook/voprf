@@ -12,14 +12,14 @@ use core::marker::PhantomData;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, HashMarker};
 use generic_array::sequence::Concat;
 use generic_array::typenum::Sum;
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::{
     BlindedElement, Error, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer,
-    Proof, Result, VerifiableClient, VerifiableServer,
+    Proof, Result, VerifiableClient, VerifiableServer, Voprf,
 };
 
 //////////////////////////////////////////////////////////
@@ -27,10 +27,12 @@ use crate::{
 // ==================================================== //
 //////////////////////////////////////////////////////////
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    NonVerifiableClient<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.blind)
+        G::scalar_to_bytes(self.blind)
     }
 
     /// Deserialization from bytes
@@ -46,14 +48,16 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    VerifiableClient<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ElemLen>>
     where
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.blind).concat(self.blinded_element.to_arr())
+        G::scalar_to_bytes(self.blind).concat(G::element_to_bytes(self.blinded_element))
     }
 
     /// Deserialization from bytes
@@ -71,10 +75,12 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    NonVerifiableServer<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.sk)
+        G::scalar_to_bytes(self.sk)
     }
 
     /// Deserialization from bytes
@@ -90,14 +96,16 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    VerifiableServer<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ElemLen>>
     where
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.sk).concat(self.pk.to_arr())
+        G::scalar_to_bytes(self.sk).concat(G::element_to_bytes(self.pk))
     }
 
     /// Deserialization from bytes
@@ -115,14 +123,14 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker> Proof<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ScalarLen>>
     where
         G::ScalarLen: Add<G::ScalarLen>,
         Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.c_scalar).concat(G::scalar_as_bytes(self.s_scalar))
+        G::scalar_to_bytes(self.c_scalar).concat(G::scalar_to_bytes(self.s_scalar))
     }
 
     /// Deserialization from bytes
@@ -140,10 +148,12 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    BlindedElement<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::element_to_bytes(self.value)
     }
 
     /// Deserialization from bytes
@@ -159,10 +169,12 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G, H> {
+impl<G: Group + Voprf<H>, H: BlockSizeUser + Digest + FixedOutputReset + HashMarker>
+    EvaluationElement<G, H>
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::element_to_bytes(self.value)
     }
 
     /// Deserialization from bytes

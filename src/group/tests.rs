@@ -16,18 +16,18 @@ use crate::{Error, Group, Result};
 fn test_group_properties() -> Result<()> {
     #[cfg(feature = "ristretto255")]
     {
-        use curve25519_dalek::ristretto::RistrettoPoint;
+        use crate::Ristretto255;
 
-        test_identity_element_error::<RistrettoPoint>()?;
-        test_zero_scalar_error::<RistrettoPoint>()?;
+        test_identity_element_error::<Ristretto255>()?;
+        test_zero_scalar_error::<Ristretto255>()?;
     }
 
     #[cfg(feature = "p256")]
     {
-        use p256_::ProjectivePoint;
+        use p256_::NistP256;
 
-        test_identity_element_error::<ProjectivePoint>()?;
-        test_zero_scalar_error::<ProjectivePoint>()?;
+        test_identity_element_error::<NistP256>()?;
+        test_zero_scalar_error::<NistP256>()?;
     }
 
     Ok(())
@@ -36,7 +36,7 @@ fn test_group_properties() -> Result<()> {
 // Checks that the identity element cannot be deserialized
 fn test_identity_element_error<G: Group>() -> Result<()> {
     let identity = G::identity();
-    let result = G::from_element_slice(&identity.to_arr());
+    let result = G::from_element_slice(&G::element_to_bytes(identity));
     assert!(matches!(result, Err(Error::PointError)));
 
     Ok(())
@@ -45,7 +45,7 @@ fn test_identity_element_error<G: Group>() -> Result<()> {
 // Checks that the zero scalar cannot be deserialized
 fn test_zero_scalar_error<G: Group>() -> Result<()> {
     let zero_scalar = G::scalar_zero();
-    let result = G::from_scalar_slice(&G::scalar_as_bytes(zero_scalar));
+    let result = G::from_scalar_slice(&G::scalar_to_bytes(zero_scalar));
     assert!(matches!(result, Err(Error::ZeroScalarError)));
 
     Ok(())

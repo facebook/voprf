@@ -17,40 +17,63 @@ mod ristretto;
 use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, HashMarker};
 use generic_array::typenum::U1;
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "ristretto255")]
+pub use ristretto::Ristretto255;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 use crate::{Error, Result};
 
-/// A prime-order subgroup of a base field (EC, prime-order field ...). This
-/// subgroup is noted additively — as in the draft RFC — in this trait.
-pub trait Group:
-    Copy
-    + Sized
-    + ConstantTimeEq
-    + for<'a> Mul<&'a <Self as Group>::Scalar, Output = Self>
-    + for<'a> Add<&'a Self, Output = Self>
-{
+/// Ciphersuite identifier for a combination of a [`Group`] and a
+/// [hash](HashMarker).
+pub trait Voprf<H: HashMarker> {
     /// The ciphersuite identifier as dictated by
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-05.txt>
-    const SUITE_ID: usize;
+    const SUITE_ID: u16;
+}
+
+/// A prime-order subgroup of a base field (EC, prime-order field ...). This
+/// subgroup is noted additively — as in the draft RFC — in this trait.
+pub trait Group {
+    /// Type representing a group element.
+    type Elem: ConstantTimeEq
+        + Copy
+        + Sized
+        + Zeroize
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>
+        + for<'a> Add<&'a Self::Elem, Output = Self::Elem>;
+    /// The byte length necessary to represent group elements
+    type ElemLen: ArrayLength<u8> + 'static;
+
+    /// The type of base field scalars
+    type Scalar: ConstantTimeEq
+        + Copy
+        + Zeroize
+        + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
+        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
+    /// The byte length necessary to represent scalars
+    type ScalarLen: ArrayLength<u8> + 'static;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
+    fn hash_to_curve<
+        H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+        D: ArrayLength<u8> + Add<U1>,
+    >(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self>
+    ) -> Result<Self::Elem>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
     fn hash_to_scalar<
         'a,
-        H: BlockSizeUser + Digest + FixedOutputReset,
+        H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
         D: ArrayLength<u8> + Add<U1>,
         I: IntoIterator<Item = &'a [u8]>,
     >(
@@ -60,15 +83,50 @@ pub trait Group:
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
-    /// The type of base field scalars
-    type Scalar: Zeroize
-        + Copy
-        + ConstantTimeEq
-        + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
-    /// The byte length necessary to represent scalars
-    type ScalarLen: ArrayLength<u8> + 'static;
+    /// Get the base point for the group
+    fn base_point() -> Self::Elem;
+
+    /// Returns the identity group element
+    fn identity() -> Self::Elem;
+
+    /// Returns if the group element is equal to the identity (1)
+    fn is_identity(elem: Self::Elem) -> bool {
+        elem.ct_eq(&<Self as Group>::identity()).into()
+    }
+
+    /// Return an element from its fixed-length bytes representation. This is
+    /// the unchecked version, which does not check for deserializing the
+    /// identity element
+    fn from_element_slice_unchecked(
+        element_bits: &GenericArray<u8, Self::ElemLen>,
+    ) -> Result<Self::Elem>;
+
+    /// Return an element from its fixed-length bytes representation. If the
+    /// element is the identity element, return an error.
+    fn from_element_slice<'a>(
+        element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
+    ) -> Result<Self::Elem> {
+        let elem = Self::from_element_slice_unchecked(element_bits.into())?;
+
+        if elem.ct_eq(&Self::identity()).into() {
+            // found the identity element
+            return Err(Error::PointError);
+        }
+
+        Ok(elem)
+    }
+
+    /// Serializes the `self` group element
+    fn element_to_bytes(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
+
+    /// picks a scalar at random
+    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
+
+    /// Returns the scalar representing zero
+    fn scalar_zero() -> Self::Scalar;
+
+    /// The multiplicative inverse of this scalar
+    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar;
 
     /// Return a scalar from its fixed-length bytes representation, without
     /// checking if the scalar is zero.
@@ -88,58 +146,8 @@ pub trait Group:
         Ok(scalar)
     }
 
-    /// picks a scalar at random
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
     /// Serializes a scalar to bytes
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
-    /// The multiplicative inverse of this scalar
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar;
-
-    /// The byte length necessary to represent group elements
-    type ElemLen: ArrayLength<u8> + 'static;
-
-    /// Return an element from its fixed-length bytes representation. This is
-    /// the unchecked version, which does not check for deserializing the
-    /// identity element
-    fn from_element_slice_unchecked(element_bits: &GenericArray<u8, Self::ElemLen>)
-        -> Result<Self>;
-
-    /// Return an element from its fixed-length bytes representation. If the
-    /// element is the identity element, return an error.
-    fn from_element_slice<'a>(
-        element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
-    ) -> Result<Self> {
-        let elem = Self::from_element_slice_unchecked(element_bits.into())?;
-
-        if Self::ct_eq(&elem, &<Self as Group>::identity()).into() {
-            // found the identity element
-            return Err(Error::PointError);
-        }
-
-        Ok(elem)
-    }
-
-    /// Serializes the `self` group element
-    fn to_arr(&self) -> GenericArray<u8, Self::ElemLen>;
-
-    /// Get the base point for the group
-    fn base_point() -> Self;
-
-    /// Returns if the group element is equal to the identity (1)
-    fn is_identity(&self) -> bool {
-        self.ct_eq(&<Self as Group>::identity()).into()
-    }
-
-    /// Returns the identity group element
-    fn identity() -> Self;
-
-    /// Returns the scalar representing zero
-    fn scalar_zero() -> Self::Scalar;
-
-    /// Set the contents of self to the identity value
-    fn zeroize(&mut self) {
-        *self = <Self as Group>::identity();
-    }
+    fn scalar_to_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
 }
 
 #[cfg(test)]

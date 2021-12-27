@@ -8,7 +8,7 @@
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, HashMarker};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{Unsigned, U1, U2};
 use generic_array::{ArrayLength, GenericArray};
@@ -30,7 +30,7 @@ fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> Ge
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
 pub fn expand_message_xmd<
     'a,
-    H: BlockSizeUser + Digest + FixedOutputReset,
+    H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
     L: ArrayLength<u8>,
     M: IntoIterator<Item = &'a [u8]>,
     D: ArrayLength<u8> + Add<U1>,

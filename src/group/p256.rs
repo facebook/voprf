@@ -17,7 +17,7 @@ use core::ops::{Add, Div, Mul, Neg};
 use core::str::FromStr;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, HashMarker};
 use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
@@ -29,27 +29,41 @@ use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
-use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
+use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint};
 use rand_core::{CryptoRng, RngCore};
+use sha2::Sha256;
 use subtle::{Choice, ConditionallySelectable};
 
-use super::Group;
+use super::{Group, Voprf};
 use crate::{Error, Result};
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
 // `L: 48`
 pub type L = U48;
 
+// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "p256")]
-impl Group for ProjectivePoint {
-    const SUITE_ID: usize = 0x0003;
+impl Voprf<Sha256> for NistP256 {
+    const SUITE_ID: u16 = 0x0003;
+}
+
+// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
+#[cfg(feature = "p256")]
+impl Group for NistP256 {
+    type Elem = ProjectivePoint;
+    type ElemLen = U33;
+    type Scalar = p256_::Scalar;
+    type ScalarLen = U32;
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
+    fn hash_to_curve<
+        H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
+        D: ArrayLength<u8> + Add<U1>,
+    >(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self>
+    ) -> Result<Self::Elem>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -102,7 +116,7 @@ impl Group for ProjectivePoint {
     // Implements the `HashToScalar()` function
     fn hash_to_scalar<
         'a,
-        H: BlockSizeUser + Digest + FixedOutputReset,
+        H: BlockSizeUser + Digest + FixedOutputReset + HashMarker,
         D: ArrayLength<u8> + Add<U1>,
         I: IntoIterator<Item = &'a [u8]>,
     >(
@@ -136,9 +150,39 @@ impl Group for ProjectivePoint {
         Ok(p256_::Scalar::from_be_bytes_reduced(result))
     }
 
-    type ElemLen = U33;
-    type Scalar = p256_::Scalar;
-    type ScalarLen = U32;
+    fn base_point() -> Self::Elem {
+        ProjectivePoint::generator()
+    }
+
+    fn identity() -> Self::Elem {
+        ProjectivePoint::identity()
+    }
+
+    fn from_element_slice_unchecked(
+        element_bits: &GenericArray<u8, Self::ElemLen>,
+    ) -> Result<Self::Elem> {
+        Option::from(ProjectivePoint::from_bytes(element_bits)).ok_or(Error::PointError)
+    }
+
+    fn element_to_bytes(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+        let bytes = elem.to_affine().to_encoded_point(true);
+        let bytes = bytes.as_bytes();
+        let mut result = GenericArray::default();
+        result[..bytes.len()].copy_from_slice(bytes);
+        result
+    }
+
+    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+        Self::Scalar::random(rng)
+    }
+
+    fn scalar_zero() -> Self::Scalar {
+        Self::Scalar::zero()
+    }
+
+    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
+        scalar.invert().unwrap_or(Self::Scalar::zero())
+    }
 
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
@@ -146,42 +190,8 @@ impl Group for ProjectivePoint {
         Ok(Self::Scalar::from_be_bytes_reduced(*scalar_bits))
     }
 
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        Self::Scalar::random(rng)
-    }
-
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+    fn scalar_to_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
         scalar.into()
-    }
-
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
-        scalar.invert().unwrap_or(Self::Scalar::zero())
-    }
-
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self> {
-        Option::from(Self::from_bytes(element_bits)).ok_or(Error::PointError)
-    }
-
-    fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {
-        let bytes = self.to_affine().to_encoded_point(true);
-        let bytes = bytes.as_bytes();
-        let mut result = GenericArray::default();
-        result[..bytes.len()].copy_from_slice(bytes);
-        result
-    }
-
-    fn base_point() -> Self {
-        Self::generator()
-    }
-
-    fn identity() -> Self {
-        Self::identity()
-    }
-
-    fn scalar_zero() -> Self::Scalar {
-        Self::Scalar::zero()
     }
 }
 
