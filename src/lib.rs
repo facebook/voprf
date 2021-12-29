@@ -331,13 +331,10 @@
 //! this case. In the following example, we show how to use the batch API to
 //! produce a single proof for 10 parallel VOPRF evaluations.
 //!
-//! This requires the crate feature `alloc`.
-//!
 //! First, the client produces 10 blindings, storing their resulting states and
 //! messages:
 //!
 //! ```
-//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -358,16 +355,14 @@
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
 //! }
-//! # }
 //! ```
 //!
-//! Next, the server calls the [VerifiableServer::batch_evaluate] function on a
-//! set of client messages, to produce a corresponding set of messages to be
-//! returned to the client (returned in the same order), along with a single
-//! proof:
+//! Next, the server calls the [VerifiableServer::batch_evaluate_prepare] and
+//! [VerifiableServer::batch_evaluate_finish] function on a set of client
+//! messages, to produce a corresponding set of messages to be returned to the
+//! client (returned in the same order), along with a single proof:
 //!
 //! ```
-//! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
 //! # #[cfg(feature = "ristretto255")]
@@ -376,7 +371,7 @@
 //! # type Group = p256_::ProjectivePoint;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
-//! # use voprf::VerifiableClient;
+//! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
@@ -394,7 +389,50 @@
 //! let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! let server_batch_evaluate_result = server
+//! let VerifiableServerBatchEvaluatePrepareResult {
+//!     prepared_evaluation_elements,
+//!     t,
+//! } = server
+//!     .batch_evaluate_prepare(client_messages.iter(), None)
+//!     .expect("Unable to perform server batch evaluate");
+//! let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
+//! let VerifiableServerBatchEvaluateFinishResult { messages, proof } = VerifiableServer::batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements, &t)
+//!     .expect("Unable to perform server batch evaluate");
+//! let messages: Vec<_> = messages.collect();
+//! ```
+//!
+//! If [`alloc`] is available, [VerifiableServer::batch_evaluate] can be called
+//! to avoid having to collect output manually:
+//!
+//! ```
+//! # #[cfg(feature = "alloc")] {
+//! # #[cfg(feature = "ristretto255")]
+//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # #[cfg(feature = "ristretto255")]
+//! # type Hash = sha2::Sha512;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Group = p256_::ProjectivePoint;
+//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # type Hash = sha2::Sha256;
+//! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
+//! # use rand::{rngs::OsRng, RngCore};
+//! #
+//! # let mut client_rng = OsRng;
+//! # let mut client_states = vec![];
+//! # let mut client_messages = vec![];
+//! # for _ in 0..10 {
+//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! #         b"input",
+//! #        &mut client_rng,
+//! #     ).expect("Unable to construct client");
+//! #     client_states.push(client_blind_result.state);
+//! #     client_messages.push(client_blind_result.message);
+//! # }
+//! # use voprf::VerifiableServer;
+//! let mut server_rng = OsRng;
+//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! #   .expect("Unable to construct server");
+//! let VerifiableServerBatchEvaluateResult { messages, proof } = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
 //!     .expect("Unable to perform server batch evaluate");
 //! # }
@@ -415,7 +453,7 @@
 //! # type Group = p256_::ProjectivePoint;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
-//! # use voprf::VerifiableClient;
+//! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
@@ -430,19 +468,17 @@
 //! #     client_messages.push(client_blind_result.message);
 //! # }
 //! # use voprf::VerifiableServer;
-//! let mut server_rng = OsRng;
+//! # let mut server_rng = OsRng;
 //! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
-//! # let server_batch_evaluate_result = server.batch_evaluate(
-//! #     &mut server_rng,
-//! #     &client_messages,
-//! #     None,
-//! # ).expect("Unable to perform server batch evaluate");
+//! # let VerifiableServerBatchEvaluateResult { messages, proof } = server
+//! #     .batch_evaluate(&mut server_rng, &client_messages, None)
+//! #     .expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VerifiableClient::batch_finalize(
 //!     &[b"input"; 10],
 //!     &client_states,
-//!     &server_batch_evaluate_result.messages,
-//!     &server_batch_evaluate_result.proof,
+//!     &messages,
+//!     &proof,
 //!     server.get_public_key(),
 //!     None,
 //! )
@@ -527,7 +563,8 @@ pub use crate::group::Group;
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
-    NonVerifiableServer, NonVerifiableServerEvaluateResult, Proof, VerifiableClient,
-    VerifiableClientBatchFinalizeResult, VerifiableClientBlindResult, VerifiableServer,
-    VerifiableServerEvaluateResult,
+    NonVerifiableServer, NonVerifiableServerEvaluateResult, PreparedEvaluationElement,
+    PreparedTscalar, Proof, VerifiableClient, VerifiableClientBatchFinalizeResult,
+    VerifiableClientBlindResult, VerifiableServer, VerifiableServerBatchEvaluateFinishResult,
+    VerifiableServerBatchEvaluatePrepareResult, VerifiableServerEvaluateResult,
 };

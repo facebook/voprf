@@ -511,23 +511,27 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<VerifiableServerEvaluateResult<G, H>> {
-        let (mut evaluation_elements, t) =
-            self.batch_evaluate_1(Some(blinded_element.copy()).into_iter(), metadata)?;
-
-        let evaluation_element = evaluation_elements.next().unwrap();
-
-        let proof = Self::batch_evaluate_2(
-            rng,
-            Some(blinded_element.copy()).into_iter(),
-            Some(evaluation_element.copy()).into_iter(),
+        let VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements: mut evaluation_elements,
             t,
+        } = self.batch_evaluate_prepare(Some(blinded_element).into_iter(), metadata)?;
+
+        let prepared_element = [evaluation_elements.next().unwrap()];
+
+        let VerifiableServerBatchEvaluateFinishResult {
+            mut messages,
+            proof,
+        } = Self::batch_evaluate_finish(
+            rng,
+            Some(blinded_element).into_iter(),
+            &prepared_element,
+            &t,
         )?;
 
+        let message = messages.next().unwrap();
+
         //let batch_result = self.batch_evaluate(rng, blinded_elements, metadata)?;
-        Ok(VerifiableServerEvaluateResult {
-            message: evaluation_element,
-            proof,
-        })
+        Ok(VerifiableServerEvaluateResult { message, proof })
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
@@ -545,37 +549,36 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         &'a I: IntoIterator<Item = &'a BlindedElement<G, H>>,
         <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
     {
-        let (evaluation_elements, t) = self.batch_evaluate_1(
-            blinded_elements.into_iter().map(BlindedElement::copy),
-            metadata,
-        )?;
-
-        let evaluation_elements: Vec<_> = evaluation_elements.collect();
-
-        let proof = Self::batch_evaluate_2(
-            rng,
-            blinded_elements.into_iter().map(BlindedElement::copy),
-            evaluation_elements.iter().map(EvaluationElement::copy),
+        let VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements: evaluation_elements,
             t,
-        )?;
+        } = self.batch_evaluate_prepare(blinded_elements.into_iter(), metadata)?;
+
+        let prepared_elements = evaluation_elements.collect();
+
+        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
+            Self::batch_evaluate_finish::<_, _, Vec<_>>(
+                rng,
+                blinded_elements.into_iter(),
+                &prepared_elements,
+                &t,
+            )?;
 
         Ok(VerifiableServerBatchEvaluateResult {
-            messages: evaluation_elements,
+            messages: messages.collect(),
             proof,
         })
     }
 
-    fn batch_evaluate_1<I>(
+    /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
+    /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
+    /// [`collect`](Iterator::collect)ed and passed into
+    /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
+    pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<G, H>>>(
         &self,
         blinded_elements: I,
         metadata: Option<&[u8]>,
-    ) -> Result<(
-        impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
-        G::Scalar,
-    )>
-    where
-        I: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-    {
+    ) -> Result<VerifiableServerBatchEvaluatePrepareResult<'a, G, H, I>> {
         chain!(context,
             STR_CONTEXT => |x| Some(x.as_ref()),
             get_context_string::<G>(Mode::Verifiable)? => |x| Some(x.as_slice()),
@@ -585,30 +588,62 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
             .concat(get_context_string::<G>(Mode::Verifiable)?);
         let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
         let t = self.sk + &m;
-        let evaluation_elements = blinded_elements.map(move |x| EvaluationElement {
-            value: x.value * &G::scalar_invert(&t),
-            hash: PhantomData,
-        });
+        let evaluation_elements = blinded_elements
+            // To make a return type possible, we have to convert to a `fn` pointer, which isn't
+            // possible if we `move` from context.
+            .zip(iter::repeat(G::scalar_invert(&t)))
+            .map(<fn((&BlindedElement<G, H>, _)) -> _>::from(|(x, t)| {
+                PreparedEvaluationElement(EvaluationElement {
+                    value: x.value * &t,
+                    hash: PhantomData,
+                })
+            }));
 
-        Ok((evaluation_elements, t))
+        Ok(VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements: evaluation_elements,
+            t: PreparedTscalar {
+                t,
+                hash: PhantomData,
+            },
+        })
     }
 
-    /// Allows for batching of the evaluation of multiple [BlindedElement]
-    /// messages from a [VerifiableClient]
-    fn batch_evaluate_2<R: RngCore + CryptoRng, IE, IB>(
+    /// See [`batch_evaluate_prepare`](Self::batch_evaluate_prepare) for more
+    /// details.
+    pub fn batch_evaluate_finish<'a, 'b, R: RngCore + CryptoRng, IB, IE>(
         rng: &mut R,
         blinded_elements: IB,
-        evaluation_elements: IE,
-        t: G::Scalar,
-    ) -> Result<Proof<G, H>>
+        evaluation_elements: &'b IE,
+        PreparedTscalar { t, .. }: &PreparedTscalar<G, H>,
+    ) -> Result<VerifiableServerBatchEvaluateFinishResult<'b, G, H, IE>>
     where
-        IB: Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-        IE: Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
+        G: 'a + 'b,
+        H: 'a + 'b,
+        IB: Iterator<Item = &'a BlindedElement<G, H>> + ExactSizeIterator,
+        &'b IE: IntoIterator<Item = &'b PreparedEvaluationElement<G, H>>,
+        <&'b IE as IntoIterator>::IntoIter: ExactSizeIterator,
     {
         let g = G::base_point();
-        let u = g * &t;
+        let u = g * t;
 
-        generate_proof(rng, t, g, u, evaluation_elements, blinded_elements)
+        let proof = generate_proof(
+            rng,
+            *t,
+            g,
+            u,
+            evaluation_elements
+                .into_iter()
+                .map(|element| element.0.copy()),
+            blinded_elements.map(BlindedElement::copy),
+        )?;
+        let messages =
+            evaluation_elements
+                .into_iter()
+                .map(<fn(&PreparedEvaluationElement<G, H>) -> _>::from(
+                    |element| element.0.copy(),
+                ));
+
+        Ok(VerifiableServerBatchEvaluateFinishResult { messages, proof })
     }
 
     /// Retrieves the server's public key
@@ -658,6 +693,59 @@ pub type VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM> = Finalize
 pub struct VerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
     /// The message to send to the client
     pub message: EvaluationElement<G, H>,
+    /// The proof for the client to verify
+    pub proof: Proof<G, H>,
+}
+
+/// Contains prepared [`EvaluationElement`]s by a verifiable server batch
+/// evaluate preparation.
+pub struct PreparedEvaluationElement<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+    EvaluationElement<G, H>,
+);
+
+/// Contains the prepared `t` by a verifiable server batch evaluate preparation.
+#[derive(DeriveWhere)]
+#[derive_where(Zeroize(drop))]
+pub struct PreparedTscalar<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+    t: G::Scalar,
+    #[derive_where(skip)]
+    hash: PhantomData<H>,
+}
+
+/// Contains the fields that are returned by a verifiable server batch evaluate
+/// preparation.
+pub struct VerifiableServerBatchEvaluatePrepareResult<
+    'a,
+    G: 'a + Group,
+    H: 'a + BlockSizeUser + Digest + FixedOutputReset,
+    I: Iterator<Item = &'a BlindedElement<G, H>>,
+> {
+    /// Prepared [`EvaluationElement`]s that will become messages.
+    #[allow(clippy::type_complexity)]
+    pub prepared_evaluation_elements: Map<
+        Zip<I, Repeat<G::Scalar>>,
+        fn((&BlindedElement<G, H>, G::Scalar)) -> PreparedEvaluationElement<G, H>,
+    >,
+    /// Prepared `t` needed to finish the verifiable server batch evaluation.
+    pub t: PreparedTscalar<G, H>,
+}
+
+/// Contains the fields that are returned by a verifiable server batch evaluate
+/// finish.
+pub struct VerifiableServerBatchEvaluateFinishResult<
+    'a,
+    G: 'a + Group,
+    H: 'a + BlockSizeUser + Digest + FixedOutputReset,
+    I,
+> where
+    &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<G, H>>,
+{
+    /// The messages to send to the client
+    #[allow(clippy::type_complexity)]
+    pub messages: Map<
+        <&'a I as IntoIterator>::IntoIter,
+        fn(&PreparedEvaluationElement<G, H>) -> EvaluationElement<G, H>,
+    >,
     /// The proof for the client to verify
     pub proof: Proof<G, H>,
 }
@@ -1008,12 +1096,12 @@ fn get_context_string<G: Group>(mode: Mode) -> Result<GenericArray<u8, U11>> {
 mod tests {
     use core::ops::Add;
 
+    use ::alloc::vec;
+    use ::alloc::vec::Vec;
     use generic_array::typenum::Sum;
     use generic_array::{ArrayLength, GenericArray};
     use rand::rngs::OsRng;
     use zeroize::Zeroize;
-    #[cfg(feature = "alloc")]
-    use ::{alloc::vec, alloc::vec::Vec};
 
     use super::*;
     use crate::Group;
@@ -1087,7 +1175,6 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    #[cfg(feature = "alloc")]
     fn verifiable_bad_public_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
         let input = b"input";
         let info = b"info";
@@ -1111,7 +1198,6 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    #[cfg(feature = "alloc")]
     fn verifiable_batch_retrieval<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
         let info = b"info";
         let mut rng = OsRng;
@@ -1128,14 +1214,27 @@ mod tests {
             client_messages.push(client_blind_result.message);
         }
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
-        let server_result = server
-            .batch_evaluate(&mut rng, &client_messages, Some(info))
+        let VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements,
+            t,
+        } = server
+            .batch_evaluate_prepare(client_messages.iter(), Some(info))
             .unwrap();
+        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
+        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
+            VerifiableServer::batch_evaluate_finish(
+                &mut rng,
+                client_messages.iter(),
+                &prepared_elements,
+                &t,
+            )
+            .unwrap();
+        let messages: Vec<_> = messages.collect();
         let client_finalize_result = VerifiableClient::batch_finalize(
             &inputs,
             &client_states,
-            &server_result.messages,
-            &server_result.proof,
+            &messages,
+            &proof,
             server.get_public_key(),
             Some(info),
         )
@@ -1150,7 +1249,6 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    #[cfg(feature = "alloc")]
     fn verifiable_batch_bad_public_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
         let info = b"info";
         let mut rng = OsRng;
@@ -1167,9 +1265,22 @@ mod tests {
             client_messages.push(client_blind_result.message);
         }
         let server = VerifiableServer::<G, H>::new(&mut rng).unwrap();
-        let server_result = server
-            .batch_evaluate(&mut rng, &client_messages, Some(info))
+        let VerifiableServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements,
+            t,
+        } = server
+            .batch_evaluate_prepare(client_messages.iter(), Some(info))
             .unwrap();
+        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
+        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
+            VerifiableServer::batch_evaluate_finish(
+                &mut rng,
+                client_messages.iter(),
+                &prepared_elements,
+                &t,
+            )
+            .unwrap();
+        let messages: Vec<_> = messages.collect();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
             G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
@@ -1177,8 +1288,8 @@ mod tests {
         let client_finalize_result = VerifiableClient::batch_finalize(
             &inputs,
             &client_states,
-            &server_result.messages,
-            &server_result.proof,
+            &messages,
+            &proof,
             wrong_pk,
             Some(info),
         );
@@ -1309,11 +1420,8 @@ mod tests {
             base_retrieval::<RistrettoPoint, Sha512>();
             base_inversion_unsalted::<RistrettoPoint, Sha512>();
             verifiable_retrieval::<RistrettoPoint, Sha512>();
-            #[cfg(feature = "alloc")]
             verifiable_batch_retrieval::<RistrettoPoint, Sha512>();
-            #[cfg(feature = "alloc")]
             verifiable_bad_public_key::<RistrettoPoint, Sha512>();
-            #[cfg(feature = "alloc")]
             verifiable_batch_bad_public_key::<RistrettoPoint, Sha512>();
 
             zeroize_base_client::<RistrettoPoint, Sha512>();
