@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use derive_where::DeriveWhere;
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::{Digest, FixedOutputReset, Output};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{U1, U11, U2, U20};
 use generic_array::GenericArray;
@@ -245,7 +245,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
         input: &[u8],
         evaluation_element: &EvaluationElement<G, H>,
         metadata: Option<&[u8]>,
-    ) -> Result<GenericArray<u8, H::OutputSize>> {
+    ) -> Result<Output<H>> {
         let unblinded_element = evaluation_element.value * &G::scalar_invert(&self.blind);
         let mut outputs = finalize_after_unblind::<G, H, _, _>(
             Some((input, unblinded_element)).into_iter(),
@@ -330,7 +330,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         proof: &Proof<G, H>,
         pk: G,
         metadata: Option<&[u8]>,
-    ) -> Result<GenericArray<u8, H::OutputSize>> {
+    ) -> Result<Output<H>> {
         // `core::array::from_ref` needs a MSRV of 1.53
         let inputs: &[&[u8]; 1] = core::slice::from_ref(&input).try_into().unwrap();
         let clients: &[Self; 1] = core::slice::from_ref(self).try_into().unwrap();
@@ -397,7 +397,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
     /// Produces a new instance of a [NonVerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
-        let mut seed = GenericArray::<_, H::OutputSize>::default();
+        let mut seed = Output::<H>::default();
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
     }
@@ -463,7 +463,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G, H> {
     /// Produces a new instance of a [VerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
-        let mut seed = GenericArray::<_, H::OutputSize>::default();
+        let mut seed = Output::<H>::default();
         rng.fill_bytes(&mut seed);
         Self::new_from_seed(&seed)
     }
@@ -852,13 +852,15 @@ fn deterministic_blind_unchecked<G: Group, H: BlockSizeUser + Digest + FixedOutp
     Ok(hashed_point * blind)
 }
 
-#[allow(type_alias_bounds)]
-type VerifiableUnblindResult<'a, G: Group, H, IC, IM> = Map<
+type VerifiableUnblindResult<'a, G, H, IC, IM> = Map<
     Zip<
-        Map<<&'a IC as IntoIterator>::IntoIter, fn(&VerifiableClient<G, H>) -> G::Scalar>,
+        Map<
+            <&'a IC as IntoIterator>::IntoIter,
+            fn(&VerifiableClient<G, H>) -> <G as Group>::Scalar,
+        >,
         <&'a IM as IntoIterator>::IntoIter,
     >,
-    fn((G::Scalar, &EvaluationElement<G, H>)) -> G,
+    fn((<G as Group>::Scalar, &EvaluationElement<G, H>)) -> G,
 >;
 
 fn verifiable_unblind<
@@ -989,10 +991,9 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     }
 }
 
-#[allow(type_alias_bounds)]
-type FinalizeAfterUnblindResult<'a, G, H: Digest, I, IE> = Map<
+type FinalizeAfterUnblindResult<'a, G, H, I, IE> = Map<
     Zip<IE, Repeat<(&'a [u8], GenericArray<u8, U20>)>>,
-    fn(((I, G), (&'a [u8], GenericArray<u8, U20>))) -> Result<GenericArray<u8, H::OutputSize>>,
+    fn(((I, G), (&'a [u8], GenericArray<u8, U20>))) -> Result<Output<H>>,
 >;
 
 fn finalize_after_unblind<
@@ -1111,7 +1112,7 @@ mod tests {
         key: G::Scalar,
         info: &[u8],
         mode: Mode,
-    ) -> GenericArray<u8, H::OutputSize> {
+    ) -> Output<H> {
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode).unwrap());
         let point = G::hash_to_curve::<H, _>(input, dst).unwrap();
