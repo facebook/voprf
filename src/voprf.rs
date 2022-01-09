@@ -414,7 +414,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     /// Produces a new instance of a [NonVerifiableServer] using a supplied set
     /// of bytes to represent the server's private key
     pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self> {
-        let sk = G::from_scalar_slice(private_key_bytes)?;
+        let sk = G::deserialize_scalar(private_key_bytes.into())?;
         Ok(Self {
             sk,
             hash: PhantomData,
@@ -480,7 +480,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     /// Produces a new instance of a [VerifiableServer] using a supplied set of
     /// bytes to represent the server's private key
     pub fn new_with_key(key: &[u8]) -> Result<Self> {
-        let sk = G::from_scalar_slice(key)?;
+        let sk = G::deserialize_scalar(key.into())?;
         let pk = G::base_point() * &sk;
         Ok(Self {
             sk,

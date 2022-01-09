@@ -184,7 +184,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
@@ -210,7 +210,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
@@ -299,7 +299,7 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 ) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<G, H>::from_blind(G::from_scalar_slice(
+            let client = NonVerifiableClient::<G, H>::from_blind(G::deserialize_scalar(
                 &GenericArray::clone_from_slice(&parameters.blind[i]),
             )?);
 
@@ -322,7 +322,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<G, H>::from_blind_and_element(
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
                 G::from_element_slice(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,

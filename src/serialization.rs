@@ -37,7 +37,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let blind = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -60,7 +60,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let blind = G::deserialize_scalar(&deserialize(&mut input)?)?;
         let blinded_element = G::from_element_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
@@ -81,7 +81,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let sk = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -104,7 +104,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let sk = G::deserialize_scalar(&deserialize(&mut input)?)?;
         let pk = G::from_element_slice(&deserialize(&mut input)?)?;
 
         Ok(Self {
@@ -129,8 +129,8 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let c_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
-        let s_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let c_scalar = G::deserialize_scalar(&deserialize(&mut input)?)?;
+        let s_scalar = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Proof {
             c_scalar,

@@ -45,8 +45,8 @@ fn test_identity_element_error<G: Group>() -> Result<()> {
 // Checks that the zero scalar cannot be deserialized
 fn test_zero_scalar_error<G: Group>() -> Result<()> {
     let zero_scalar = G::scalar_zero();
-    let result = G::from_scalar_slice(&G::scalar_as_bytes(zero_scalar));
-    assert!(matches!(result, Err(Error::ZeroScalarError)));
+    let result = G::deserialize_scalar(&G::scalar_as_bytes(zero_scalar));
+    assert!(matches!(result, Err(Error::ScalarError)));
 
     Ok(())
 }

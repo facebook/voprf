@@ -78,23 +78,9 @@ pub trait Group {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
-    /// Return a scalar from its fixed-length bytes representation, without
-    /// checking if the scalar is zero.
-    fn from_scalar_slice_unchecked(
-        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar>;
-
     /// Return a scalar from its fixed-length bytes representation. If the
-    /// scalar is zero, then return an error.
-    fn from_scalar_slice<'a>(
-        scalar_bits: impl Into<&'a GenericArray<u8, Self::ScalarLen>>,
-    ) -> Result<Self::Scalar> {
-        let scalar = Self::from_scalar_slice_unchecked(scalar_bits.into())?;
-        if scalar.ct_eq(&Self::scalar_zero()).into() {
-            return Err(Error::ZeroScalarError);
-        }
-        Ok(scalar)
-    }
+    /// scalar is zero or invalid, then return an error.
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
 
     /// picks a scalar at random
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;

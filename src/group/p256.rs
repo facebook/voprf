@@ -29,7 +29,7 @@ use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
-use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, Scalar};
+use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, Scalar, SecretKey};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
@@ -144,10 +144,10 @@ impl Group for NistP256 {
         Ok(Scalar::from_be_bytes_reduced(result))
     }
 
-    fn from_scalar_slice_unchecked(
-        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar> {
-        Ok(Scalar::from_be_bytes_reduced(*scalar_bits))
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+        SecretKey::from_be_bytes(scalar_bits)
+            .map(|secret_key| *secret_key.to_nonzero_scalar())
+            .map_err(|_| Error::ScalarError)
     }
 
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {

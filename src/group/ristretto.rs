@@ -78,10 +78,10 @@ impl Group for Ristretto255 {
         ))
     }
 
-    fn from_scalar_slice_unchecked(
-        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar> {
-        Ok(Scalar::from_bytes_mod_order(*scalar_bits.as_ref()))
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+        Scalar::from_canonical_bytes((*scalar_bits).into())
+            .filter(|scalar| scalar != &Scalar::zero())
+            .ok_or(Error::ScalarError)
     }
 
     fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
