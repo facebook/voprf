@@ -33,7 +33,7 @@ use crate::{Error, Result};
 pub trait Group {
     /// The ciphersuite identifier as dictated by
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-05.txt>
-    const SUITE_ID: usize;
+    const SUITE_ID: u16;
 
     /// The type of group elements
     type Elem: Copy

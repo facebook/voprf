@@ -27,7 +27,7 @@ pub struct Ristretto255;
 // `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "ristretto255")]
 impl Group for Ristretto255 {
-    const SUITE_ID: usize = 0x0001;
+    const SUITE_ID: u16 = 0x0001;
 
     type Elem = RistrettoPoint;
 
