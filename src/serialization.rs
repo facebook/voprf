@@ -53,7 +53,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.blind).concat(self.blinded_element.to_arr())
+        G::scalar_as_bytes(self.blind).concat(G::to_arr(self.blinded_element))
     }
 
     /// Deserialization from bytes
@@ -97,7 +97,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.sk).concat(self.pk.to_arr())
+        G::scalar_as_bytes(self.sk).concat(G::to_arr(self.pk))
     }
 
     /// Deserialization from bytes
@@ -143,7 +143,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::to_arr(self.value)
     }
 
     /// Deserialization from bytes
@@ -162,7 +162,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::to_arr(self.value)
     }
 
     /// Deserialization from bytes

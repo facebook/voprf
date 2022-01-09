@@ -21,18 +21,26 @@ use rand_core::{CryptoRng, RngCore};
 use super::Group;
 use crate::{Error, Result};
 
+/// [`Group`] implementation for Ristretto255.
+pub struct Ristretto255;
+
 // `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "ristretto255")]
-/// The implementation of such a subgroup for Ristretto
-impl Group for RistrettoPoint {
+impl Group for Ristretto255 {
     const SUITE_ID: usize = 0x0001;
+
+    type Elem = RistrettoPoint;
+
+    type Scalar = Scalar;
+
+    type ScalarLen = U32;
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
     fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
         msg: &[u8],
         dst: GenericArray<u8, D>,
-    ) -> Result<Self>
+    ) -> Result<Self::Elem>
     where
         <D as Add<U1>>::Output: ArrayLength<u8>,
     {
@@ -70,8 +78,6 @@ impl Group for RistrettoPoint {
         ))
     }
 
-    type Scalar = Scalar;
-    type ScalarLen = U32;
     fn from_scalar_slice_unchecked(
         scalar_bits: &GenericArray<u8, Self::ScalarLen>,
     ) -> Result<Self::Scalar> {
@@ -104,25 +110,26 @@ impl Group for RistrettoPoint {
     type ElemLen = U32;
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self> {
+    ) -> Result<Self::Elem> {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
             .ok_or(Error::PointError)
     }
+
     // serialization of a group element
-    fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {
-        self.compress().to_bytes().into()
+    fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+        elem.compress().to_bytes().into()
     }
 
-    fn base_point() -> Self {
+    fn base_point() -> Self::Elem {
         RISTRETTO_BASEPOINT_POINT
     }
 
-    fn identity() -> Self {
-        <Self as Identity>::identity()
+    fn identity() -> Self::Elem {
+        RistrettoPoint::identity()
     }
 
     fn scalar_zero() -> Self::Scalar {
-        Self::Scalar::zero()
+        Scalar::zero()
     }
 }

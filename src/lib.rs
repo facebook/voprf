@@ -24,7 +24,7 @@
 //! We will use the following choices in this example:
 //!
 //! ```ignore
-//! type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! type Group = voprf::Ristretto255;
 //! type Hash = sha2::Sha512;
 //! ```
 //!
@@ -52,11 +52,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -78,11 +78,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -104,11 +104,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
@@ -136,11 +136,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
@@ -187,11 +187,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -220,11 +220,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -246,11 +246,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -279,11 +279,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -336,11 +336,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -364,11 +364,11 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
@@ -407,11 +407,11 @@
 //! ```
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
@@ -446,11 +446,11 @@
 //! ```
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = curve25519_dalek::ristretto::RistrettoPoint;
+//! # type Group = voprf::Ristretto255;
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::ProjectivePoint;
+//! # type Group = p256_::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
@@ -507,9 +507,10 @@
 //! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
 //!   VOPRF evaluations.
 //!
-//! - The `p256` feature enables using p256 as the underlying group for the
-//!   [Group] choice and increases the MSRV to 1.56. Note that this is currently
-//!   an experimental feature ⚠️, and is not yet ready for production use.
+//! - The `p256` feature enables using [`NistP256`](p256_::NistP256) as the
+//!   underlying group for the [Group] choice and increases the MSRV to 1.56.
+//!   Note that this is currently an experimental feature ⚠️, and is not yet
+//!   ready for production use.
 //!
 //! - The `serde` feature, enabled by default, provides convenience functions
 //!   for serializing and deserializing with [serde](https://serde.rs/).
@@ -520,18 +521,21 @@
 //!   that need access to these raw values and are able to perform the necessary
 //!   validations on them (such as being valid group elements).
 //!
-//! - The backend features are re-exported from [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
-//!   and allow for selecting the corresponding backend for the curve arithmetic
-//!   used. The `ristretto255_u64` feature is included as the default. Other
-//!   features are mapped as `ristretto255_u32`, `ristretto255_fiat_u64` and
-//!   `ristretto255_fiat_u32`. Any `ristretto255_*` backend feature will enable
-//!   the `ristretto255` feature, which can be used too, but keep in mind that
-//!   `curve25519-dalek` will fail to compile without a selected backend.
+//! - The `ristretto255` feature enables using [`Ristretto255`] as the
+//!   underlying group for the [Group] choice. A backend feature, which are
+//!   re-exported from [curve25519-dalek] and allow for selecting the
+//!   corresponding backend for the curve arithmetic used, has to be selected,
+//!   otherwise compilation will fail. The `ristretto255_u64` feature is
+//!   included as the default. Other features are mapped as `ristretto255_u32`,
+//!   `ristretto255_fiat_u64` and `ristretto255_fiat_u32`. Any `ristretto255_*`
+//!   backend feature will enable the `ristretto255` feature.
 //!
-//! - The `ristretto255_simd` feature is re-exported from [curve25519-dalek](https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
-//!   and enables parallel formulas, using either AVX2 or AVX512-IFMA. This will
+//! - The `ristretto255_simd` feature is re-exported from [curve25519-dalek] and
+//!   enables parallel formulas, using either AVX2 or AVX512-IFMA. This will
 //!   automatically enable the `ristretto255_u64` feature and requires Rust
 //!   nightly.
+//!
+//! [curve25519-dalek]: (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
 
 #![deny(unsafe_code)]
 #![no_std]
@@ -556,6 +560,9 @@ mod voprf;
 mod tests;
 
 // Exports
+
+#[cfg(feature = "ristretto255")]
+pub use group::Ristretto255;
 
 pub use crate::error::{Error, Result};
 pub use crate::group::Group;
