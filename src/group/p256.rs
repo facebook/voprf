@@ -25,6 +25,7 @@ use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
+use p256_::elliptic_curve::bigint::{Encoding, U384};
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
@@ -122,24 +123,19 @@ impl Group for NistP256 {
         // P-256 `n` is defined as
         // `115792089210356248762697446949407573529996955224135760342
         // 422259061068512044369`
-        const N: Lazy<BigInt> = Lazy::new(|| {
-            BigInt::from_str(
-                "115792089210356248762697446949407573529996955224135760342422259061068512044369",
-            )
-            .unwrap()
-        });
+        const N: U384 =
+            U384::from_be_hex("00000000000000000000000000000000FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551");
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
         let uniform_bytes = super::expand::expand_message_xmd::<H, L>(input, &dst)?;
-        let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
-            .mod_floor(&N)
-            .to_bytes_be()
-            .1;
-        let mut result = GenericArray::default();
-        result[..bytes.len()].copy_from_slice(&bytes);
+        let bytes = Option::<U384>::from(U384::from_be_slice(&uniform_bytes).reduce(&N))
+            .unwrap()
+            .to_be_bytes();
 
-        Ok(Scalar::from_be_bytes_reduced(result))
+        Ok(Scalar::from_be_bytes_reduced(
+            GenericArray::clone_from_slice(&bytes[16..]),
+        ))
     }
 
     fn base_elem() -> Self::Elem {
