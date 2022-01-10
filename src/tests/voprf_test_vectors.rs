@@ -171,7 +171,7 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
         );
         assert_eq!(
             &parameters.pksm,
-            G::to_arr(server.get_public_key()).as_slice()
+            G::serialize_elem(server.get_public_key()).as_slice()
         );
     }
     Ok(())

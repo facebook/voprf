@@ -27,6 +27,7 @@ use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
+#[cfg(test)]
 use p256_::elliptic_curve::Field;
 use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, PublicKey, Scalar, SecretKey};
 use rand_core::{CryptoRng, RngCore};
@@ -167,7 +168,7 @@ impl Group for NistP256 {
             .map_err(|_| Error::PointError)
     }
 
-    fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
         let bytes = elem.to_affine().to_encoded_point(true);
         let bytes = bytes.as_bytes();
         let mut result = GenericArray::default();
@@ -175,15 +176,16 @@ impl Group for NistP256 {
         result
     }
 
-    fn base_point() -> Self::Elem {
+    fn base_elem() -> Self::Elem {
         ProjectivePoint::generator()
     }
 
-    fn identity() -> Self::Elem {
+    fn identity_elem() -> Self::Elem {
         ProjectivePoint::identity()
     }
 
-    fn scalar_zero() -> Self::Scalar {
+    #[cfg(test)]
+    fn zero_scalar() -> Self::Scalar {
         Scalar::zero()
     }
 }

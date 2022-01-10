@@ -96,21 +96,17 @@ pub trait Group {
     fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
 
     /// Serializes the `self` group element
-    fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
 
     /// Get the base point for the group
-    fn base_point() -> Self::Elem;
-
-    /// Returns if the group element is equal to the identity (1)
-    fn is_identity(elem: Self::Elem) -> bool {
-        elem.ct_eq(&Self::identity()).into()
-    }
+    fn base_elem() -> Self::Elem;
 
     /// Returns the identity group element
-    fn identity() -> Self::Elem;
+    fn identity_elem() -> Self::Elem;
 
     /// Returns the scalar representing zero
-    fn scalar_zero() -> Self::Scalar;
+    #[cfg(test)]
+    fn zero_scalar() -> Self::Scalar;
 }
 
 #[cfg(test)]

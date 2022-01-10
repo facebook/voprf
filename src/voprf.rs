@@ -481,7 +481,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     /// bytes to represent the server's private key
     pub fn new_with_key(key: &[u8]) -> Result<Self> {
         let sk = G::deserialize_scalar(key.into())?;
-        let pk = G::base_point() * &sk;
+        let pk = G::base_elem() * &sk;
         Ok(Self {
             sk,
             pk,
@@ -497,7 +497,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
             .concat(get_context_string::<G>(Mode::Verifiable));
         let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
-        let pk = G::base_point() * &sk;
+        let pk = G::base_elem() * &sk;
         Ok(Self {
             sk,
             pk,
@@ -632,7 +632,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         &'b IE: IntoIterator<Item = &'b PreparedEvaluationElement<G, H>>,
         <&'b IE as IntoIterator>::IntoIter: ExactSizeIterator,
     {
-        let g = G::base_point();
+        let g = G::base_elem();
         let u = g * t;
 
         let proof = generate_proof(
@@ -901,7 +901,7 @@ where
         GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable));
     let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
 
-    let g = G::base_point();
+    let g = G::base_elem();
     let t = g * &m;
     let u = t + &pk;
 
@@ -945,11 +945,11 @@ fn generate_proof<
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable));
     chain!(
         h2_input,
-        Serialize::<U2, _>::from_owned(G::to_arr(b))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(m))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(z))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(t2))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(t3))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(m))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(z))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(t2))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(t3))?,
         Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
@@ -982,11 +982,11 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable));
     chain!(
         h2_input,
-        Serialize::<U2, _>::from_owned(G::to_arr(b))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(m))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(z))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(t2))?,
-        Serialize::<U2, _>::from_owned(G::to_arr(t3))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(m))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(z))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(t2))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(t3))?,
         Serialize::<U2, _>::from_owned(challenge_dst)?,
     );
 
@@ -1027,7 +1027,7 @@ fn finalize_after_unblind<
                 hash_input,
                 Serialize::<U2>::from(input.as_ref())?,
                 Serialize::<U2>::from(info)?,
-                Serialize::<U2, _>::from_owned(G::to_arr(unblinded_element))?,
+                Serialize::<U2, _>::from_owned(G::serialize_elem(unblinded_element))?,
                 Serialize::<U2, _>::from_owned(finalize_dst)?,
             );
 
@@ -1053,22 +1053,22 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
     chain!(
         h1_input,
-        Serialize::<U2, _>::from_owned(G::to_arr(b))?,
+        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
         Serialize::<U2, _>::from_owned(seed_dst)?,
     );
     let seed = h1_input
         .fold(H::new(), |h, bytes| h.chain_update(bytes))
         .finalize();
 
-    let mut m = G::identity();
-    let mut z = G::identity();
+    let mut m = G::identity_elem();
+    let mut z = G::identity_elem();
 
     for (i, (c, d)) in c_slice.zip(d_slice).enumerate() {
         chain!(h2_input,
             Serialize::<U2, _>::from_owned(seed.clone())?,
             i2osp::<U2>(i)? => |x| Some(x.as_slice()),
-            Serialize::<U2, _>::from_owned(G::to_arr(c.value))?,
-            Serialize::<U2, _>::from_owned(G::to_arr(d.value))?,
+            Serialize::<U2, _>::from_owned(G::serialize_elem(c.value))?,
+            Serialize::<U2, _>::from_owned(G::serialize_elem(d.value))?,
             Serialize::<U2, _>::from_owned(composite_dst)?,
         );
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)

@@ -116,19 +116,20 @@ impl Group for Ristretto255 {
     }
 
     // serialization of a group element
-    fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
         elem.compress().to_bytes().into()
     }
 
-    fn base_point() -> Self::Elem {
+    fn base_elem() -> Self::Elem {
         RISTRETTO_BASEPOINT_POINT
     }
 
-    fn identity() -> Self::Elem {
+    fn identity_elem() -> Self::Elem {
         RistrettoPoint::identity()
     }
 
-    fn scalar_zero() -> Self::Scalar {
+    #[cfg(test)]
+    fn zero_scalar() -> Self::Scalar {
         Scalar::zero()
     }
 }
