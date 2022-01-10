@@ -153,7 +153,7 @@ fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::serialize_scalar(server.get_private_key()).to_vec()
         );
     }
     Ok(())
@@ -167,7 +167,7 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::serialize_scalar(server.get_private_key()).to_vec()
         );
         assert_eq!(
             &parameters.pksm,
@@ -192,7 +192,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_result.state.blind).to_vec()
+                &G::serialize_scalar(client_result.state.blind).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -218,7 +218,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
+                &G::serialize_scalar(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),

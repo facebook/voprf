@@ -31,6 +31,8 @@ impl Group for Ristretto255 {
 
     type Elem = RistrettoPoint;
 
+    type ElemLen = U32;
+
     type Scalar = Scalar;
 
     type ScalarLen = U32;
@@ -84,7 +86,7 @@ impl Group for Ristretto255 {
             .ok_or(Error::ScalarError)
     }
 
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
         loop {
             let scalar = {
                 let mut scalar_bytes = [0u8; 64];
@@ -98,16 +100,14 @@ impl Group for Ristretto255 {
         }
     }
 
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
         scalar.to_bytes().into()
     }
 
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
         scalar.invert()
     }
 
-    // The byte length necessary to represent group elements
-    type ElemLen = U32;
     fn from_element_slice_unchecked(
         element_bits: &GenericArray<u8, Self::ElemLen>,
     ) -> Result<Self::Elem> {

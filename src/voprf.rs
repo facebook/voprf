@@ -255,7 +255,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
         evaluation_element: &EvaluationElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<Output<H>> {
-        let unblinded_element = evaluation_element.value * &G::scalar_invert(&self.blind);
+        let unblinded_element = evaluation_element.value * &G::invert_scalar(self.blind);
         let mut outputs = finalize_after_unblind::<G, H, _, _>(
             Some((input, unblinded_element)).into_iter(),
             metadata.unwrap_or_default(),
@@ -459,7 +459,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
             GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base));
         let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
         let t = self.sk + &m;
-        let evaluation_element = blinded_element.value * &G::scalar_invert(&t);
+        let evaluation_element = blinded_element.value * &G::invert_scalar(t);
         Ok(NonVerifiableServerEvaluateResult {
             message: EvaluationElement {
                 value: evaluation_element,
@@ -600,7 +600,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
             // possible if we `move` from context.
-            .zip(iter::repeat(G::scalar_invert(&t)))
+            .zip(iter::repeat(G::invert_scalar(t)))
             .map(<fn((&BlindedElement<G, H>, _)) -> _>::from(|(x, t)| {
                 PreparedEvaluationElement(EvaluationElement {
                     value: x.value * &t,
@@ -843,7 +843,7 @@ fn blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset, R: RngCore + Cr
     mode: Mode,
 ) -> Result<(G::Scalar, G::Elem)> {
     // Choose a random scalar that must be non-zero
-    let blind = G::random_nonzero_scalar(blinding_factor_rng);
+    let blind = G::random_scalar(blinding_factor_rng);
     let blinded_element = deterministic_blind_unchecked::<G, H>(input, &blind, mode)?;
     Ok((blind, blinded_element))
 }
@@ -919,7 +919,7 @@ where
 
     Ok(blinds
         .zip(messages.into_iter())
-        .map(|(blind, x)| x.value * &G::scalar_invert(&blind)))
+        .map(|(blind, x)| x.value * &G::invert_scalar(blind)))
 }
 
 #[allow(clippy::many_single_char_names)]
@@ -937,7 +937,7 @@ fn generate_proof<
 ) -> Result<Proof<G, H>> {
     let (m, z) = compute_composites(Some(k), b, cs, ds)?;
 
-    let r = G::random_nonzero_scalar(rng);
+    let r = G::random_scalar(rng);
     let t2 = a * &r;
     let t3 = m * &r;
 
@@ -1134,7 +1134,7 @@ mod tests {
         let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode));
         let m = G::hash_to_scalar::<H, _, _>(context, dst).unwrap();
 
-        let res = point * &G::scalar_invert(&(key + &m));
+        let res = point * &G::invert_scalar(key + &m);
 
         finalize_after_unblind::<G, H, _, _>(Some((input, res)).into_iter(), info, mode)
             .unwrap()

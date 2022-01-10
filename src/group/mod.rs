@@ -83,13 +83,13 @@ pub trait Group {
     fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
 
     /// picks a scalar at random
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
 
     /// Serializes a scalar to bytes
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
 
     /// The multiplicative inverse of this scalar
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar;
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
 
     /// Return an element from its fixed-length bytes representation. This is
     /// the unchecked version, which does not check for deserializing the

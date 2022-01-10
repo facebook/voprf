@@ -30,7 +30,7 @@ use crate::{
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.blind)
+        G::serialize_scalar(self.blind)
     }
 
     /// Deserialization from bytes
@@ -53,7 +53,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.blind).concat(G::to_arr(self.blinded_element))
+        G::serialize_scalar(self.blind).concat(G::to_arr(self.blinded_element))
     }
 
     /// Deserialization from bytes
@@ -74,7 +74,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.sk)
+        G::serialize_scalar(self.sk)
     }
 
     /// Deserialization from bytes
@@ -97,7 +97,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.sk).concat(G::to_arr(self.pk))
+        G::serialize_scalar(self.sk).concat(G::to_arr(self.pk))
     }
 
     /// Deserialization from bytes
@@ -122,7 +122,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
         G::ScalarLen: Add<G::ScalarLen>,
         Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.c_scalar).concat(G::scalar_as_bytes(self.s_scalar))
+        G::serialize_scalar(self.c_scalar).concat(G::serialize_scalar(self.s_scalar))
     }
 
     /// Deserialization from bytes

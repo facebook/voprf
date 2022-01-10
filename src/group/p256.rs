@@ -150,16 +150,16 @@ impl Group for NistP256 {
             .map_err(|_| Error::ScalarError)
     }
 
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        Scalar::random(rng)
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+        *SecretKey::random(rng).to_nonzero_scalar()
     }
 
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
         scalar.into()
     }
 
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
-        scalar.invert().unwrap_or(Scalar::zero())
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
+        Option::from(scalar.invert()).unwrap()
     }
 
     fn from_element_slice_unchecked(
