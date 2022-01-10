@@ -78,35 +78,35 @@ pub trait Group {
     where
         <D as Add<U1>>::Output: ArrayLength<u8>;
 
-    /// Return a scalar from its fixed-length bytes representation. If the
-    /// scalar is zero or invalid, then return an error.
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
-
-    /// picks a scalar at random
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
-
-    /// Serializes a scalar to bytes
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
-
-    /// The multiplicative inverse of this scalar
-    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
-
-    /// Return an element from its fixed-length bytes representation. If the
-    /// element is the identity element, return an error.
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
-
-    /// Serializes the `self` group element
-    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
-
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;
 
     /// Returns the identity group element
     fn identity_elem() -> Self::Elem;
 
+    /// Serializes the `self` group element
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
+
+    /// Return an element from its fixed-length bytes representation. If the
+    /// element is the identity element, return an error.
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
+
+    /// picks a scalar at random
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
+
+    /// The multiplicative inverse of this scalar
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
+
     /// Returns the scalar representing zero
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar;
+
+    /// Serializes a scalar to bytes
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
+
+    /// Return a scalar from its fixed-length bytes representation. If the
+    /// scalar is zero or invalid, then return an error.
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
 }
 
 #[cfg(test)]

@@ -80,10 +80,24 @@ impl Group for Ristretto255 {
         ))
     }
 
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
-        Scalar::from_canonical_bytes((*scalar_bits).into())
-            .filter(|scalar| scalar != &Scalar::zero())
-            .ok_or(Error::ScalarError)
+    fn base_elem() -> Self::Elem {
+        RISTRETTO_BASEPOINT_POINT
+    }
+
+    fn identity_elem() -> Self::Elem {
+        RistrettoPoint::identity()
+    }
+
+    // serialization of a group element
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+        elem.compress().to_bytes().into()
+    }
+
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+        CompressedRistretto::from_slice(element_bits)
+            .decompress()
+            .filter(|point| point != &RistrettoPoint::identity())
+            .ok_or(Error::PointError)
     }
 
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
@@ -100,36 +114,22 @@ impl Group for Ristretto255 {
         }
     }
 
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
-        scalar.to_bytes().into()
-    }
-
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
         scalar.invert()
-    }
-
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
-        CompressedRistretto::from_slice(element_bits)
-            .decompress()
-            .filter(|point| point != &RistrettoPoint::identity())
-            .ok_or(Error::PointError)
-    }
-
-    // serialization of a group element
-    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
-        elem.compress().to_bytes().into()
-    }
-
-    fn base_elem() -> Self::Elem {
-        RISTRETTO_BASEPOINT_POINT
-    }
-
-    fn identity_elem() -> Self::Elem {
-        RistrettoPoint::identity()
     }
 
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
         Scalar::zero()
+    }
+
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+        scalar.to_bytes().into()
+    }
+
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+        Scalar::from_canonical_bytes((*scalar_bits).into())
+            .filter(|scalar| scalar != &Scalar::zero())
+            .ok_or(Error::ScalarError)
     }
 }

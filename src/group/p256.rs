@@ -144,28 +144,12 @@ impl Group for NistP256 {
         Ok(Scalar::from_be_bytes_reduced(result))
     }
 
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
-        SecretKey::from_be_bytes(scalar_bits)
-            .map(|secret_key| *secret_key.to_nonzero_scalar())
-            .map_err(|_| Error::ScalarError)
+    fn base_elem() -> Self::Elem {
+        ProjectivePoint::generator()
     }
 
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        *SecretKey::random(rng).to_nonzero_scalar()
-    }
-
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
-        scalar.into()
-    }
-
-    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
-        Option::from(scalar.invert()).unwrap()
-    }
-
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
-        PublicKey::from_sec1_bytes(element_bits)
-            .map(|public_key| public_key.to_projective())
-            .map_err(|_| Error::PointError)
+    fn identity_elem() -> Self::Elem {
+        ProjectivePoint::identity()
     }
 
     fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
@@ -176,17 +160,33 @@ impl Group for NistP256 {
         result
     }
 
-    fn base_elem() -> Self::Elem {
-        ProjectivePoint::generator()
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+        PublicKey::from_sec1_bytes(element_bits)
+            .map(|public_key| public_key.to_projective())
+            .map_err(|_| Error::PointError)
     }
 
-    fn identity_elem() -> Self::Elem {
-        ProjectivePoint::identity()
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+        *SecretKey::random(rng).to_nonzero_scalar()
+    }
+
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
+        Option::from(scalar.invert()).unwrap()
     }
 
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
         Scalar::zero()
+    }
+
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+        scalar.into()
+    }
+
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+        SecretKey::from_be_bytes(scalar_bits)
+            .map(|secret_key| *secret_key.to_nonzero_scalar())
+            .map_err(|_| Error::ScalarError)
     }
 }
 
