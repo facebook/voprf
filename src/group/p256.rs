@@ -25,11 +25,10 @@ use num_integer::Integer;
 use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
-use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256_::elliptic_curve::Field;
-use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, Scalar, SecretKey};
+use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, PublicKey, Scalar, SecretKey};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
@@ -162,10 +161,10 @@ impl Group for NistP256 {
         Option::from(scalar.invert()).unwrap()
     }
 
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self::Elem> {
-        Option::from(ProjectivePoint::from_bytes(element_bits)).ok_or(Error::PointError)
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+        PublicKey::from_sec1_bytes(element_bits)
+            .map(|public_key| public_key.to_projective())
+            .map_err(|_| Error::PointError)
     }
 
     fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {

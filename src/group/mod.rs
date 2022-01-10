@@ -26,7 +26,7 @@ pub use ristretto::Ristretto255;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
-use crate::{Error, Result};
+use crate::Result;
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
@@ -91,27 +91,9 @@ pub trait Group {
     /// The multiplicative inverse of this scalar
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
 
-    /// Return an element from its fixed-length bytes representation. This is
-    /// the unchecked version, which does not check for deserializing the
-    /// identity element
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self::Elem>;
-
     /// Return an element from its fixed-length bytes representation. If the
     /// element is the identity element, return an error.
-    fn from_element_slice<'a>(
-        element_bits: impl Into<&'a GenericArray<u8, Self::ElemLen>>,
-    ) -> Result<Self::Elem> {
-        let elem = Self::from_element_slice_unchecked(element_bits.into())?;
-
-        if Self::Elem::ct_eq(&elem, &Self::identity()).into() {
-            // found the identity element
-            return Err(Error::PointError);
-        }
-
-        Ok(elem)
-    }
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
 
     /// Serializes the `self` group element
     fn to_arr(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;

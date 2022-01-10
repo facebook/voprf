@@ -108,11 +108,10 @@ impl Group for Ristretto255 {
         scalar.invert()
     }
 
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self::Elem> {
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
+            .filter(|point| point != &RistrettoPoint::identity())
             .ok_or(Error::PointError)
     }
 

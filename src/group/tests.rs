@@ -36,7 +36,7 @@ fn test_group_properties() -> Result<()> {
 // Checks that the identity element cannot be deserialized
 fn test_identity_element_error<G: Group>() -> Result<()> {
     let identity = G::identity();
-    let result = G::from_element_slice(&G::to_arr(identity));
+    let result = G::deserialize_elem(&G::to_arr(identity));
     assert!(matches!(result, Err(Error::PointError)));
 
     Ok(())

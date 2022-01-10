@@ -323,7 +323,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<G, H>::from_blind_and_element(
                 G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
-                G::from_element_slice(&GenericArray::clone_from_slice(
+                G::deserialize_elem(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );
@@ -341,7 +341,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
-            G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
+            G::deserialize_elem(GenericArray::from_slice(&parameters.pksm))?,
             Some(&parameters.info),
         )?;
 

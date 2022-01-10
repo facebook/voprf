@@ -61,7 +61,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         let mut input = input.iter().copied();
 
         let blind = G::deserialize_scalar(&deserialize(&mut input)?)?;
-        let blinded_element = G::from_element_slice(&deserialize(&mut input)?)?;
+        let blinded_element = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -105,7 +105,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         let mut input = input.iter().copied();
 
         let sk = G::deserialize_scalar(&deserialize(&mut input)?)?;
-        let pk = G::from_element_slice(&deserialize(&mut input)?)?;
+        let pk = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -150,7 +150,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+        let value = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             value,
@@ -169,7 +169,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+        let value = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             value,
