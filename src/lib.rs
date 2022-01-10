@@ -569,7 +569,7 @@ pub use crate::group::Group;
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
-    BlindedElement, EvaluationElement, NonVerifiableClient, NonVerifiableClientBlindResult,
+    BlindedElement, EvaluationElement, Mode, NonVerifiableClient, NonVerifiableClientBlindResult,
     NonVerifiableServer, NonVerifiableServerEvaluateResult, PreparedEvaluationElement,
     PreparedTscalar, Proof, VerifiableClient, VerifiableClientBatchFinalizeResult,
     VerifiableClientBlindResult, VerifiableServer, VerifiableServerBatchEvaluateFinishResult,

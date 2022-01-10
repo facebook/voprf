@@ -18,7 +18,6 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, FixedOutputReset};
-use generic_array::typenum::U1;
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
@@ -26,7 +25,11 @@ pub use ristretto::Ristretto255;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
+use crate::voprf::Mode;
 use crate::Result;
+
+pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
+pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
@@ -58,25 +61,16 @@ pub trait Group {
     type ScalarLen: ArrayLength<u8> + 'static;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
-        msg: &[u8],
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self::Elem>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>;
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
+        msg: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<
-        'a,
-        H: BlockSizeUser + Digest + FixedOutputReset,
-        D: ArrayLength<u8> + Add<U1>,
-        I: IntoIterator<Item = &'a [u8]>,
-    >(
-        input: I,
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>;
+    fn hash_to_scalar<H: BlockSizeUser + Digest + FixedOutputReset>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar>;
 
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;

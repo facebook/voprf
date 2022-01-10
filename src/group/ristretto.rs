@@ -6,7 +6,6 @@
 // of this source tree.
 
 use core::convert::TryInto;
-use core::ops::Add;
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -14,11 +13,13 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, FixedOutputReset};
-use generic_array::typenum::{U1, U32, U64};
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::sequence::Concat;
+use generic_array::typenum::{U32, U64};
+use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-use super::Group;
+use super::{expand, Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
+use crate::voprf::{self, Mode};
 use crate::{Error, Result};
 
 /// [`Group`] implementation for Ristretto255.
@@ -39,38 +40,28 @@ impl Group for Ristretto255 {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
-        msg: &[u8],
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self::Elem>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>,
-    {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _, _>(Some(msg), dst)?;
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
+        msg: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem> {
+        let dst =
+            GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
 
-        Ok(RistrettoPoint::from_uniform_bytes(
-            uniform_bytes
-                .as_slice()
-                .try_into()
-                .map_err(|_| Error::HashToCurveError)?,
-        ))
+        let uniform_bytes = expand::expand_message_xmd::<H, U64>(msg, &dst)?;
+
+        Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes.into()))
     }
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<
-        'a,
-        H: BlockSizeUser + Digest + FixedOutputReset,
-        D: ArrayLength<u8> + Add<U1>,
-        I: IntoIterator<Item = &'a [u8]>,
-    >(
-        input: I,
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>,
-    {
-        let uniform_bytes = super::expand::expand_message_xmd::<H, U64, _, _>(input, dst)?;
+    fn hash_to_scalar<'a, H: BlockSizeUser + Digest + FixedOutputReset>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar> {
+        let dst =
+            GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<Self>(mode));
+
+        let uniform_bytes = expand::expand_message_xmd::<H, U64>(input, &dst)?;
 
         Ok(Scalar::from_bytes_mod_order_wide(
             uniform_bytes

@@ -9,7 +9,7 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use core::iter::{self, Map, Repeat, Zip};
 use core::marker::PhantomData;
 
@@ -17,12 +17,12 @@ use derive_where::DeriveWhere;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, FixedOutputReset, Output};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{U11, U2, U20};
+use generic_array::typenum::{Unsigned, U11, U20};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::util::{i2osp, Serialize};
+use crate::util::{i2osp_2, i2osp_2_array};
 use crate::{Error, Group, Result};
 
 ///////////////
@@ -30,24 +30,26 @@ use crate::{Error, Group, Result};
 // ========= //
 ///////////////
 
-static STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
-static STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
-static STR_FINALIZE: [u8; 9] = *b"Finalize-";
-static STR_SEED: [u8; 5] = *b"Seed-";
-static STR_CONTEXT: [u8; 8] = *b"Context-";
-static STR_COMPOSITE: [u8; 10] = *b"Composite-";
-static STR_CHALLENGE: [u8; 10] = *b"Challenge-";
-static STR_VOPRF: [u8; 8] = *b"VOPRF08-";
+const STR_FINALIZE: [u8; 9] = *b"Finalize-";
+const STR_SEED: [u8; 5] = *b"Seed-";
+const STR_CONTEXT: [u8; 8] = *b"Context-";
+const STR_COMPOSITE: [u8; 10] = *b"Composite-";
+const STR_CHALLENGE: [u8; 10] = *b"Challenge-";
+const STR_VOPRF: [u8; 8] = *b"VOPRF08-";
 
-/// Determines the mode of operation (either base mode or verifiable mode)
+/// Determines the mode of operation (either base mode or verifiable mode). This
+/// is only used for custom implementations for [`Group`].
 #[derive(Clone, Copy)]
-enum Mode {
+pub enum Mode {
+    /// Non-verifiable mode.
     Base,
+    /// Verifiable mode.
     Verifiable,
 }
 
 impl Mode {
-    fn to_u8(self) -> u8 {
+    /// Mode as it is represented in a context string.
+    pub fn to_u8(self) -> u8 {
         match self {
             Mode::Base => 0,
             Mode::Verifiable => 1,
@@ -426,9 +428,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let dst =
-            GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base));
-        let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
+        let sk = G::hash_to_scalar::<H>(&[seed], Mode::Base)?;
         Ok(Self {
             sk,
             hash: PhantomData,
@@ -449,20 +449,27 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
         blinded_element: &BlindedElement<G, H>,
         metadata: Option<&[u8]>,
     ) -> Result<NonVerifiableServerEvaluateResult<G, H>> {
-        chain!(
-            context,
-            STR_CONTEXT => |x| Some(x.as_ref()),
-            get_context_string::<G>(Mode::Base) => |x| Some(x.as_slice()),
-            Serialize::<U2>::from(metadata.unwrap_or_default())?,
-        );
-        let dst =
-            GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Base));
-        let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
+        // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.1.1-1
+
+        let context_string = get_context_string::<G>(Mode::Base);
+        let metadata = metadata.unwrap_or_default();
+
+        // context = "Context-" || contextString || I2OSP(len(info), 2) || info
+        let context = GenericArray::from(STR_CONTEXT)
+            .concat(context_string)
+            .concat(i2osp_2(metadata.len())?);
+        let context = [&context, metadata];
+
+        // m = GG.HashToScalar(context)
+        let m = G::hash_to_scalar::<H>(&context, Mode::Base)?;
+        // t = skS + m
         let t = self.sk + &m;
-        let evaluation_element = blinded_element.value * &G::invert_scalar(t);
+        // Z = t^(-1) * R
+        let z = blinded_element.value * &G::invert_scalar(t);
+
         Ok(NonVerifiableServerEvaluateResult {
             message: EvaluationElement {
-                value: evaluation_element,
+                value: z,
                 hash: PhantomData,
             },
         })
@@ -494,9 +501,7 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
-            .concat(get_context_string::<G>(Mode::Verifiable));
-        let sk = G::hash_to_scalar::<H, _, _>(Some(seed), dst)?;
+        let sk = G::hash_to_scalar::<H>(&[seed], Mode::Verifiable)?;
         let pk = G::base_elem() * &sk;
         Ok(Self {
             sk,
@@ -588,14 +593,18 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         blinded_elements: I,
         metadata: Option<&[u8]>,
     ) -> Result<VerifiableServerBatchEvaluatePrepareResult<'a, G, H, I>> {
-        chain!(context,
-            STR_CONTEXT => |x| Some(x.as_ref()),
-            get_context_string::<G>(Mode::Verifiable) => |x| Some(x.as_slice()),
-            Serialize::<U2>::from(metadata.unwrap_or_default())?,
-        );
-        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
-            .concat(get_context_string::<G>(Mode::Verifiable));
-        let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
+        // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
+
+        let context_string = get_context_string::<G>(Mode::Verifiable);
+        let metadata = metadata.unwrap_or_default();
+
+        // context = "Context-" || contextString || I2OSP(len(info), 2) || info
+        let context = GenericArray::from(STR_CONTEXT)
+            .concat(context_string)
+            .concat(i2osp_2(metadata.len())?);
+        let context = [&context, metadata];
+
+        let m = G::hash_to_scalar::<H>(&context, Mode::Verifiable)?;
         let t = self.sk + &m;
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
@@ -856,8 +865,7 @@ fn deterministic_blind_unchecked<G: Group, H: BlockSizeUser + Digest + FixedOutp
     blind: &G::Scalar,
     mode: Mode,
 ) -> Result<G::Elem> {
-    let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode));
-    let hashed_point = G::hash_to_curve::<H, _>(input, dst)?;
+    let hashed_point = G::hash_to_curve::<H>(&[input], mode)?;
     Ok(hashed_point * blind)
 }
 
@@ -891,15 +899,17 @@ where
     &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<G, H>>,
     <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
 {
-    chain!(context,
-        STR_CONTEXT => |x| Some(x.as_ref()),
-        get_context_string::<G>(Mode::Verifiable) => |x| Some(x.as_slice()),
-        Serialize::<U2>::from(info)?,
-    );
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
 
-    let dst =
-        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable));
-    let m = G::hash_to_scalar::<H, _, _>(context, dst)?;
+    let context_string = get_context_string::<G>(Mode::Verifiable);
+
+    // context = "Context-" || contextString || I2OSP(len(info), 2) || info
+    let context = GenericArray::from(STR_CONTEXT)
+        .concat(context_string)
+        .concat(i2osp_2(info.len())?);
+    let context = [&context, info];
+
+    let m = G::hash_to_scalar::<H>(&context, Mode::Verifiable)?;
 
     let g = G::base_elem();
     let t = g * &m;
@@ -935,28 +945,53 @@ fn generate_proof<
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
 ) -> Result<Proof<G, H>> {
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.2-1
+
     let (m, z) = compute_composites(Some(k), b, cs, ds)?;
 
     let r = G::random_scalar(rng);
     let t2 = a * &r;
     let t3 = m * &r;
 
+    // Bm = GG.SerializeElement(B)
+    let bm = G::serialize_elem(b);
+    // a0 = GG.SerializeElement(M)
+    let a0 = G::serialize_elem(m);
+    // a1 = GG.SerializeElement(Z)
+    let a1 = G::serialize_elem(z);
+    // a2 = GG.SerializeElement(t2)
+    let a2 = G::serialize_elem(t2);
+    // a3 = GG.SerializeElement(t3)
+    let a3 = G::serialize_elem(t3);
+
+    let elem_len = G::ElemLen::U16.to_be_bytes();
+
+    // challengeDST = "Challenge-" || contextString
     let challenge_dst =
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable));
-    chain!(
-        h2_input,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(m))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(z))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(t2))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(t3))?,
-        Serialize::<U2, _>::from_owned(challenge_dst)?,
-    );
+    let challenge_dst_len = i2osp_2_array(challenge_dst);
+    // h2Input = I2OSP(len(Bm), 2) || Bm ||
+    //           I2OSP(len(a0), 2) || a0 ||
+    //           I2OSP(len(a1), 2) || a1 ||
+    //           I2OSP(len(a2), 2) || a2 ||
+    //           I2OSP(len(a3), 2) || a3 ||
+    //           I2OSP(len(challengeDST), 2) || challengeDST
+    let h2_input = [
+        &elem_len,
+        bm.as_slice(),
+        &elem_len,
+        &a0,
+        &elem_len,
+        &a1,
+        &elem_len,
+        &a2,
+        &elem_len,
+        &a3,
+        &challenge_dst_len,
+        &challenge_dst,
+    ];
 
-    let hash_to_scalar_dst =
-        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable));
-
-    let c_scalar = G::hash_to_scalar::<H, _, _>(h2_input, hash_to_scalar_dst)?;
+    let c_scalar = G::hash_to_scalar::<H>(&h2_input, Mode::Verifiable)?;
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof {
@@ -974,25 +1009,50 @@ fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
     proof: &Proof<G, H>,
 ) -> Result<()> {
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.1-2
     let (m, z) = compute_composites(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
+    // Bm = GG.SerializeElement(B)
+    let bm = G::serialize_elem(b);
+    // a0 = GG.SerializeElement(M)
+    let a0 = G::serialize_elem(m);
+    // a1 = GG.SerializeElement(Z)
+    let a1 = G::serialize_elem(z);
+    // a2 = GG.SerializeElement(t2)
+    let a2 = G::serialize_elem(t2);
+    // a3 = GG.SerializeElement(t3)
+    let a3 = G::serialize_elem(t3);
+
+    let elem_len = G::ElemLen::U16.to_be_bytes();
+
+    // challengeDST = "Challenge-" || contextString
     let challenge_dst =
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<G>(Mode::Verifiable));
-    chain!(
-        h2_input,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(m))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(z))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(t2))?,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(t3))?,
-        Serialize::<U2, _>::from_owned(challenge_dst)?,
-    );
+    let challenge_dst_len = i2osp_2_array(challenge_dst);
+    // h2Input = I2OSP(len(Bm), 2) || Bm ||
+    //           I2OSP(len(a0), 2) || a0 ||
+    //           I2OSP(len(a1), 2) || a1 ||
+    //           I2OSP(len(a2), 2) || a2 ||
+    //           I2OSP(len(a3), 2) || a3 ||
+    //           I2OSP(len(challengeDST), 2) || challengeDST
+    let h2_input = [
+        &elem_len,
+        bm.as_slice(),
+        &elem_len,
+        &a0,
+        &elem_len,
+        &a1,
+        &elem_len,
+        &a2,
+        &elem_len,
+        &a3,
+        &challenge_dst_len,
+        &challenge_dst,
+    ];
 
-    let hash_to_scalar_dst =
-        GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(Mode::Verifiable));
-    let c = G::hash_to_scalar::<H, _, _>(h2_input, hash_to_scalar_dst)?;
+    let c = G::hash_to_scalar::<H>(&h2_input, Mode::Verifiable)?;
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -1016,6 +1076,10 @@ fn finalize_after_unblind<
     info: &'a [u8],
     mode: Mode,
 ) -> Result<FinalizeAfterUnblindResult<G, H, I, IE>> {
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.3.2-2
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
+
+    // finalizeDST = "Finalize-" || contextString
     let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<G>(mode));
 
     Ok(inputs_and_unblinded_elements
@@ -1023,16 +1087,23 @@ fn finalize_after_unblind<
         // which isn't possible if we `move` from context.
         .zip(iter::repeat((info, finalize_dst)))
         .map(|((input, unblinded_element), (info, finalize_dst))| {
-            chain!(
-                hash_input,
-                Serialize::<U2>::from(input.as_ref())?,
-                Serialize::<U2>::from(info)?,
-                Serialize::<U2, _>::from_owned(G::serialize_elem(unblinded_element))?,
-                Serialize::<U2, _>::from_owned(finalize_dst)?,
-            );
+            let finalize_dst_len = i2osp_2_array(finalize_dst);
+            let elem_len = G::ElemLen::U16.to_be_bytes();
 
-            Ok(hash_input
-                .fold(H::new(), |h, bytes| h.chain_update(bytes))
+            // hashInput = I2OSP(len(input), 2) || input ||
+            //             I2OSP(len(info), 2) || info ||
+            //             I2OSP(len(unblindedElement), 2) || unblindedElement ||
+            //             I2OSP(len(finalizeDST), 2) || finalizeDST
+            // return Hash(hashInput)
+            Ok(H::new()
+                .chain_update(i2osp_2(input.as_ref().len())?)
+                .chain_update(input.as_ref())
+                .chain_update(i2osp_2(info.len())?)
+                .chain_update(info)
+                .chain_update(elem_len)
+                .chain_update(G::serialize_elem(unblinded_element))
+                .chain_update(finalize_dst_len)
+                .chain_update(finalize_dst)
                 .finalize())
         }))
 }
@@ -1043,37 +1114,53 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     c_slice: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     d_slice: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
 ) -> Result<(G::Elem, G::Elem)> {
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.3-2
+
+    let elem_len = G::ElemLen::U16.to_be_bytes();
+
     if c_slice.len() != d_slice.len() {
         return Err(Error::MismatchedLengthsForCompositeInputs);
     }
 
+    let len = u16::try_from(c_slice.len()).map_err(|_| Error::SerializationError)?;
+
     let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<G>(Mode::Verifiable));
     let composite_dst =
         GenericArray::from(STR_COMPOSITE).concat(get_context_string::<G>(Mode::Verifiable));
+    let composite_dst_len = i2osp_2_array(composite_dst);
 
-    chain!(
-        h1_input,
-        Serialize::<U2, _>::from_owned(G::serialize_elem(b))?,
-        Serialize::<U2, _>::from_owned(seed_dst)?,
-    );
-    let seed = h1_input
-        .fold(H::new(), |h, bytes| h.chain_update(bytes))
+    let seed = H::new()
+        .chain_update(&elem_len)
+        .chain_update(G::serialize_elem(b))
+        .chain_update(i2osp_2_array(seed_dst))
+        .chain_update(seed_dst)
         .finalize();
+    let seed_len = i2osp_2(seed.len())?;
 
     let mut m = G::identity_elem();
     let mut z = G::identity_elem();
 
-    for (i, (c, d)) in c_slice.zip(d_slice).enumerate() {
-        chain!(h2_input,
-            Serialize::<U2, _>::from_owned(seed.clone())?,
-            i2osp::<U2>(i)? => |x| Some(x.as_slice()),
-            Serialize::<U2, _>::from_owned(G::serialize_elem(c.value))?,
-            Serialize::<U2, _>::from_owned(G::serialize_elem(d.value))?,
-            Serialize::<U2, _>::from_owned(composite_dst)?,
-        );
-        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
-            .concat(get_context_string::<G>(Mode::Verifiable));
-        let di = G::hash_to_scalar::<H, _, _>(h2_input, dst)?;
+    for (i, (c, d)) in (0..len).zip(c_slice.zip(d_slice)) {
+        // Ci = GG.SerializeElement(Cs[i])
+        let ci = G::serialize_elem(c.value);
+        // Di = GG.SerializeElement(Ds[i])
+        let di = G::serialize_elem(d.value);
+        // h2Input = I2OSP(len(seed), 2) || seed || I2OSP(i, 2) ||
+        //           I2OSP(len(Ci), 2) || Ci ||
+        //           I2OSP(len(Di), 2) || Di ||
+        //           I2OSP(len(compositeDST), 2) || compositeDST
+        let h2_input = [
+            &seed_len,
+            seed.as_slice(),
+            &i.to_be_bytes(),
+            &elem_len,
+            &ci,
+            &elem_len,
+            &di,
+            &composite_dst_len,
+            &composite_dst,
+        ];
+        let di = G::hash_to_scalar::<H>(&h2_input, Mode::Verifiable)?;
         m = c.value * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -1091,7 +1178,7 @@ fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
-fn get_context_string<G: Group>(mode: Mode) -> GenericArray<u8, U11> {
+pub(crate) fn get_context_string<G: Group>(mode: Mode) -> GenericArray<u8, U11> {
     GenericArray::from(STR_VOPRF)
         .concat([mode.to_u8()].into())
         .concat(G::SUITE_ID.to_be_bytes().into())
@@ -1109,7 +1196,7 @@ mod tests {
     use ::alloc::vec;
     use ::alloc::vec::Vec;
     use generic_array::typenum::Sum;
-    use generic_array::{ArrayLength, GenericArray};
+    use generic_array::ArrayLength;
     use rand::rngs::OsRng;
     use zeroize::Zeroize;
 
@@ -1122,17 +1209,13 @@ mod tests {
         info: &[u8],
         mode: Mode,
     ) -> Output<H> {
-        let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(mode));
-        let point = G::hash_to_curve::<H, _>(input, dst).unwrap();
+        let point = G::hash_to_curve::<H>(&[input], mode).unwrap();
 
-        chain!(context,
-            STR_CONTEXT => |x| Some(x.as_ref()),
-            get_context_string::<G>(mode) => |x| Some(x.as_slice()),
-            Serialize::<U2>::from(info).unwrap(),
-        );
+        let context_string = get_context_string::<G>(mode);
+        let info_len = i2osp_2(info.len()).unwrap();
+        let context = [&STR_CONTEXT, context_string.as_slice(), &info_len, info];
 
-        let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(get_context_string::<G>(mode));
-        let m = G::hash_to_scalar::<H, _, _>(context, dst).unwrap();
+        let m = G::hash_to_scalar::<H>(&context, mode).unwrap();
 
         let res = point * &G::invert_scalar(key + &m);
 
@@ -1194,7 +1277,7 @@ mod tests {
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
+            G::hash_to_curve::<H>(&[b"msg"], Mode::Base).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -1291,7 +1374,7 @@ mod tests {
         let messages: Vec<_> = messages.collect();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            G::hash_to_curve::<H, _>(b"msg", (*b"dst").into()).unwrap()
+            G::hash_to_curve::<H>(&[b"msg"], Mode::Base).unwrap()
         };
         let client_finalize_result = VerifiableClient::batch_finalize(
             &inputs,
@@ -1322,8 +1405,7 @@ mod tests {
             )
             .unwrap();
 
-        let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(get_context_string::<G>(Mode::Base));
-        let point = G::hash_to_curve::<H, _>(&input, dst).unwrap();
+        let point = G::hash_to_curve::<H>(&[&input], Mode::Base).unwrap();
         let res2 = finalize_after_unblind::<G, H, _, _>(
             Some((input.as_ref(), point)).into_iter(),
             info,
