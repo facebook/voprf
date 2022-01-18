@@ -5,9 +5,6 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-// Note: This group implementation of p256 is experimental for now, until
-// hash-to-curve or crypto-bigint are fully supported.
-
 #![allow(
     clippy::borrow_interior_mutable_const,
     clippy::declare_interior_mutable_const

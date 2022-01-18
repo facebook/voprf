@@ -9,7 +9,6 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::convert::{TryFrom, TryInto};
 use core::iter::{self, Map, Repeat, Zip};
 use core::marker::PhantomData;
 
@@ -369,12 +368,9 @@ where
         pk: G::Elem,
         metadata: Option<&[u8]>,
     ) -> Result<Output<H>> {
-        // `core::array::from_ref` needs a MSRV of 1.53
-        let inputs: &[&[u8]; 1] = core::slice::from_ref(&input).try_into().unwrap();
-        let clients: &[Self; 1] = core::slice::from_ref(self).try_into().unwrap();
-        let messages: &[EvaluationElement<G, H>; 1] = core::slice::from_ref(evaluation_element)
-            .try_into()
-            .unwrap();
+        let inputs: &[&[u8]; 1] = core::array::from_ref(&input);
+        let clients: &[Self; 1] = core::array::from_ref(self);
+        let messages: &[EvaluationElement<G, H>; 1] = core::array::from_ref(evaluation_element);
 
         let mut batch_result =
             Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;

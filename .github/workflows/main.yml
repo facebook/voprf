@@ -45,12 +45,7 @@ jobs:
           - --features serde
         toolchain:
           - stable
-          - 1.51.0
-        exclude:
-        - backend_feature: p256
-          toolchain: 1.51.0
-        - backend_feature: ristretto255_u64,p256
-          toolchain: 1.51.0
+          - 1.57.0
     name: test
     steps:
       - name: Checkout sources

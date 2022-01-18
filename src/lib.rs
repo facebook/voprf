@@ -508,9 +508,7 @@
 //!   VOPRF evaluations.
 //!
 //! - The `p256` feature enables using [`NistP256`](p256::NistP256) as the
-//!   underlying group for the [Group] choice and increases the MSRV to 1.56.
-//!   Note that this is currently an experimental feature ⚠️, and is not yet
-//!   ready for production use.
+//!   underlying group for the [Group] choice.
 //!
 //! - The `serde` feature, enabled by default, provides convenience functions
 //!   for serializing and deserializing with [serde](https://serde.rs/).
