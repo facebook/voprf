@@ -56,7 +56,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -82,7 +82,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -108,7 +108,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
@@ -140,7 +140,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::NonVerifiableClient;
@@ -191,7 +191,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -224,7 +224,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! use rand::rngs::OsRng;
@@ -250,7 +250,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -283,7 +283,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -340,7 +340,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::VerifiableClient;
@@ -368,7 +368,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
@@ -411,7 +411,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
@@ -450,7 +450,7 @@
 //! # #[cfg(feature = "ristretto255")]
 //! # type Hash = sha2::Sha512;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256_::NistP256;
+//! # type Group = p256::NistP256;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
 //! # type Hash = sha2::Sha256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
@@ -507,7 +507,7 @@
 //! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
 //!   VOPRF evaluations.
 //!
-//! - The `p256` feature enables using [`NistP256`](p256_::NistP256) as the
+//! - The `p256` feature enables using [`NistP256`](p256::NistP256) as the
 //!   underlying group for the [Group] choice and increases the MSRV to 1.56.
 //!   Note that this is currently an experimental feature ⚠️, and is not yet
 //!   ready for production use.

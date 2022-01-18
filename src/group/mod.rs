@@ -7,8 +7,6 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
-#[cfg(any(feature = "ristretto255", feature = "p256",))]
-mod expand;
 #[cfg(feature = "p256")]
 mod p256;
 #[cfg(feature = "ristretto255")]
@@ -17,7 +15,8 @@ mod ristretto;
 use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::Digest;
+use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
@@ -61,16 +60,17 @@ pub trait Group {
     type ScalarLen: ArrayLength<u8> + 'static;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
-        msg: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Elem>;
+    fn hash_to_curve<H: BlockSizeUser + Digest>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockSizeUser + Digest + FixedOutputReset>(
+    fn hash_to_scalar<H: BlockSizeUser + Digest>(
         input: &[&[u8]],
         mode: Mode,
-    ) -> Result<Self::Scalar>;
+    ) -> Result<Self::Scalar>
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;

@@ -11,8 +11,8 @@ use alloc::vec::Vec;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
-use generic_array::typenum::Sum;
+use digest::Digest;
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
 use json::JsonValue;
 
@@ -119,35 +119,38 @@ fn test_vectors() -> Result<()> {
 
     #[cfg(feature = "p256")]
     {
-        use p256_::NistP256;
+        use p256::NistP256;
         use sha2::Sha256;
 
-        let p256_base_tvs =
+        let p256base_tvs =
             json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
 
-        let p256_verifiable_tvs = json_to_test_vectors!(
+        let p256verifiable_tvs = json_to_test_vectors!(
             rfc,
             String::from("P-256, SHA-256"),
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_blind::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_evaluate::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_finalize::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_seed_to_key::<NistP256, Sha256>(&p256base_tvs)?;
+        test_base_blind::<NistP256, Sha256>(&p256base_tvs)?;
+        test_base_evaluate::<NistP256, Sha256>(&p256base_tvs)?;
+        test_base_finalize::<NistP256, Sha256>(&p256base_tvs)?;
 
-        test_verifiable_seed_to_key::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_blind::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_evaluate::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_finalize::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<NistP256, Sha256>(&p256verifiable_tvs)?;
+        test_verifiable_blind::<NistP256, Sha256>(&p256verifiable_tvs)?;
+        test_verifiable_evaluate::<NistP256, Sha256>(&p256verifiable_tvs)?;
+        test_verifiable_finalize::<NistP256, Sha256>(&p256verifiable_tvs)?;
     }
 
     Ok(())
 }
 
-fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         let server = NonVerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
@@ -159,9 +162,12 @@ fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         let server = VerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
 
@@ -178,9 +184,12 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_blind<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
@@ -204,9 +213,12 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
@@ -230,9 +242,12 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
@@ -250,10 +265,11 @@ fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
 ) -> Result<()>
 where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     G::ScalarLen: Add<G::ScalarLen>,
     Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
 {
@@ -294,9 +310,12 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_base_finalize<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let client = NonVerifiableClient::<G, H>::from_blind(G::deserialize_scalar(
@@ -315,9 +334,12 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest>(
     tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {

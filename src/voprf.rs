@@ -15,9 +15,9 @@ use core::marker::PhantomData;
 
 use derive_where::DeriveWhere;
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset, Output};
+use digest::{Digest, Output};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{Unsigned, U11, U20};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U20, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -75,7 +75,10 @@ impl Mode {
         serialize = "G::Scalar: serde::Serialize"
     ))
 )]
-pub struct NonVerifiableClient<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct NonVerifiableClient<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) blind: G::Scalar,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
@@ -94,7 +97,10 @@ pub struct NonVerifiableClient<G: Group, H: BlockSizeUser + Digest + FixedOutput
         serialize = "G::Scalar: serde::Serialize, G::Elem: serde::Serialize"
     ))
 )]
-pub struct VerifiableClient<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct VerifiableClient<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) blind: G::Scalar,
     pub(crate) blinded_element: G::Elem,
     #[derive_where(skip(Zeroize))]
@@ -114,7 +120,10 @@ pub struct VerifiableClient<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
         serialize = "G::Scalar: serde::Serialize"
     ))
 )]
-pub struct NonVerifiableServer<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct NonVerifiableServer<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) sk: G::Scalar,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
@@ -133,7 +142,10 @@ pub struct NonVerifiableServer<G: Group, H: BlockSizeUser + Digest + FixedOutput
         serialize = "G::Scalar: serde::Serialize, G::Elem: serde::Serialize"
     ))
 )]
-pub struct VerifiableServer<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct VerifiableServer<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) sk: G::Scalar,
     pub(crate) pk: G::Elem,
     #[derive_where(skip(Zeroize))]
@@ -153,7 +165,10 @@ pub struct VerifiableServer<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
         serialize = "G::Scalar: serde::Serialize"
     ))
 )]
-pub struct Proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct Proof<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) c_scalar: G::Scalar,
     pub(crate) s_scalar: G::Scalar,
     #[derive_where(skip(Zeroize))]
@@ -173,7 +188,10 @@ pub struct Proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
         serialize = "G::Elem: serde::Serialize"
     ))
 )]
-pub struct BlindedElement<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct BlindedElement<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) value: G::Elem,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
@@ -192,7 +210,10 @@ pub struct BlindedElement<G: Group, H: BlockSizeUser + Digest + FixedOutputReset
         serialize = "G::Elem: serde::Serialize"
     ))
 )]
-pub struct EvaluationElement<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct EvaluationElement<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     pub(crate) value: G::Elem,
     #[derive_where(skip(Zeroize))]
     pub(crate) hash: PhantomData<H>,
@@ -203,7 +224,10 @@ pub struct EvaluationElement<G: Group, H: BlockSizeUser + Digest + FixedOutputRe
 // =================== //
 /////////////////////////
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> NonVerifiableClient<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
@@ -282,7 +306,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> VerifiableClient<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
     pub fn blind<R: RngCore + CryptoRng>(
@@ -405,7 +432,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> NonVerifiableServer<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Produces a new instance of a [NonVerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = Output::<H>::default();
@@ -476,7 +506,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> VerifiableServer<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Produces a new instance of a [VerifiableServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = Output::<H>::default();
@@ -676,7 +709,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
 /////////////////////////
 
 /// Contains the fields that are returned by a non-verifiable client blind
-pub struct NonVerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct NonVerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// The state to be persisted on the client
     pub state: NonVerifiableClient<G, H>,
     /// The message to send to the server
@@ -684,14 +720,19 @@ pub struct NonVerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest + 
 }
 
 /// Contains the fields that are returned by a non-verifiable server evaluate
-pub struct NonVerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
+pub struct NonVerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
 {
     /// The message to send to the client
     pub message: EvaluationElement<G, H>,
 }
 
 /// Contains the fields that are returned by a verifiable client blind
-pub struct VerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct VerifiableClientBlindResult<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// The state to be persisted on the client
     pub state: VerifiableClient<G, H>,
     /// The message to send to the server
@@ -708,7 +749,10 @@ pub type VerifiableClientBatchFinalizeResult<'a, G, H, I, II, IC, IM> = Finalize
 >;
 
 /// Contains the fields that are returned by a verifiable server evaluate
-pub struct VerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct VerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// The message to send to the client
     pub message: EvaluationElement<G, H>,
     /// The proof for the client to verify
@@ -717,14 +761,17 @@ pub struct VerifiableServerEvaluateResult<G: Group, H: BlockSizeUser + Digest + 
 
 /// Contains prepared [`EvaluationElement`]s by a verifiable server batch
 /// evaluate preparation.
-pub struct PreparedEvaluationElement<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    EvaluationElement<G, H>,
-);
+pub struct PreparedEvaluationElement<G: Group, H: BlockSizeUser + Digest>(EvaluationElement<G, H>)
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
 /// Contains the prepared `t` by a verifiable server batch evaluate preparation.
 #[derive(DeriveWhere)]
 #[derive_where(Zeroize(drop))]
-pub struct PreparedTscalar<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> {
+pub struct PreparedTscalar<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     t: G::Scalar,
     #[derive_where(skip)]
     hash: PhantomData<H>,
@@ -735,9 +782,11 @@ pub struct PreparedTscalar<G: Group, H: BlockSizeUser + Digest + FixedOutputRese
 pub struct VerifiableServerBatchEvaluatePrepareResult<
     'a,
     G: 'a + Group,
-    H: 'a + BlockSizeUser + Digest + FixedOutputReset,
+    H: 'a + BlockSizeUser + Digest,
     I: Iterator<Item = &'a BlindedElement<G, H>>,
-> {
+> where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Prepared [`EvaluationElement`]s that will become messages.
     #[allow(clippy::type_complexity)]
     pub prepared_evaluation_elements: Map<
@@ -753,9 +802,10 @@ pub struct VerifiableServerBatchEvaluatePrepareResult<
 pub struct VerifiableServerBatchEvaluateFinishResult<
     'a,
     G: 'a + Group,
-    H: 'a + BlockSizeUser + Digest + FixedOutputReset,
+    H: 'a + BlockSizeUser + Digest,
     I,
 > where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<G, H>>,
 {
     /// The messages to send to the client
@@ -770,10 +820,10 @@ pub struct VerifiableServerBatchEvaluateFinishResult<
 
 /// Contains the fields that are returned by a verifiable server batch evaluate
 #[cfg(feature = "alloc")]
-pub struct VerifiableServerBatchEvaluateResult<
-    G: Group,
-    H: BlockSizeUser + Digest + FixedOutputReset,
-> {
+pub struct VerifiableServerBatchEvaluateResult<G: Group, H: BlockSizeUser + Digest>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// The messages to send to the client
     pub messages: alloc::vec::Vec<EvaluationElement<G, H>>,
     /// The proof for the client to verify
@@ -785,7 +835,10 @@ pub struct VerifiableServerBatchEvaluateResult<
 // ========================================= //
 ///////////////////////////////////////////////
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> BlindedElement<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Only used to easier validate allocation
     fn copy(&self) -> Self {
         Self {
@@ -815,7 +868,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> EvaluationElement<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Only used to easier validate allocation
     fn copy(&self) -> Self {
         Self {
@@ -846,11 +902,14 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G
 }
 
 // Inner function for blind. Returns the blind scalar and the blinded element
-fn blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset, R: RngCore + CryptoRng>(
+fn blind<G: Group, H: BlockSizeUser + Digest, R: RngCore + CryptoRng>(
     input: &[u8],
     blinding_factor_rng: &mut R,
     mode: Mode,
-) -> Result<(G::Scalar, G::Elem)> {
+) -> Result<(G::Scalar, G::Elem)>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     // Choose a random scalar that must be non-zero
     let blind = G::random_scalar(blinding_factor_rng);
     let blinded_element = deterministic_blind_unchecked::<G, H>(input, &blind, mode)?;
@@ -860,11 +919,14 @@ fn blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset, R: RngCore + Cr
 // Inner function for blind that assumes that the blinding factor has already
 // been chosen, and therefore takes it as input. Does not check if the blinding
 // factor is non-zero.
-fn deterministic_blind_unchecked<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn deterministic_blind_unchecked<G: Group, H: BlockSizeUser + Digest>(
     input: &[u8],
     blind: &G::Scalar,
     mode: Mode,
-) -> Result<G::Elem> {
+) -> Result<G::Elem>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     let hashed_point = G::hash_to_curve::<H>(&[input], mode)?;
     Ok(hashed_point * blind)
 }
@@ -880,13 +942,7 @@ type VerifiableUnblindResult<'a, G, H, IC, IM> = Map<
     fn((<G as Group>::Scalar, &EvaluationElement<G, H>)) -> <G as Group>::Elem,
 >;
 
-fn verifiable_unblind<
-    'a,
-    G: 'a + Group,
-    H: 'a + BlockSizeUser + Digest + FixedOutputReset,
-    IC,
-    IM,
->(
+fn verifiable_unblind<'a, G: 'a + Group, H: 'a + BlockSizeUser + Digest, IC, IM>(
     clients: &'a IC,
     messages: &'a IM,
     pk: G::Elem,
@@ -894,6 +950,7 @@ fn verifiable_unblind<
     info: &[u8],
 ) -> Result<VerifiableUnblindResult<'a, G, H, IC, IM>>
 where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     &'a IC: 'a + IntoIterator<Item = &'a VerifiableClient<G, H>>,
     <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
     &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<G, H>>,
@@ -933,18 +990,17 @@ where
 }
 
 #[allow(clippy::many_single_char_names)]
-fn generate_proof<
-    G: Group,
-    H: BlockSizeUser + Digest + FixedOutputReset,
-    R: RngCore + CryptoRng,
->(
+fn generate_proof<G: Group, H: BlockSizeUser + Digest, R: RngCore + CryptoRng>(
     rng: &mut R,
     k: G::Scalar,
     a: G::Elem,
     b: G::Elem,
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-) -> Result<Proof<G, H>> {
+) -> Result<Proof<G, H>>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.2-1
 
     let (m, z) = compute_composites(Some(k), b, cs, ds)?;
@@ -1002,13 +1058,16 @@ fn generate_proof<
 }
 
 #[allow(clippy::many_single_char_names)]
-fn verify_proof<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn verify_proof<G: Group, H: BlockSizeUser + Digest>(
     a: G::Elem,
     b: G::Elem,
     cs: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     ds: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
     proof: &Proof<G, H>,
-) -> Result<()> {
+) -> Result<()>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.1-2
     let (m, z) = compute_composites(None, b, cs, ds)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
@@ -1068,7 +1127,7 @@ type FinalizeAfterUnblindResult<'a, G, H, I, IE> = Map<
 fn finalize_after_unblind<
     'a,
     G: Group,
-    H: BlockSizeUser + Digest + FixedOutputReset,
+    H: BlockSizeUser + Digest,
     I: AsRef<[u8]>,
     IE: 'a + Iterator<Item = (I, G::Elem)>,
 >(
@@ -1108,12 +1167,15 @@ fn finalize_after_unblind<
         }))
 }
 
-fn compute_composites<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+fn compute_composites<G: Group, H: BlockSizeUser + Digest>(
     k_option: Option<G::Scalar>,
     b: G::Elem,
     c_slice: impl Iterator<Item = EvaluationElement<G, H>> + ExactSizeIterator,
     d_slice: impl Iterator<Item = BlindedElement<G, H>> + ExactSizeIterator,
-) -> Result<(G::Elem, G::Elem)> {
+) -> Result<(G::Elem, G::Elem)>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.3-2
 
     let elem_len = G::ElemLen::U16.to_be_bytes();
@@ -1203,12 +1265,15 @@ mod tests {
     use super::*;
     use crate::Group;
 
-    fn prf<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
+    fn prf<G: Group, H: BlockSizeUser + Digest>(
         input: &[u8],
         key: G::Scalar,
         info: &[u8],
         mode: Mode,
-    ) -> Output<H> {
+    ) -> Output<H>
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let point = G::hash_to_curve::<H>(&[input], mode).unwrap();
 
         let context_string = get_context_string::<G>(mode);
@@ -1226,7 +1291,10 @@ mod tests {
             .unwrap()
     }
 
-    fn base_retrieval<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn base_retrieval<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
@@ -1243,7 +1311,10 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn verifiable_retrieval<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn verifiable_retrieval<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
@@ -1266,7 +1337,10 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn verifiable_bad_public_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn verifiable_bad_public_key<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
@@ -1289,7 +1363,10 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    fn verifiable_batch_retrieval<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn verifiable_batch_retrieval<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let info = b"info";
         let mut rng = OsRng;
         let mut inputs = vec![];
@@ -1340,7 +1417,10 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn verifiable_batch_bad_public_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn verifiable_batch_bad_public_key<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let info = b"info";
         let mut rng = OsRng;
         let mut inputs = vec![];
@@ -1387,7 +1467,10 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    fn base_inversion_unsalted<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn base_inversion_unsalted<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let mut rng = OsRng;
         let mut input = [0u8; 64];
         rng.fill_bytes(&mut input);
@@ -1419,7 +1502,10 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn zeroize_base_client<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn zeroize_base_client<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<G, H>::blind(input, &mut rng).unwrap();
@@ -1433,8 +1519,9 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_verifiable_client<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>()
+    fn zeroize_verifiable_client<G: Group, H: BlockSizeUser + Digest>()
     where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
@@ -1451,7 +1538,10 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_base_server<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>() {
+    fn zeroize_base_server<G: Group, H: BlockSizeUser + Digest>()
+    where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+    {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
@@ -1470,8 +1560,9 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_verifiable_server<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>()
+    fn zeroize_verifiable_server<G: Group, H: BlockSizeUser + Digest>()
     where
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
         G::ScalarLen: Add<G::ScalarLen>,
@@ -1522,7 +1613,7 @@ mod tests {
 
         #[cfg(feature = "p256")]
         {
-            use p256_::NistP256;
+            use p256::NistP256;
             use sha2::Sha256;
 
             base_retrieval::<NistP256, Sha256>();

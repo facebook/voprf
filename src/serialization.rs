@@ -12,9 +12,9 @@ use core::marker::PhantomData;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::Digest;
 use generic_array::sequence::Concat;
-use generic_array::typenum::Sum;
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::{
@@ -27,7 +27,10 @@ use crate::{
 // ==================================================== //
 //////////////////////////////////////////////////////////
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> NonVerifiableClient<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
         G::serialize_scalar(self.blind)
@@ -46,7 +49,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> VerifiableClient<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ElemLen>>
     where
@@ -71,7 +77,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> NonVerifiableServer<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
         G::serialize_scalar(self.sk)
@@ -90,7 +99,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> VerifiableServer<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ElemLen>>
     where
@@ -115,7 +127,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> Proof<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, Sum<G::ScalarLen, G::ScalarLen>>
     where
@@ -140,7 +155,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> BlindedElement<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
         G::serialize_elem(self.value)
@@ -159,7 +177,10 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
     }
 }
 
-impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G, H> {
+impl<G: Group, H: BlockSizeUser + Digest> EvaluationElement<G, H>
+where
+    H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+{
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
         G::serialize_elem(self.value)

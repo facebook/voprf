@@ -24,7 +24,7 @@ fn test_group_properties() -> Result<()> {
 
     #[cfg(feature = "p256")]
     {
-        use p256_::NistP256;
+        use p256::NistP256;
 
         test_identity_element_error::<NistP256>()?;
         test_zero_scalar_error::<NistP256>()?;

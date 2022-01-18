@@ -44,7 +44,7 @@ mod unit_tests {
             }
             #[cfg(feature = "p256")]
             {
-                let _ = $item::<p256_::NistP256, sha2::Sha256>::deserialize(&$bytes[..]);
+                let _ = $item::<p256::NistP256, sha2::Sha256>::deserialize(&$bytes[..]);
             }
         };
     }
