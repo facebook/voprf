@@ -546,12 +546,10 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-#[macro_use]
-mod util;
-#[macro_use]
-mod serialization;
 mod error;
 mod group;
+mod serialization;
+mod util;
 mod voprf;
 
 #[cfg(test)]
