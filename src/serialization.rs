@@ -30,14 +30,14 @@ use crate::{
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableClient<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.blind)
+        G::serialize_scalar(self.blind)
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let blind = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -53,15 +53,15 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.blind).concat(self.blinded_element.to_arr())
+        G::serialize_scalar(self.blind).concat(G::serialize_elem(self.blinded_element))
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = G::from_scalar_slice(&deserialize(&mut input)?)?;
-        let blinded_element = G::from_element_slice(&deserialize(&mut input)?)?;
+        let blind = G::deserialize_scalar(&deserialize(&mut input)?)?;
+        let blinded_element = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             blind,
@@ -74,14 +74,14 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableClient<G,
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> NonVerifiableServer<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ScalarLen> {
-        G::scalar_as_bytes(self.sk)
+        G::serialize_scalar(self.sk)
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let sk = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -97,15 +97,15 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> VerifiableServer<G,
         G::ScalarLen: Add<G::ElemLen>,
         Sum<G::ScalarLen, G::ElemLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.sk).concat(self.pk.to_arr())
+        G::serialize_scalar(self.sk).concat(G::serialize_elem(self.pk))
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = G::from_scalar_slice(&deserialize(&mut input)?)?;
-        let pk = G::from_element_slice(&deserialize(&mut input)?)?;
+        let sk = G::deserialize_scalar(&deserialize(&mut input)?)?;
+        let pk = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             sk,
@@ -122,15 +122,15 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
         G::ScalarLen: Add<G::ScalarLen>,
         Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
     {
-        G::scalar_as_bytes(self.c_scalar).concat(G::scalar_as_bytes(self.s_scalar))
+        G::serialize_scalar(self.c_scalar).concat(G::serialize_scalar(self.s_scalar))
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let c_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
-        let s_scalar = G::from_scalar_slice(&deserialize(&mut input)?)?;
+        let c_scalar = G::deserialize_scalar(&deserialize(&mut input)?)?;
+        let s_scalar = G::deserialize_scalar(&deserialize(&mut input)?)?;
 
         Ok(Proof {
             c_scalar,
@@ -143,14 +143,14 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> Proof<G, H> {
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::serialize_elem(self.value)
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+        let value = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             value,
@@ -162,14 +162,14 @@ impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> BlindedElement<G, H
 impl<G: Group, H: BlockSizeUser + Digest + FixedOutputReset> EvaluationElement<G, H> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, G::ElemLen> {
-        self.value.to_arr()
+        G::serialize_elem(self.value)
     }
 
     /// Deserialization from bytes
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = G::from_element_slice(&deserialize(&mut input)?)?;
+        let value = G::deserialize_elem(&deserialize(&mut input)?)?;
 
         Ok(Self {
             value,

@@ -18,22 +18,26 @@ use core::str::FromStr;
 
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, FixedOutputReset};
-use generic_array::typenum::{Unsigned, U1, U2, U32, U33, U48};
+use generic_array::sequence::Concat;
+use generic_array::typenum::{Unsigned, U2, U32, U33, U48};
 use generic_array::{ArrayLength, GenericArray};
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, ToPrimitive, Zero};
 use once_cell::unsync::Lazy;
+use p256_::elliptic_curve::bigint::{Encoding, U384};
 use p256_::elliptic_curve::group::prime::PrimeCurveAffine;
-use p256_::elliptic_curve::group::GroupEncoding;
 use p256_::elliptic_curve::ops::Reduce;
 use p256_::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
+#[cfg(test)]
 use p256_::elliptic_curve::Field;
-use p256_::{AffinePoint, EncodedPoint, ProjectivePoint};
+use p256_::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint, PublicKey, Scalar, SecretKey};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConditionallySelectable};
 
 use super::Group;
+use crate::group::{STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
+use crate::voprf::{self, Mode};
 use crate::{Error, Result};
 
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
@@ -41,18 +45,26 @@ use crate::{Error, Result};
 pub type L = U48;
 
 #[cfg(feature = "p256")]
-impl Group for ProjectivePoint {
-    const SUITE_ID: usize = 0x0003;
+impl Group for NistP256 {
+    const SUITE_ID: u16 = 0x0003;
+
+    type Elem = ProjectivePoint;
+
+    type ElemLen = U33;
+
+    type Scalar = Scalar;
+
+    type ScalarLen = U32;
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset, D: ArrayLength<u8> + Add<U1>>(
-        msg: &[u8],
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>,
-    {
+    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
+        msg: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem> {
+        let dst =
+            GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
+
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-8.2
         // `p: 2^256 - 2^224 + 2^192 + 2^96 - 1`
         const P: Lazy<BigInt> = Lazy::new(|| {
@@ -79,7 +91,7 @@ impl Group for ProjectivePoint {
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `hash_to_field` calls `expand_message` with a `len_in_bytes` of `count * L`
         let uniform_bytes =
-            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output, _, _>(Some(msg), dst)?;
+            super::expand::expand_message_xmd::<H, <L as Mul<U2>>::Output>(msg, &dst)?;
 
         // hash to curve
         let (q0x, q0y) = hash_to_curve_simple_swu(&uniform_bytes[..L::USIZE], &A, &B, &P, &Z);
@@ -100,88 +112,75 @@ impl Group for ProjectivePoint {
     }
 
     // Implements the `HashToScalar()` function
-    fn hash_to_scalar<
-        'a,
-        H: BlockSizeUser + Digest + FixedOutputReset,
-        D: ArrayLength<u8> + Add<U1>,
-        I: IntoIterator<Item = &'a [u8]>,
-    >(
-        input: I,
-        dst: GenericArray<u8, D>,
-    ) -> Result<Self::Scalar>
-    where
-        <D as Add<U1>>::Output: ArrayLength<u8>,
-    {
+    fn hash_to_scalar<H: BlockSizeUser + Digest + FixedOutputReset>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar> {
+        let dst =
+            GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<Self>(mode));
+
         // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf#[{%22num%22:211,%22gen%22:0},{%22name%22:%22XYZ%22},70,700,0]
         // P-256 `n` is defined as
         // `115792089210356248762697446949407573529996955224135760342
         // 422259061068512044369`
-        const N: Lazy<BigInt> = Lazy::new(|| {
-            BigInt::from_str(
-                "115792089210356248762697446949407573529996955224135760342422259061068512044369",
-            )
-            .unwrap()
-        });
+        const N: U384 =
+            U384::from_be_hex("00000000000000000000000000000000FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551");
 
         // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-5.3
         // `HashToScalar` is `hash_to_field`
-        let uniform_bytes = super::expand::expand_message_xmd::<H, L, _, _>(input, dst)?;
-        let bytes = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes)
-            .mod_floor(&N)
-            .to_bytes_be()
-            .1;
-        let mut result = GenericArray::default();
-        result[..bytes.len()].copy_from_slice(&bytes);
+        let uniform_bytes = super::expand::expand_message_xmd::<H, L>(input, &dst)?;
+        let bytes = Option::<U384>::from(U384::from_be_slice(&uniform_bytes).reduce(&N))
+            .unwrap()
+            .to_be_bytes();
 
-        Ok(p256_::Scalar::from_be_bytes_reduced(result))
+        Ok(Scalar::from_be_bytes_reduced(
+            GenericArray::clone_from_slice(&bytes[16..]),
+        ))
     }
 
-    type ElemLen = U33;
-    type Scalar = p256_::Scalar;
-    type ScalarLen = U32;
-
-    fn from_scalar_slice_unchecked(
-        scalar_bits: &GenericArray<u8, Self::ScalarLen>,
-    ) -> Result<Self::Scalar> {
-        Ok(Self::Scalar::from_be_bytes_reduced(*scalar_bits))
+    fn base_elem() -> Self::Elem {
+        ProjectivePoint::generator()
     }
 
-    fn random_nonzero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        Self::Scalar::random(rng)
+    fn identity_elem() -> Self::Elem {
+        ProjectivePoint::identity()
     }
 
-    fn scalar_as_bytes(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
-        scalar.into()
-    }
-
-    fn scalar_invert(scalar: &Self::Scalar) -> Self::Scalar {
-        scalar.invert().unwrap_or(Self::Scalar::zero())
-    }
-
-    fn from_element_slice_unchecked(
-        element_bits: &GenericArray<u8, Self::ElemLen>,
-    ) -> Result<Self> {
-        Option::from(Self::from_bytes(element_bits)).ok_or(Error::PointError)
-    }
-
-    fn to_arr(&self) -> GenericArray<u8, Self::ElemLen> {
-        let bytes = self.to_affine().to_encoded_point(true);
+    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+        let bytes = elem.to_affine().to_encoded_point(true);
         let bytes = bytes.as_bytes();
         let mut result = GenericArray::default();
         result[..bytes.len()].copy_from_slice(bytes);
         result
     }
 
-    fn base_point() -> Self {
-        Self::generator()
+    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+        PublicKey::from_sec1_bytes(element_bits)
+            .map(|public_key| public_key.to_projective())
+            .map_err(|_| Error::PointError)
     }
 
-    fn identity() -> Self {
-        Self::identity()
+    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+        *SecretKey::random(rng).to_nonzero_scalar()
     }
 
-    fn scalar_zero() -> Self::Scalar {
-        Self::Scalar::zero()
+    fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
+        Option::from(scalar.invert()).unwrap()
+    }
+
+    #[cfg(test)]
+    fn zero_scalar() -> Self::Scalar {
+        Scalar::zero()
+    }
+
+    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+        scalar.into()
+    }
+
+    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+        SecretKey::from_be_bytes(scalar_bits)
+            .map(|secret_key| *secret_key.to_nonzero_scalar())
+            .map_err(|_| Error::ScalarError)
     }
 }
 
@@ -459,6 +458,8 @@ mod tests {
 
     #[test]
     fn hash_to_curve_simple_swu() {
+        const DST: [u8; 44] = *b"QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_";
+
         const P: Lazy<BigInt> = Lazy::new(|| {
             BigInt::from_str(
                 "115792089210356248762697446949407573530086143415290314195533631308867097853951",
@@ -544,15 +545,13 @@ mod tests {
                 q1y: "f6ed88a7aab56a488100e6f1174fa9810b47db13e86be999644922961206e184",
             },
         ];
-        let dst = GenericArray::from(*b"QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_");
 
         for tv in test_vectors {
-            let uniform_bytes =
-                super::super::expand::expand_message_xmd::<sha2::Sha256, U96, _, _>(
-                    Some(tv.msg.as_bytes()),
-                    dst,
-                )
-                .unwrap();
+            let uniform_bytes = super::super::expand::expand_message_xmd::<sha2::Sha256, U96>(
+                &[tv.msg.as_bytes()],
+                &DST,
+            )
+            .unwrap();
 
             let u0 = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes[..48]).mod_floor(&P);
             let u1 = BigInt::from_bytes_be(Sign::Plus, &uniform_bytes[48..]).mod_floor(&P);

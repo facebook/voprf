@@ -24,7 +24,7 @@ p256 = [
   "once_cell",
   "p256_",
 ]
-ristretto255 = []
+ristretto255 = ["generic-array/more_lengths"]
 ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend", "ristretto255"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend", "ristretto255"]
 ristretto255_simd = ["curve25519-dalek/simd_backend", "ristretto255"]

@@ -34,8 +34,8 @@ pub enum Error {
     ProofVerificationError,
     /// Encountered insufficient bytes when attempting to deserialize
     SizeError,
-    /// Encountered a zero scalar
-    ZeroScalarError,
+    /// Encountered an invalid scalar
+    ScalarError,
 }
 
 #[cfg(feature = "std")]

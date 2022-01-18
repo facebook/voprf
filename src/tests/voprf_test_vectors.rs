@@ -90,8 +90,9 @@ fn test_vectors() -> Result<()> {
 
     #[cfg(feature = "ristretto255")]
     {
-        use curve25519_dalek::ristretto::RistrettoPoint;
         use sha2::Sha512;
+
+        use crate::Ristretto255;
 
         let ristretto_base_tvs = json_to_test_vectors!(
             rfc,
@@ -105,20 +106,20 @@ fn test_vectors() -> Result<()> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_blind::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_evaluate::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
-        test_base_finalize::<RistrettoPoint, Sha512>(&ristretto_base_tvs)?;
+        test_base_seed_to_key::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_blind::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_evaluate::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_finalize::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
 
-        test_verifiable_seed_to_key::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_blind::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_evaluate::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_finalize::<RistrettoPoint, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_blind::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_evaluate::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_finalize::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
     }
 
     #[cfg(feature = "p256")]
     {
-        use p256_::ProjectivePoint;
+        use p256_::NistP256;
         use sha2::Sha256;
 
         let p256_base_tvs =
@@ -130,15 +131,15 @@ fn test_vectors() -> Result<()> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_blind::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_evaluate::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
-        test_base_finalize::<ProjectivePoint, Sha256>(&p256_base_tvs)?;
+        test_base_seed_to_key::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_blind::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_evaluate::<NistP256, Sha256>(&p256_base_tvs)?;
+        test_base_finalize::<NistP256, Sha256>(&p256_base_tvs)?;
 
-        test_verifiable_seed_to_key::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_blind::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_evaluate::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_finalize::<ProjectivePoint, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_blind::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_evaluate::<NistP256, Sha256>(&p256_verifiable_tvs)?;
+        test_verifiable_finalize::<NistP256, Sha256>(&p256_verifiable_tvs)?;
     }
 
     Ok(())
@@ -152,7 +153,7 @@ fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::serialize_scalar(server.get_private_key()).to_vec()
         );
     }
     Ok(())
@@ -166,9 +167,12 @@ fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutput
 
         assert_eq!(
             &parameters.sksm,
-            &G::scalar_as_bytes(server.get_private_key()).to_vec()
+            &G::serialize_scalar(server.get_private_key()).to_vec()
         );
-        assert_eq!(&parameters.pksm, &server.get_public_key().to_arr().to_vec());
+        assert_eq!(
+            &parameters.pksm,
+            G::serialize_elem(server.get_public_key()).as_slice()
+        );
     }
     Ok(())
 }
@@ -180,7 +184,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
@@ -188,7 +192,7 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_result.state.blind).to_vec()
+                &G::serialize_scalar(client_result.state.blind).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -206,7 +210,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind =
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
             let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
@@ -214,7 +218,7 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::scalar_as_bytes(client_blind_result.state.get_blind()).to_vec()
+                &G::serialize_scalar(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -295,7 +299,7 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 ) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<G, H>::from_blind(G::from_scalar_slice(
+            let client = NonVerifiableClient::<G, H>::from_blind(G::deserialize_scalar(
                 &GenericArray::clone_from_slice(&parameters.blind[i]),
             )?);
 
@@ -318,8 +322,8 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<G, H>::from_blind_and_element(
-                G::from_scalar_slice(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
-                G::from_element_slice(&GenericArray::clone_from_slice(
+                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
+                G::deserialize_elem(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );
@@ -337,7 +341,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
-            G::from_element_slice(GenericArray::from_slice(&parameters.pksm))?,
+            G::deserialize_elem(GenericArray::from_slice(&parameters.pksm))?,
             Some(&parameters.info),
         )?;
 

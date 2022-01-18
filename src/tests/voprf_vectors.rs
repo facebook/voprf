@@ -8,7 +8,7 @@
 //! The VOPRF test vectors taken from:
 //! https://github.com/cfrg/draft-irtf-cfrg-voprf/blob/master/draft-irtf-cfrg-voprf.md
 
-pub(crate) static VECTORS: &str = r#"
+pub(crate) const VECTORS: &str = r#"
 ## OPRF(ristretto255, SHA-512)
 
 ### Base Mode

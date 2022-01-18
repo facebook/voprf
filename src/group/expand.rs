@@ -5,22 +5,14 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-use core::ops::Add;
+use core::convert::TryFrom;
 
-use digest::core_api::BlockSizeUser;
+use digest::core_api::{Block, BlockSizeUser};
 use digest::{Digest, FixedOutputReset};
-use generic_array::sequence::Concat;
-use generic_array::typenum::{Unsigned, U1, U2};
+use generic_array::typenum::{IsLess, NonZero, Unsigned, U65536};
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::util::i2osp;
 use crate::{Error, Result};
-
-// Computes ceil(x / y)
-fn div_ceil(x: usize, y: usize) -> usize {
-    let additive = (x % y != 0) as usize;
-    x / y + additive
-}
 
 fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> GenericArray<u8, L> {
     x.into_iter().zip(y).map(|(x1, x2)| x1 ^ x2).collect()
@@ -28,51 +20,67 @@ fn xor<L: ArrayLength<u8>>(x: GenericArray<u8, L>, y: GenericArray<u8, L>) -> Ge
 
 /// Corresponds to the expand_message_xmd() function defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt>
-pub fn expand_message_xmd<
-    'a,
-    H: BlockSizeUser + Digest + FixedOutputReset,
-    L: ArrayLength<u8>,
-    M: IntoIterator<Item = &'a [u8]>,
-    D: ArrayLength<u8> + Add<U1>,
->(
-    msg: M,
-    dst: GenericArray<u8, D>,
+pub fn expand_message_xmd<H: BlockSizeUser + Digest + FixedOutputReset, L: ArrayLength<u8>>(
+    msg: &[&[u8]],
+    dst: &[u8],
 ) -> Result<GenericArray<u8, L>>
 where
-    <D as Add<U1>>::Output: ArrayLength<u8>,
+    // Constraint set by `expand_message_xmd`:
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-13.html#section-5.4.1-6
+    L: NonZero + IsLess<U65536>,
 {
-    let digest_len = H::OutputSize::USIZE;
-    let ell = div_ceil(L::USIZE, digest_len);
-    if ell > 255 {
+    // DST, a byte string of at most 255 bytes.
+    let dst_len = u8::try_from(dst.len()).map_err(|_| Error::HashToCurveError)?;
+
+    // b_in_bytes, b / 8 for b the output size of H in bits.
+    let b_in_bytes = H::OutputSize::to_usize();
+
+    // Constraint set by `expand_message_xmd`:
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-13.html#section-5.4.1-4
+    if b_in_bytes > H::BlockSize::USIZE {
         return Err(Error::HashToCurveError);
     }
-    let dst_prime = dst.concat(i2osp::<U1>(D::USIZE)?);
-    let z_pad = i2osp::<H::BlockSize>(0)?;
-    let l_i_b_str = i2osp::<U2>(L::USIZE)?;
 
-    let mut h = H::new();
+    // ell = ceil(len_in_bytes / b_in_bytes)
+    // ABORT if ell > 255
+    let ell = u8::try_from((L::USIZE + b_in_bytes - 1) / b_in_bytes)
+        .map_err(|_| Error::HashToCurveError)?;
 
+    let mut hash = H::new();
+
+    // b_0 = H(msg_prime)
     // msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
-    Digest::update(&mut h, z_pad);
-    for bytes in msg {
-        Digest::update(&mut h, bytes)
+    // Z_pad = I2OSP(0, s_in_bytes)
+    // s_in_bytes, the input block size of H, measured in bytes
+    Digest::update(&mut hash, Block::<H>::default());
+    for msg in msg {
+        Digest::update(&mut hash, msg);
     }
-    Digest::update(&mut h, l_i_b_str);
-    Digest::update(&mut h, i2osp::<U1>(0)?);
-    Digest::update(&mut h, &dst_prime);
+    // l_i_b_str = I2OSP(len_in_bytes, 2)
+    Digest::update(&mut hash, L::U16.to_be_bytes());
+    Digest::update(&mut hash, [0]);
+    // DST_prime = DST || I2OSP(len(DST), 1)
+    Digest::update(&mut hash, dst);
+    Digest::update(&mut hash, [dst_len]);
+    let b_0 = hash.finalize_reset();
 
-    // b[0]
-    let b_0 = h.finalize_reset();
     let mut b_i = GenericArray::default();
 
     let mut uniform_bytes = GenericArray::default();
 
-    for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(digest_len)) {
-        Digest::update(&mut h, xor(b_0.clone(), b_i.clone()));
-        Digest::update(&mut h, i2osp::<U1>(i)?);
-        Digest::update(&mut h, &dst_prime);
-        b_i = h.finalize_reset();
-        chunk.copy_from_slice(&b_i[..digest_len.min(chunk.len())]);
+    // b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
+    // for i in (2, ..., ell):
+    for (i, chunk) in (1..(ell + 1)).zip(uniform_bytes.chunks_mut(b_in_bytes)) {
+        // b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
+        Digest::update(&mut hash, xor(b_0.clone(), b_i.clone()));
+        Digest::update(&mut hash, [i]);
+        // DST_prime = DST || I2OSP(len(DST), 1)
+        Digest::update(&mut hash, dst);
+        Digest::update(&mut hash, [dst_len]);
+        b_i = hash.finalize_reset();
+        // uniform_bytes = b_1 || ... || b_ell
+        // return substr(uniform_bytes, 0, len_in_bytes)
+        chunk.copy_from_slice(&b_i[..b_in_bytes.min(chunk.len())]);
     }
 
     Ok(uniform_bytes)
@@ -81,7 +89,6 @@ where
 #[cfg(test)]
 mod tests {
     use generic_array::typenum::{U128, U32};
-    use generic_array::GenericArray;
 
     struct Params {
         msg: &'static str,
@@ -91,6 +98,8 @@ mod tests {
 
     #[test]
     fn test_expand_message_xmd() {
+        const DST: [u8; 27] = *b"QUUX-V01-CS02-with-expander";
+
         // Test vectors taken from Section K.1 of https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
         let test_vectors: alloc::vec::Vec<Params> = alloc::vec![
             Params {
@@ -190,20 +199,13 @@ mod tests {
                 378fba044a31f5cb44583a892f5969dcd73b3fa128816e",
             },
         ];
-        let dst = GenericArray::from(*b"QUUX-V01-CS02-with-expander");
 
         for tv in test_vectors {
             let uniform_bytes = match tv.len_in_bytes {
-                32 => super::expand_message_xmd::<sha2::Sha256, U32, _, _>(
-                    Some(tv.msg.as_bytes()),
-                    dst,
-                )
-                .map(|bytes| bytes.to_vec()),
-                128 => super::expand_message_xmd::<sha2::Sha256, U128, _, _>(
-                    Some(tv.msg.as_bytes()),
-                    dst,
-                )
-                .map(|bytes| bytes.to_vec()),
+                32 => super::expand_message_xmd::<sha2::Sha256, U32>(&[tv.msg.as_bytes()], &DST)
+                    .map(|bytes| bytes.to_vec()),
+                128 => super::expand_message_xmd::<sha2::Sha256, U128>(&[tv.msg.as_bytes()], &DST)
+                    .map(|bytes| bytes.to_vec()),
                 _ => unimplemented!(),
             }
             .unwrap();
