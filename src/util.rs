@@ -40,11 +40,11 @@ mod unit_tests {
         ($item:ident, $bytes:ident) => {
             #[cfg(feature = "ristretto255")]
             {
-                let _ = $item::<crate::Ristretto255, sha2::Sha512>::deserialize(&$bytes[..]);
+                let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
             }
             #[cfg(feature = "p256")]
             {
-                let _ = $item::<p256::NistP256, sha2::Sha256>::deserialize(&$bytes[..]);
+                let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
             }
         };
     }

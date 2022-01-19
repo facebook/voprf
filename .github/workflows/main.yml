@@ -35,10 +35,10 @@ jobs:
       fail-fast: false
       matrix:
         backend_feature:
-          - ristretto255_u64
-          - ristretto255_u32
+          - ristretto255-ciphersuite,ristretto255_u64
+          - ristretto255-ciphersuite,ristretto255_u32
           - p256
-          - ristretto255_u64,p256
+          - ristretto255-ciphersuite,ristretto255_u64,p256
         frontend_feature:
           -
           - --features danger
@@ -89,8 +89,8 @@ jobs:
           - thumbv6m-none-eabi
         backend_feature:
           -
-          - --features ristretto255_u64
-          - --features ristretto255_u32
+          - --features ristretto255-ciphersuite,ristretto255_u64
+          - --features ristretto255-ciphersuite,ristretto255_u32
           - --features p256
         frontend_feature:
           -

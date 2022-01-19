@@ -24,6 +24,15 @@ use crate::{Error, Result};
 /// [`Group`] implementation for Ristretto255.
 pub struct Ristretto255;
 
+#[cfg(feature = "ristretto255-ciphersuite")]
+impl crate::CipherSuite for Ristretto255 {
+    const ID: u16 = 0x0001;
+
+    type Group = Ristretto255;
+
+    type Hash = sha2::Sha512;
+}
+
 // `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "ristretto255")]
 impl Group for Ristretto255 {

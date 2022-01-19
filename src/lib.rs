@@ -24,8 +24,7 @@
 //! We will use the following choices in this example:
 //!
 //! ```ignore
-//! type Group = voprf::Ristretto255;
-//! type Hash = sha2::Sha512;
+//! type CipherSuite = voprf::Ristretto255;
 //! ```
 //!
 //! ## Modes of Operation
@@ -52,19 +51,15 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::NonVerifiableServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
 //!     .expect("Unable to construct server");
 //! ```
 //!
@@ -78,19 +73,15 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::NonVerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//! let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!     .expect("Unable to construct client");
 //! ```
 //!
@@ -104,24 +95,20 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
+//! # let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server
 //!     .evaluate(&client_blind_result.message, None)
@@ -136,24 +123,20 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<Group, Hash>::blind(
+//! # let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     &client_blind_result.message,
@@ -187,20 +170,16 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::VerifiableServer;
 //!
 //! let mut server_rng = OsRng;
 //! let server =
-//!     VerifiableServer::<Group, Hash>::new(&mut server_rng).expect("Unable to construct server");
+//!     VerifiableServer::<CipherSuite>::new(&mut server_rng).expect("Unable to construct server");
 //!
 //! // To be sent to the client
 //! println!("Server public key: {:?}", server.get_public_key());
@@ -220,19 +199,15 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
 //! use voprf::VerifiableClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//! let client_blind_result = VerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!     .expect("Unable to construct client");
 //! ```
 //!
@@ -246,24 +221,20 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! # let client_blind_result = VerifiableClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let server_evaluate_result = server
 //!     .evaluate(&mut server_rng, &client_blind_result.message, None)
@@ -279,24 +250,20 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! # let client_blind_result = VerifiableClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
@@ -336,13 +303,9 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -350,7 +313,7 @@
 //! let mut client_states = vec![];
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
-//!     let client_blind_result = VerifiableClient::<Group, Hash>::blind(b"input", &mut client_rng)
+//!     let client_blind_result = VerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!         .expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
@@ -364,13 +327,9 @@
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -378,7 +337,7 @@
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
@@ -387,7 +346,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let VerifiableServerBatchEvaluatePrepareResult {
 //!     prepared_evaluation_elements,
@@ -407,13 +366,9 @@
 //! ```
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -421,7 +376,7 @@
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
@@ -430,7 +385,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! let VerifiableServerBatchEvaluateResult { messages, proof } = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
@@ -446,13 +401,9 @@
 //! ```
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
-//! # type Group = voprf::Ristretto255;
-//! # #[cfg(feature = "ristretto255")]
-//! # type Hash = sha2::Sha512;
+//! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Group = p256::NistP256;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
-//! # type Hash = sha2::Sha256;
+//! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
@@ -460,7 +411,7 @@
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<Group, Hash>::blind(
+//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
@@ -469,7 +420,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<Group, Hash>::new(&mut server_rng)
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
 //! #   .expect("Unable to construct server");
 //! # let VerifiableServerBatchEvaluateResult { messages, proof } = server
 //! #     .batch_evaluate(&mut server_rng, &client_messages, None)
@@ -546,6 +497,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod ciphersuite;
 mod error;
 mod group;
 mod serialization;
@@ -557,11 +509,11 @@ mod tests;
 
 // Exports
 
-#[cfg(feature = "ristretto255")]
-pub use group::Ristretto255;
-
+pub use crate::ciphersuite::CipherSuite;
 pub use crate::error::{Error, Result};
 pub use crate::group::Group;
+#[cfg(feature = "ristretto255")]
+pub use crate::group::Ristretto255;
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{

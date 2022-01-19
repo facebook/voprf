@@ -14,8 +14,9 @@ version = "0.3.0"
 [features]
 alloc = []
 danger = []
-default = ["ristretto255_u64", "serde"]
+default = ["ristretto255-ciphersuite", "ristretto255_u64", "serde"]
 ristretto255 = ["generic-array/more_lengths"]
+ristretto255-ciphersuite = ["ristretto255", "sha2"]
 ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend", "ristretto255"]
 ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend", "ristretto255"]
 ristretto255_simd = ["curve25519-dalek/simd_backend", "ristretto255"]
@@ -28,15 +29,20 @@ curve25519-dalek = { version = "3", default-features = false, optional = true }
 derive-where = { version = "1.0.0-rc.1", features = ["zeroize"] }
 digest = "0.10"
 displaydoc = { version = "0.2", default-features = false }
-elliptic-curve = { version = "0.12.0-pre.1", features = ["hash2curve"] }
+elliptic-curve = { version = "0.12.0-pre.1", features = [
+  "hash2curve",
+  "voprf",
+] }
 generic-array = "0.14"
 p256 = { version = "0.11.0-pre.0", default-features = false, features = [
   "hash2curve",
+  "voprf",
 ], optional = true }
 rand_core = { version = "0.6", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
+sha2 = { version = "0.10", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 
