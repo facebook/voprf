@@ -14,6 +14,8 @@ use crate::{Error, Group, Result};
 
 #[test]
 fn test_group_properties() -> Result<()> {
+    use p256::NistP256;
+
     #[cfg(feature = "ristretto255")]
     {
         use crate::Ristretto255;
@@ -22,13 +24,8 @@ fn test_group_properties() -> Result<()> {
         test_zero_scalar_error::<Ristretto255>()?;
     }
 
-    #[cfg(feature = "p256")]
-    {
-        use p256::NistP256;
-
-        test_identity_element_error::<NistP256>()?;
-        test_zero_scalar_error::<NistP256>()?;
-    }
+    test_identity_element_error::<NistP256>()?;
+    test_zero_scalar_error::<NistP256>()?;
 
     Ok(())
 }

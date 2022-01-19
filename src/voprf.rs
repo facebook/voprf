@@ -1558,6 +1558,8 @@ mod tests {
 
     #[test]
     fn test_functionality() -> Result<()> {
+        use p256::NistP256;
+
         #[cfg(feature = "ristretto255")]
         {
             use crate::Ristretto255;
@@ -1575,22 +1577,17 @@ mod tests {
             zeroize_verifiable_server::<Ristretto255>();
         }
 
-        #[cfg(feature = "p256")]
-        {
-            use p256::NistP256;
+        base_retrieval::<NistP256>();
+        base_inversion_unsalted::<NistP256>();
+        verifiable_retrieval::<NistP256>();
+        verifiable_batch_retrieval::<NistP256>();
+        verifiable_bad_public_key::<NistP256>();
+        verifiable_batch_bad_public_key::<NistP256>();
 
-            base_retrieval::<NistP256>();
-            base_inversion_unsalted::<NistP256>();
-            verifiable_retrieval::<NistP256>();
-            verifiable_batch_retrieval::<NistP256>();
-            verifiable_bad_public_key::<NistP256>();
-            verifiable_batch_bad_public_key::<NistP256>();
-
-            zeroize_base_client::<NistP256>();
-            zeroize_base_server::<NistP256>();
-            zeroize_verifiable_client::<NistP256>();
-            zeroize_verifiable_server::<NistP256>();
-        }
+        zeroize_base_client::<NistP256>();
+        zeroize_base_server::<NistP256>();
+        zeroize_verifiable_client::<NistP256>();
+        zeroize_verifiable_server::<NistP256>();
 
         Ok(())
     }

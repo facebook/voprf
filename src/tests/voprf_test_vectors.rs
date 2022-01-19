@@ -85,6 +85,8 @@ macro_rules! json_to_test_vectors {
 
 #[test]
 fn test_vectors() -> Result<()> {
+    use p256::NistP256;
+
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
@@ -115,29 +117,24 @@ fn test_vectors() -> Result<()> {
         test_verifiable_finalize::<Ristretto255>(&ristretto_verifiable_tvs)?;
     }
 
-    #[cfg(feature = "p256")]
-    {
-        use p256::NistP256;
+    let p256base_tvs =
+        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
 
-        let p256base_tvs =
-            json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
+    let p256verifiable_tvs = json_to_test_vectors!(
+        rfc,
+        String::from("P-256, SHA-256"),
+        String::from("Verifiable")
+    );
 
-        let p256verifiable_tvs = json_to_test_vectors!(
-            rfc,
-            String::from("P-256, SHA-256"),
-            String::from("Verifiable")
-        );
+    test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
+    test_base_blind::<NistP256>(&p256base_tvs)?;
+    test_base_evaluate::<NistP256>(&p256base_tvs)?;
+    test_base_finalize::<NistP256>(&p256base_tvs)?;
 
-        test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
-        test_base_blind::<NistP256>(&p256base_tvs)?;
-        test_base_evaluate::<NistP256>(&p256base_tvs)?;
-        test_base_finalize::<NistP256>(&p256base_tvs)?;
-
-        test_verifiable_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
-        test_verifiable_blind::<NistP256>(&p256verifiable_tvs)?;
-        test_verifiable_evaluate::<NistP256>(&p256verifiable_tvs)?;
-        test_verifiable_finalize::<NistP256>(&p256verifiable_tvs)?;
-    }
+    test_verifiable_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_blind::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_evaluate::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_finalize::<NistP256>(&p256verifiable_tvs)?;
 
     Ok(())
 }

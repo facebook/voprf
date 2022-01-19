@@ -35,10 +35,6 @@ elliptic-curve = { version = "0.12.0-pre.1", features = [
   "voprf",
 ] }
 generic-array = "0.14"
-p256 = { version = "0.11.0-pre.0", default-features = false, features = [
-  "hash2curve",
-  "voprf",
-], optional = true }
 rand_core = { version = "0.6", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
@@ -51,11 +47,15 @@ zeroize = { version = "1", default-features = false }
 generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
+p256 = { version = "0.11.0-pre.0", default-features = false, features = [
+  "hash2curve",
+  "voprf",
+] }
 proptest = "1"
 rand = "0.8"
 regex = "1"
 sha2 = "0.10"
 
 [package.metadata.docs.rs]
-features = ["danger", "p256", "std"]
+features = ["danger", "std"]
 targets = []

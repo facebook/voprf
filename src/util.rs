@@ -42,10 +42,8 @@ mod unit_tests {
             {
                 let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
             }
-            #[cfg(feature = "p256")]
-            {
-                let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
-            }
+
+            let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
         };
     }
 

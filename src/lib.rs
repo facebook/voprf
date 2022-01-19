@@ -52,7 +52,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
@@ -74,7 +74,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
@@ -96,7 +96,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
@@ -124,7 +124,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::NonVerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
@@ -171,7 +171,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
@@ -200,7 +200,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
@@ -222,7 +222,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
@@ -251,7 +251,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
@@ -304,7 +304,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::VerifiableClient;
 //! # use rand::{rngs::OsRng, RngCore};
@@ -328,7 +328,7 @@
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
@@ -367,7 +367,7 @@
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
@@ -402,7 +402,7 @@
 //! # #[cfg(feature = "alloc")] {
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
-//! # #[cfg(all(feature = "p256", not(feature = "ristretto255")))]
+//! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
 //! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
 //! # use rand::{rngs::OsRng, RngCore};
@@ -458,9 +458,6 @@
 //! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
 //!   VOPRF evaluations.
 //!
-//! - The `p256` feature enables using [`NistP256`](p256::NistP256) as the
-//!   underlying group for the [Group] choice.
-//!
 //! - The `serde` feature, enabled by default, provides convenience functions
 //!   for serializing and deserializing with [serde](https://serde.rs/).
 //!
@@ -469,6 +466,9 @@
 //!   functions are intended for use in by higher-level cryptographic protocols
 //!   that need access to these raw values and are able to perform the necessary
 //!   validations on them (such as being valid group elements).
+//!
+//! - The `ristretto255-ciphersuite` features enables using [`Ristretto255`] as
+//!   a [`CipherSuite`].
 //!
 //! - The `ristretto255` feature enables using [`Ristretto255`] as the
 //!   underlying group for the [Group] choice. A backend feature, which are
