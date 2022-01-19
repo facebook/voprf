@@ -5,11 +5,6 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-#![allow(
-    clippy::borrow_interior_mutable_const,
-    clippy::declare_interior_mutable_const
-)]
-
 use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use elliptic_curve::group::cofactor::CofactorGroup;
