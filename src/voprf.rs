@@ -831,12 +831,17 @@ where
     }
 }
 
+type BlindResult<C> = (
+    <<C as CipherSuite>::Group as Group>::Scalar,
+    <<C as CipherSuite>::Group as Group>::Elem,
+);
+
 // Inner function for blind. Returns the blind scalar and the blinded element
 fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
     input: &[u8],
     blinding_factor_rng: &mut R,
     mode: Mode,
-) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)>
+) -> Result<BlindResult<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -1111,12 +1116,17 @@ where
         }))
 }
 
+type ComputeCompositesResult<C> = (
+    <<C as CipherSuite>::Group as Group>::Elem,
+    <<C as CipherSuite>::Group as Group>::Elem,
+);
+
 fn compute_composites<CS: CipherSuite>(
     k_option: Option<<CS::Group as Group>::Scalar>,
     b: <CS::Group as Group>::Elem,
     c_slice: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
     d_slice: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
-) -> Result<(<CS::Group as Group>::Elem, <CS::Group as Group>::Elem)>
+) -> Result<ComputeCompositesResult<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,

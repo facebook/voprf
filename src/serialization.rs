@@ -26,13 +26,16 @@ use crate::{
 // ==================================================== //
 //////////////////////////////////////////////////////////
 
+/// Length of [`NonVerifiableClient`] in bytes for serialization.
+pub type NonVerifiableClientLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
+
 impl<CS: CipherSuite> NonVerifiableClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, <CS::Group as Group>::ScalarLen> {
+    pub fn serialize(&self) -> GenericArray<u8, NonVerifiableClientLen<CS>> {
         CS::Group::serialize_scalar(self.blind)
     }
 
@@ -46,18 +49,22 @@ where
     }
 }
 
+/// Length of [`VerifiableClient`] in bytes for serialization.
+pub type VerifiableClientLen<CS> = Sum<
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+    <<CS as CipherSuite>::Group as Group>::ElemLen,
+>;
+
 impl<CS: CipherSuite> VerifiableClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(
-        &self,
-    ) -> GenericArray<u8, Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>>
+    pub fn serialize(&self) -> GenericArray<u8, VerifiableClientLen<CS>>
     where
         <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>: ArrayLength<u8>,
+        VerifiableClientLen<CS>: ArrayLength<u8>,
     {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
@@ -77,13 +84,16 @@ where
     }
 }
 
+/// Length of [`NonVerifiableServer`] in bytes for serialization.
+pub type NonVerifiableServerLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
+
 impl<CS: CipherSuite> NonVerifiableServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, <CS::Group as Group>::ScalarLen> {
+    pub fn serialize(&self) -> GenericArray<u8, NonVerifiableServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk)
     }
 
@@ -97,18 +107,22 @@ where
     }
 }
 
+/// Length of [`VerifiableServer`] in bytes for serialization.
+pub type VerifiableServerLen<CS> = Sum<
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+    <<CS as CipherSuite>::Group as Group>::ElemLen,
+>;
+
 impl<CS: CipherSuite> VerifiableServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(
-        &self,
-    ) -> GenericArray<u8, Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>>
+    pub fn serialize(&self) -> GenericArray<u8, VerifiableServerLen<CS>>
     where
         <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>: ArrayLength<u8>,
+        VerifiableServerLen<CS>: ArrayLength<u8>,
     {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
@@ -124,18 +138,22 @@ where
     }
 }
 
+/// Length of [`Proof`] in bytes for serialization.
+pub type ProofLen<CS> = Sum<
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+>;
+
 impl<CS: CipherSuite> Proof<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(
-        &self,
-    ) -> GenericArray<u8, Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>>
+    pub fn serialize(&self) -> GenericArray<u8, ProofLen<CS>>
     where
         <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
+        ProofLen<CS>: ArrayLength<u8>,
     {
         CS::Group::serialize_scalar(self.c_scalar)
             .concat(CS::Group::serialize_scalar(self.s_scalar))
@@ -152,13 +170,16 @@ where
     }
 }
 
+/// Length of [`BlindedElement`] in bytes for serialization.
+pub type BlindedElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemLen;
+
 impl<CS: CipherSuite> BlindedElement<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, <CS::Group as Group>::ElemLen> {
+    pub fn serialize(&self) -> GenericArray<u8, BlindedElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
     }
 
@@ -172,13 +193,16 @@ where
     }
 }
 
+/// Length of [`EvaluationElement`] in bytes for serialization.
+pub type EvaluationElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemLen;
+
 impl<CS: CipherSuite> EvaluationElement<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, <CS::Group as Group>::ElemLen> {
+    pub fn serialize(&self) -> GenericArray<u8, EvaluationElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
     }
 

@@ -514,6 +514,10 @@ pub use crate::error::{Error, Result};
 pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
 pub use crate::group::Ristretto255;
+pub use crate::serialization::{
+    BlindedElementLen, EvaluationElementLen, NonVerifiableClientLen, NonVerifiableServerLen,
+    ProofLen, VerifiableClientLen, VerifiableServerLen,
+};
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
