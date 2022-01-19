@@ -10,8 +10,8 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
-use digest::Digest;
-use elliptic_curve::hash2field::{ExpandMsg, ExpandMsgXmd, Expander};
+use digest::OutputSizeUser;
+use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
@@ -19,7 +19,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
-use crate::{Error, Result};
+use crate::{CipherSuite, Error, Result};
 
 /// [`Group`] implementation for Ristretto255.
 pub struct Ristretto255;
@@ -46,15 +46,16 @@ impl Group for Ristretto255 {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockSizeUser + Digest>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
     where
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<H>::expand_message(msg, &dst, 64)
+        ExpandMsgXmd::<CS::Hash>::expand_message(msg, &dst, 64)
             .map_err(|_| Error::PointError)?
             .fill_bytes(&mut uniform_bytes);
 
@@ -63,18 +64,16 @@ impl Group for Ristretto255 {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<'a, H: BlockSizeUser + Digest>(
-        input: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Scalar>
+    fn hash_to_scalar<'a, CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
     where
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst =
             GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<Self>(mode));
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<H>::expand_message(input, &dst, 64)
+        ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
             .map_err(|_| Error::PointError)?
             .fill_bytes(&mut uniform_bytes);
 

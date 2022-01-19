@@ -421,7 +421,7 @@ where
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk = CS::Group::hash_to_scalar::<CS::Hash>(&[seed], Mode::Base)?;
+        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Base)?;
         Ok(Self { sk })
     }
 
@@ -451,7 +451,7 @@ where
         let context = [&context, metadata];
 
         // m = GG.HashToScalar(context)
-        let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, Mode::Base)?;
+        let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Base)?;
         // t = skS + m
         let t = self.sk + &m;
         // Z = t^(-1) * R
@@ -488,7 +488,7 @@ where
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk = CS::Group::hash_to_scalar::<CS::Hash>(&[seed], Mode::Verifiable)?;
+        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Verifiable)?;
         let pk = CS::Group::base_elem() * &sk;
         Ok(Self { sk, pk })
     }
@@ -586,7 +586,7 @@ where
             .concat(i2osp_2(metadata.len())?);
         let context = [&context, metadata];
 
-        let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, Mode::Verifiable)?;
+        let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)?;
         let t = self.sk + &m;
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
@@ -864,7 +864,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let hashed_point = CS::Group::hash_to_curve::<CS::Hash>(&[input], mode)?;
+    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode)?;
     Ok(hashed_point * blind)
 }
 
@@ -909,7 +909,7 @@ where
         .concat(i2osp_2(info.len())?);
     let context = [&context, info];
 
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, Mode::Verifiable)?;
+    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)?;
 
     let g = CS::Group::base_elem();
     let t = g * &m;
@@ -990,7 +990,7 @@ where
         &challenge_dst,
     ];
 
-    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, Mode::Verifiable)?;
+    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -1051,7 +1051,7 @@ where
         &challenge_dst,
     ];
 
-    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, Mode::Verifiable)?;
+    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -1176,7 +1176,7 @@ where
             &composite_dst_len,
             &composite_dst,
         ];
-        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, Mode::Verifiable)?;
+        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
         m = c.0 * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -1233,13 +1233,13 @@ mod tests {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], mode).unwrap();
+        let point = CS::Group::hash_to_curve::<CS>(&[input], mode).unwrap();
 
         let context_string = get_context_string::<CS>(mode);
         let info_len = i2osp_2(info.len()).unwrap();
         let context = [&STR_CONTEXT, context_string.as_slice(), &info_len, info];
 
-        let m = CS::Group::hash_to_scalar::<CS::Hash>(&context, mode).unwrap();
+        let m = CS::Group::hash_to_scalar::<CS>(&context, mode).unwrap();
 
         let res = point * &CS::Group::invert_scalar(key + &m);
 
@@ -1313,7 +1313,7 @@ mod tests {
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], Mode::Base).unwrap()
+            CS::Group::hash_to_curve::<CS>(&[b"msg"], Mode::Base).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -1418,7 +1418,7 @@ mod tests {
         let messages: Vec<_> = messages.collect();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], Mode::Base).unwrap()
+            CS::Group::hash_to_curve::<CS>(&[b"msg"], Mode::Base).unwrap()
         };
         let client_finalize_result = VerifiableClient::batch_finalize(
             &inputs,
@@ -1450,7 +1450,7 @@ mod tests {
             )
             .unwrap();
 
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], Mode::Base).unwrap();
+        let point = CS::Group::hash_to_curve::<CS>(&[&input], Mode::Base).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(
             Some((input.as_ref(), point)).into_iter(),
             info,
