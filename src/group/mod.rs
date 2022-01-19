@@ -33,10 +33,6 @@ pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
 pub trait Group {
-    /// The ciphersuite identifier as dictated by
-    /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-05.txt>
-    const SUITE_ID: u16;
-
     /// The type of group elements
     type Elem: Copy
         + Sized

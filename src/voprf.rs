@@ -441,7 +441,7 @@ where
     ) -> Result<NonVerifiableServerEvaluateResult<CS>> {
         // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.1.1-1
 
-        let context_string = get_context_string::<CS::Group>(Mode::Base);
+        let context_string = get_context_string::<CS>(Mode::Base);
         let metadata = metadata.unwrap_or_default();
 
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
@@ -577,7 +577,7 @@ where
     ) -> Result<VerifiableServerBatchEvaluatePrepareResult<'a, CS, I>> {
         // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
 
-        let context_string = get_context_string::<CS::Group>(Mode::Verifiable);
+        let context_string = get_context_string::<CS>(Mode::Verifiable);
         let metadata = metadata.unwrap_or_default();
 
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
@@ -901,7 +901,7 @@ where
 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
 
-    let context_string = get_context_string::<CS::Group>(Mode::Verifiable);
+    let context_string = get_context_string::<CS>(Mode::Verifiable);
 
     // context = "Context-" || contextString || I2OSP(len(info), 2) || info
     let context = GenericArray::from(STR_CONTEXT)
@@ -967,7 +967,7 @@ where
 
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS::Group>(Mode::Verifiable));
+        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
     let challenge_dst_len = i2osp_2_array(challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
@@ -1028,7 +1028,7 @@ where
 
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS::Group>(Mode::Verifiable));
+        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
     let challenge_dst_len = i2osp_2_array(challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
@@ -1087,8 +1087,7 @@ where
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
 
     // finalizeDST = "Finalize-" || contextString
-    let finalize_dst =
-        GenericArray::from(STR_FINALIZE).concat(get_context_string::<CS::Group>(mode));
+    let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<CS>(mode));
 
     Ok(inputs_and_unblinded_elements
         // To make a return type possible, we have to convert to a `fn` pointer,
@@ -1141,10 +1140,9 @@ where
 
     let len = u16::try_from(c_slice.len()).map_err(|_| Error::SerializationError)?;
 
-    let seed_dst =
-        GenericArray::from(STR_SEED).concat(get_context_string::<CS::Group>(Mode::Verifiable));
+    let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<CS>(Mode::Verifiable));
     let composite_dst =
-        GenericArray::from(STR_COMPOSITE).concat(get_context_string::<CS::Group>(Mode::Verifiable));
+        GenericArray::from(STR_COMPOSITE).concat(get_context_string::<CS>(Mode::Verifiable));
     let composite_dst_len = i2osp_2_array(composite_dst);
 
     let seed = CS::Hash::new()
@@ -1196,10 +1194,14 @@ where
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
-pub(crate) fn get_context_string<G: Group>(mode: Mode) -> GenericArray<u8, U11> {
+pub(crate) fn get_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     GenericArray::from(STR_VOPRF)
         .concat([mode.to_u8()].into())
-        .concat(G::SUITE_ID.to_be_bytes().into())
+        .concat(CS::ID.to_be_bytes().into())
 }
 
 ///////////
@@ -1233,7 +1235,7 @@ mod tests {
     {
         let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], mode).unwrap();
 
-        let context_string = get_context_string::<CS::Group>(mode);
+        let context_string = get_context_string::<CS>(mode);
         let info_len = i2osp_2(info.len()).unwrap();
         let context = [&STR_CONTEXT, context_string.as_slice(), &info_len, info];
 

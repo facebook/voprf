@@ -30,8 +30,6 @@ use crate::{Error, Result};
 
 #[cfg(feature = "p256")]
 impl Group for NistP256 {
-    const SUITE_ID: u16 = 0x0003;
-
     type Elem = ProjectivePoint;
 
     type ElemLen = U33;
