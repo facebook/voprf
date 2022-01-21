@@ -476,7 +476,7 @@
 //!
 //! [curve25519-dalek]: (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
 
-#![deny(unsafe_code)]
+#![cfg_attr(not(test), deny(unsafe_code))]
 #![no_std]
 #![warn(
     clippy::cargo,

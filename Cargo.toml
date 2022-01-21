@@ -27,7 +27,7 @@ std = ["alloc"]
 
 [dependencies]
 curve25519-dalek = { version = "3", default-features = false, optional = true }
-derive-where = { version = "1.0.0-rc.1", features = ["zeroize"] }
+derive-where = { version = "1.0.0-rc.2", features = ["zeroize-on-drop"] }
 digest = "0.10"
 displaydoc = { version = "0.2", default-features = false }
 elliptic-curve = { version = "0.12.0-pre.1", features = [
@@ -42,7 +42,7 @@ serde_ = { version = "1", package = "serde", default-features = false, features 
 ], optional = true }
 sha2 = { version = "0.10", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
-zeroize = { version = "1", default-features = false }
+zeroize = { version = "1.5", default-features = false }
 
 [dev-dependencies]
 generic-array = { version = "0.14", features = ["more_lengths"] }
