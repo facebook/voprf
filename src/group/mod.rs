@@ -7,17 +7,15 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
-#[cfg(any(feature = "ristretto255", feature = "p256",))]
-mod expand;
-#[cfg(feature = "p256")]
-mod p256;
+mod elliptic_curve;
 #[cfg(feature = "ristretto255")]
 mod ristretto;
 
 use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::OutputSizeUser;
+use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
@@ -26,7 +24,7 @@ use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 use crate::voprf::Mode;
-use crate::Result;
+use crate::{CipherSuite, Result};
 
 pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
 pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
@@ -34,43 +32,37 @@ pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
 pub trait Group {
-    /// The ciphersuite identifier as dictated by
-    /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-05.txt>
-    const SUITE_ID: u16;
-
     /// The type of group elements
     type Elem: Copy
-        + Sized
-        + ConstantTimeEq
         + Zeroize
-        + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>
-        + for<'a> Add<&'a Self::Elem, Output = Self::Elem>;
+        + for<'a> Add<&'a Self::Elem, Output = Self::Elem>
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
 
     /// The byte length necessary to represent group elements
     type ElemLen: ArrayLength<u8> + 'static;
 
     /// The type of base field scalars
-    type Scalar: Zeroize
+    type Scalar: ConstantTimeEq
         + Copy
-        + ConstantTimeEq
+        + Zeroize
         + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>
+        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>;
 
     /// The byte length necessary to represent scalars
     type ScalarLen: ArrayLength<u8> + 'static;
 
     /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
-        msg: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Elem>;
+    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<H: BlockSizeUser + Digest + FixedOutputReset>(
-        input: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Scalar>;
+    fn hash_to_scalar<CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
 
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;

@@ -5,31 +5,37 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-use core::convert::TryInto;
-
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
+use digest::OutputSizeUser;
+use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{U32, U64};
+use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-use super::{expand, Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
+use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
-use crate::{Error, Result};
+use crate::{CipherSuite, Error, Result};
 
 /// [`Group`] implementation for Ristretto255.
 pub struct Ristretto255;
 
+#[cfg(feature = "ristretto255-ciphersuite")]
+impl crate::CipherSuite for Ristretto255 {
+    const ID: u16 = 0x0001;
+
+    type Group = Ristretto255;
+
+    type Hash = sha2::Sha512;
+}
+
 // `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
 #[cfg(feature = "ristretto255")]
 impl Group for Ristretto255 {
-    const SUITE_ID: u16 = 0x0001;
-
     type Elem = RistrettoPoint;
 
     type ElemLen = U32;
@@ -40,35 +46,38 @@ impl Group for Ristretto255 {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<H: BlockSizeUser + Digest + FixedOutputReset>(
-        msg: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Elem> {
+    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
 
-        let uniform_bytes = expand::expand_message_xmd::<H, U64>(msg, &dst)?;
+        let mut uniform_bytes = GenericArray::<_, U64>::default();
+        ExpandMsgXmd::<CS::Hash>::expand_message(msg, &dst, 64)
+            .map_err(|_| Error::PointError)?
+            .fill_bytes(&mut uniform_bytes);
 
         Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes.into()))
     }
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<'a, H: BlockSizeUser + Digest + FixedOutputReset>(
-        input: &[&[u8]],
-        mode: Mode,
-    ) -> Result<Self::Scalar> {
+    fn hash_to_scalar<'a, CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
         let dst =
             GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<Self>(mode));
 
-        let uniform_bytes = expand::expand_message_xmd::<H, U64>(input, &dst)?;
+        let mut uniform_bytes = GenericArray::<_, U64>::default();
+        ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
+            .map_err(|_| Error::PointError)?
+            .fill_bytes(&mut uniform_bytes);
 
-        Ok(Scalar::from_bytes_mod_order_wide(
-            uniform_bytes
-                .as_slice()
-                .try_into()
-                .map_err(|_| Error::HashToCurveError)?,
-        ))
+        Ok(Scalar::from_bytes_mod_order_wide(&uniform_bytes.into()))
     }
 
     fn base_elem() -> Self::Elem {

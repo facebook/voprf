@@ -11,16 +11,16 @@ use alloc::vec::Vec;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, FixedOutputReset};
-use generic_array::typenum::Sum;
+use digest::OutputSizeUser;
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
 use json::JsonValue;
 
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::{
-    BlindedElement, EvaluationElement, Group, NonVerifiableClient, NonVerifiableServer, Proof,
-    Result, VerifiableClient, VerifiableServer,
+    BlindedElement, CipherSuite, EvaluationElement, Group, NonVerifiableClient,
+    NonVerifiableServer, Proof, Result, VerifiableClient, VerifiableServer,
 };
 
 #[derive(Debug)]
@@ -85,13 +85,13 @@ macro_rules! json_to_test_vectors {
 
 #[test]
 fn test_vectors() -> Result<()> {
+    use p256::NistP256;
+
     let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
     #[cfg(feature = "ristretto255")]
     {
-        use sha2::Sha512;
-
         use crate::Ristretto255;
 
         let ristretto_base_tvs = json_to_test_vectors!(
@@ -106,93 +106,94 @@ fn test_vectors() -> Result<()> {
             String::from("Verifiable")
         );
 
-        test_base_seed_to_key::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
-        test_base_blind::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
-        test_base_evaluate::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
-        test_base_finalize::<Ristretto255, Sha512>(&ristretto_base_tvs)?;
+        test_base_seed_to_key::<Ristretto255>(&ristretto_base_tvs)?;
+        test_base_blind::<Ristretto255>(&ristretto_base_tvs)?;
+        test_base_evaluate::<Ristretto255>(&ristretto_base_tvs)?;
+        test_base_finalize::<Ristretto255>(&ristretto_base_tvs)?;
 
-        test_verifiable_seed_to_key::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_blind::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_evaluate::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
-        test_verifiable_finalize::<Ristretto255, Sha512>(&ristretto_verifiable_tvs)?;
+        test_verifiable_seed_to_key::<Ristretto255>(&ristretto_verifiable_tvs)?;
+        test_verifiable_blind::<Ristretto255>(&ristretto_verifiable_tvs)?;
+        test_verifiable_evaluate::<Ristretto255>(&ristretto_verifiable_tvs)?;
+        test_verifiable_finalize::<Ristretto255>(&ristretto_verifiable_tvs)?;
     }
 
-    #[cfg(feature = "p256")]
-    {
-        use p256_::NistP256;
-        use sha2::Sha256;
+    let p256base_tvs =
+        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
 
-        let p256_base_tvs =
-            json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
+    let p256verifiable_tvs = json_to_test_vectors!(
+        rfc,
+        String::from("P-256, SHA-256"),
+        String::from("Verifiable")
+    );
 
-        let p256_verifiable_tvs = json_to_test_vectors!(
-            rfc,
-            String::from("P-256, SHA-256"),
-            String::from("Verifiable")
-        );
+    test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
+    test_base_blind::<NistP256>(&p256base_tvs)?;
+    test_base_evaluate::<NistP256>(&p256base_tvs)?;
+    test_base_finalize::<NistP256>(&p256base_tvs)?;
 
-        test_base_seed_to_key::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_blind::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_evaluate::<NistP256, Sha256>(&p256_base_tvs)?;
-        test_base_finalize::<NistP256, Sha256>(&p256_base_tvs)?;
-
-        test_verifiable_seed_to_key::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_blind::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_evaluate::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-        test_verifiable_finalize::<NistP256, Sha256>(&p256_verifiable_tvs)?;
-    }
+    test_verifiable_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_blind::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_evaluate::<NistP256>(&p256verifiable_tvs)?;
+    test_verifiable_finalize::<NistP256>(&p256verifiable_tvs)?;
 
     Ok(())
 }
 
-fn test_base_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_base_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
-        let server = NonVerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
+        let server = NonVerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
 
         assert_eq!(
             &parameters.sksm,
-            &G::serialize_scalar(server.get_private_key()).to_vec()
+            &CS::Group::serialize_scalar(server.get_private_key()).to_vec()
         );
     }
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_verifiable_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
-        let server = VerifiableServer::<G, H>::new_from_seed(&parameters.seed)?;
+        let server = VerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
 
         assert_eq!(
             &parameters.sksm,
-            &G::serialize_scalar(server.get_private_key()).to_vec()
+            &CS::Group::serialize_scalar(server.get_private_key()).to_vec()
         );
         assert_eq!(
             &parameters.pksm,
-            G::serialize_elem(server.get_public_key()).as_slice()
+            CS::Group::serialize_elem(server.get_public_key()).as_slice()
         );
     }
     Ok(())
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_base_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let blind =
-                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
-            let client_result = NonVerifiableClient::<G, H>::deterministic_blind_unchecked(
+            let blind = CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
+                &parameters.blind[i],
+            ))?;
+            let client_result = NonVerifiableClient::<CS>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
             )?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::serialize_scalar(client_result.state.blind).to_vec()
+                &CS::Group::serialize_scalar(client_result.state.blind).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -204,21 +205,22 @@ fn test_base_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_verifiable_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let blind =
-                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?;
-            let client_blind_result = VerifiableClient::<G, H>::deterministic_blind_unchecked(
-                &parameters.input[i],
-                blind,
-            )?;
+            let blind = CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
+                &parameters.blind[i],
+            ))?;
+            let client_blind_result =
+                VerifiableClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
 
             assert_eq!(
                 &parameters.blind[i],
-                &G::serialize_scalar(client_blind_result.state.get_blind()).to_vec()
+                &CS::Group::serialize_scalar(client_blind_result.state.get_blind()).to_vec()
             );
             assert_eq!(
                 parameters.blinded_element[i].as_slice(),
@@ -230,12 +232,14 @@ fn test_verifiable_blind<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_base_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let server = NonVerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
+            let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
             let server_result = server.evaluate(
                 &BlindedElement::deserialize(&parameters.blinded_element[i])?,
                 Some(&parameters.info),
@@ -250,12 +254,12 @@ fn test_base_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_evaluate<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()>
+fn test_verifiable_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
-    G::ScalarLen: Add<G::ScalarLen>,
-    Sum<G::ScalarLen, G::ScalarLen>: ArrayLength<u8>,
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
+    Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
 {
     use crate::{
         VerifiableServerBatchEvaluateFinishResult, VerifiableServerBatchEvaluatePrepareResult,
@@ -263,7 +267,7 @@ where
 
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
-        let server = VerifiableServer::<G, H>::new_with_key(&parameters.sksm)?;
+        let server = VerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
 
         let mut blinded_elements = vec![];
         for blinded_element_bytes in &parameters.blinded_element {
@@ -294,12 +298,14 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_base_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<G, H>::from_blind(G::deserialize_scalar(
+            let client = NonVerifiableClient::<CS>::from_blind(CS::Group::deserialize_scalar(
                 &GenericArray::clone_from_slice(&parameters.blind[i]),
             )?);
 
@@ -315,15 +321,19 @@ fn test_base_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
     Ok(())
 }
 
-fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputReset>(
-    tvs: &[VOPRFTestVectorParameters],
-) -> Result<()> {
+fn test_verifiable_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<G, H>::from_blind_and_element(
-                G::deserialize_scalar(&GenericArray::clone_from_slice(&parameters.blind[i]))?,
-                G::deserialize_elem(&GenericArray::clone_from_slice(
+            let client = VerifiableClient::<CS>::from_blind_and_element(
+                CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
+                    &parameters.blind[i],
+                ))?,
+                CS::Group::deserialize_elem(&GenericArray::clone_from_slice(
                     &parameters.blinded_element[i],
                 ))?,
             );
@@ -341,7 +351,7 @@ fn test_verifiable_finalize<G: Group, H: BlockSizeUser + Digest + FixedOutputRes
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
-            G::deserialize_elem(GenericArray::from_slice(&parameters.pksm))?,
+            CS::Group::deserialize_elem(GenericArray::from_slice(&parameters.pksm))?,
             Some(&parameters.info),
         )?;
 

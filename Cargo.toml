@@ -2,34 +2,26 @@
 authors = ["Kevin Lewi <klewi@fb.com>"]
 categories = ["no-std", "algorithms", "cryptography"]
 description = "An implementation of a verifiable oblivious pseudorandom function (VOPRF)"
-edition = "2018"
+edition = "2021"
 keywords = ["oprf"]
 license = "MIT"
 name = "voprf"
 readme = "README.md"
 repository = "https://github.com/novifinancial/voprf/"
-resolver = "2"
-rust-version = "1.51"
+rust-version = "1.57"
 version = "0.3.0"
 
 [features]
 alloc = []
 danger = []
-default = ["ristretto255_u64", "serde"]
-p256 = [
-  "alloc",
-  "num-bigint",
-  "num-integer",
-  "num-traits",
-  "once_cell",
-  "p256_",
-]
+default = ["ristretto255-ciphersuite", "ristretto255-u64", "serde"]
 ristretto255 = ["generic-array/more_lengths"]
-ristretto255_fiat_u32 = ["curve25519-dalek/fiat_u32_backend", "ristretto255"]
-ristretto255_fiat_u64 = ["curve25519-dalek/fiat_u64_backend", "ristretto255"]
-ristretto255_simd = ["curve25519-dalek/simd_backend", "ristretto255"]
-ristretto255_u32 = ["curve25519-dalek/u32_backend", "ristretto255"]
-ristretto255_u64 = ["curve25519-dalek/u64_backend", "ristretto255"]
+ristretto255-ciphersuite = ["ristretto255", "sha2"]
+ristretto255-fiat-u32 = ["curve25519-dalek/fiat_u32_backend", "ristretto255"]
+ristretto255-fiat-u64 = ["curve25519-dalek/fiat_u64_backend", "ristretto255"]
+ristretto255-simd = ["curve25519-dalek/simd_backend", "ristretto255"]
+ristretto255-u32 = ["curve25519-dalek/u32_backend", "ristretto255"]
+ristretto255-u64 = ["curve25519-dalek/u64_backend", "ristretto255"]
 std = ["alloc"]
 
 [dependencies]
@@ -37,18 +29,17 @@ curve25519-dalek = { version = "3", default-features = false, optional = true }
 derive-where = { version = "1.0.0-rc.1", features = ["zeroize"] }
 digest = "0.10"
 displaydoc = { version = "0.2", default-features = false }
+elliptic-curve = { version = "0.12.0-pre.1", features = [
+  "hash2curve",
+  "sec1",
+  "voprf",
+] }
 generic-array = "0.14"
-num-bigint = { version = "0.4", default-features = false, optional = true }
-num-integer = { version = "0.1", default-features = false, optional = true }
-num-traits = { version = "0.2", default-features = false, optional = true }
-once_cell = { version = "1", default-features = false, optional = true }
-p256_ = { package = "p256", version = "0.10", default-features = false, features = [
-  "arithmetic",
-], optional = true }
 rand_core = { version = "0.6", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
+sha2 = { version = "0.10", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1", default-features = false }
 
@@ -56,11 +47,15 @@ zeroize = { version = "1", default-features = false }
 generic-array = { version = "0.14", features = ["more_lengths"] }
 hex = "0.4"
 json = "0.12"
+p256 = { version = "0.11.0-pre.0", default-features = false, features = [
+  "hash2curve",
+  "voprf",
+] }
 proptest = "1"
 rand = "0.8"
 regex = "1"
 sha2 = "0.10"
 
 [package.metadata.docs.rs]
-features = ["danger", "p256", "std"]
+features = ["danger", "std"]
 targets = []

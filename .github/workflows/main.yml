@@ -35,22 +35,16 @@ jobs:
       fail-fast: false
       matrix:
         backend_feature:
-          - ristretto255_u64
-          - ristretto255_u32
-          - p256
-          - ristretto255_u64,p256
+          - --features ristretto255-ciphersuite,ristretto255-u64
+          - --features ristretto255-ciphersuite,ristretto255-u32
+          -
         frontend_feature:
           -
           - --features danger
           - --features serde
         toolchain:
           - stable
-          - 1.51.0
-        exclude:
-        - backend_feature: p256
-          toolchain: 1.51.0
-        - backend_feature: ristretto255_u64,p256
-          toolchain: 1.51.0
+          - 1.57.0
     name: test
     steps:
       - name: Checkout sources
@@ -67,19 +61,19 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features ${{ matrix.backend_feature }}
+          args: --no-default-features ${{ matrix.backend_feature }}
 
       - name: Run cargo test with alloc
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features ${{ matrix.frontend_feature }},alloc --features ${{ matrix.backend_feature }}
+          args: --no-default-features ${{ matrix.frontend_feature }},alloc ${{ matrix.backend_feature }}
 
       - name: Run cargo test with std
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features ${{ matrix.frontend_feature }},std --features ${{ matrix.backend_feature }}
+          args: --no-default-features ${{ matrix.frontend_feature }},std ${{ matrix.backend_feature }}
 
   build-no-std:
     name: Build with no-std on ${{ matrix.target }}
@@ -94,9 +88,8 @@ jobs:
           - thumbv6m-none-eabi
         backend_feature:
           -
-          - --features ristretto255_u64
-          - --features ristretto255_u32
-          - --features p256
+          - --features ristretto255-ciphersuite,ristretto255-u64
+          - --features ristretto255-ciphersuite,ristretto255-u32
         frontend_feature:
           -
           - --features danger
@@ -135,7 +128,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         with:
           command: doc
-          args: --no-deps --document-private-items --features std,p256
+          args: --no-deps --document-private-items --features danger,std
 
 
   rustfmt:
