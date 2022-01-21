@@ -34,22 +34,20 @@ pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 pub trait Group {
     /// The type of group elements
     type Elem: Copy
-        + Sized
-        + ConstantTimeEq
         + Zeroize
-        + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>
-        + for<'a> Add<&'a Self::Elem, Output = Self::Elem>;
+        + for<'a> Add<&'a Self::Elem, Output = Self::Elem>
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
 
     /// The byte length necessary to represent group elements
     type ElemLen: ArrayLength<u8> + 'static;
 
     /// The type of base field scalars
-    type Scalar: Zeroize
+    type Scalar: ConstantTimeEq
         + Copy
-        + ConstantTimeEq
+        + Zeroize
         + for<'a> Add<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>
-        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>;
+        + for<'a> Mul<&'a Self::Scalar, Output = Self::Scalar>
+        + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>;
 
     /// The byte length necessary to represent scalars
     type ScalarLen: ArrayLength<u8> + 'static;
