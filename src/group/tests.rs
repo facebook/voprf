@@ -34,7 +34,7 @@ fn test_group_properties() -> Result<()> {
 fn test_identity_element_error<G: Group>() -> Result<()> {
     let identity = G::identity_elem();
     let result = G::deserialize_elem(&G::serialize_elem(identity));
-    assert!(matches!(result, Err(Error::PointError)));
+    assert!(matches!(result, Err(Error::Deserialization)));
 
     Ok(())
 }
@@ -43,7 +43,7 @@ fn test_identity_element_error<G: Group>() -> Result<()> {
 fn test_zero_scalar_error<G: Group>() -> Result<()> {
     let zero_scalar = G::zero_scalar();
     let result = G::deserialize_scalar(&G::serialize_scalar(zero_scalar));
-    assert!(matches!(result, Err(Error::ScalarError)));
+    assert!(matches!(result, Err(Error::Deserialization)));
 
     Ok(())
 }

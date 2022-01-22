@@ -19,7 +19,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
-use crate::{CipherSuite, Error, Result};
+use crate::{CipherSuite, Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
 pub struct Ristretto255;
@@ -46,7 +46,10 @@ impl Group for Ristretto255 {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    fn hash_to_curve<CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -55,8 +58,8 @@ impl Group for Ristretto255 {
             GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<CS::Hash>::expand_message(msg, &dst, 64)
-            .map_err(|_| Error::PointError)?
+        ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
+            .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
         Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes.into()))
@@ -64,7 +67,10 @@ impl Group for Ristretto255 {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<'a, CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
+    fn hash_to_scalar<'a, CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -74,7 +80,7 @@ impl Group for Ristretto255 {
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
         ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
-            .map_err(|_| Error::PointError)?
+            .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
         Ok(Scalar::from_bytes_mod_order_wide(&uniform_bytes.into()))
@@ -97,7 +103,7 @@ impl Group for Ristretto255 {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
             .filter(|point| point != &RistrettoPoint::identity())
-            .ok_or(Error::PointError)
+            .ok_or(Error::Deserialization)
     }
 
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
@@ -130,6 +136,6 @@ impl Group for Ristretto255 {
     fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
         Scalar::from_canonical_bytes((*scalar_bits).into())
             .filter(|scalar| scalar != &Scalar::zero())
-            .ok_or(Error::ScalarError)
+            .ok_or(Error::Deserialization)
     }
 }

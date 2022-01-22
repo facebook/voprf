@@ -59,8 +59,7 @@
 //! use voprf::NonVerifiableServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
-//!     .expect("Unable to construct server");
+//! let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! ```
 //!
 //! ### Client Blinding
@@ -108,8 +107,7 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! let server_evaluate_result = server
 //!     .evaluate(&client_blind_result.message, None)
 //!     .expect("Unable to perform server evaluate");
@@ -136,8 +134,7 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! # let server_evaluate_result = server.evaluate(
 //! #     &client_blind_result.message,
 //! #     None,
@@ -178,8 +175,7 @@
 //! use voprf::VerifiableServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server =
-//!     VerifiableServer::<CipherSuite>::new(&mut server_rng).expect("Unable to construct server");
+//! let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //!
 //! // To be sent to the client
 //! println!("Server public key: {:?}", server.get_public_key());
@@ -234,8 +230,7 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! let server_evaluate_result = server
 //!     .evaluate(&mut server_rng, &client_blind_result.message, None)
 //!     .expect("Unable to perform server evaluate");
@@ -263,8 +258,7 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
 //! #     &client_blind_result.message,
@@ -346,8 +340,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! let VerifiableServerBatchEvaluatePrepareResult {
 //!     prepared_evaluation_elements,
 //!     t,
@@ -385,8 +378,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! let VerifiableServerBatchEvaluateResult { messages, proof } = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
 //!     .expect("Unable to perform server batch evaluate");
@@ -420,8 +412,7 @@
 //! # }
 //! # use voprf::VerifiableServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng)
-//! #   .expect("Unable to construct server");
+//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
 //! # let VerifiableServerBatchEvaluateResult { messages, proof } = server
 //! #     .batch_evaluate(&mut server_rng, &client_messages, None)
 //! #     .expect("Unable to perform server batch evaluate");
@@ -488,7 +479,7 @@
 
 #![deny(unsafe_code)]
 #![no_std]
-#![warn(clippy::cargo, missing_docs)]
+#![warn(clippy::cargo, clippy::missing_errors_doc, missing_docs)]
 #![allow(clippy::multiple_crate_versions)]
 
 #[cfg(any(feature = "alloc", test))]
@@ -510,7 +501,7 @@ mod tests;
 // Exports
 
 pub use crate::ciphersuite::CipherSuite;
-pub use crate::error::{Error, Result};
+pub use crate::error::{Error, InternalError, Result};
 pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
 pub use crate::group::Ristretto255;
