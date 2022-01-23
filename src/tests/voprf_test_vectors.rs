@@ -240,14 +240,14 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
-            let server_result = server.evaluate(
+            let message = server.evaluate(
                 &BlindedElement::deserialize(&parameters.blinded_element[i])?,
                 Some(&parameters.info),
             )?;
 
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &server_result.message.serialize().as_slice()
+                &message.serialize().as_slice()
             );
         }
     }

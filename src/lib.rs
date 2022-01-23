@@ -88,9 +88,8 @@
 //!
 //! In the second step, the server takes as input the message from
 //! [NonVerifiableClient::blind] (a [BlindedElement]), and runs
-//! [NonVerifiableServer::evaluate] to produce a
-//! [NonVerifiableServerEvaluateResult], which consists of an
-//! [EvaluationElement] to be sent to the client.
+//! [NonVerifiableServer::evaluate] to produce [EvaluationElement] to be sent to
+//! the client.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -135,13 +134,13 @@
 //! # use voprf::NonVerifiableServer;
 //! # let mut server_rng = OsRng;
 //! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
-//! # let server_evaluate_result = server.evaluate(
+//! # let message = server.evaluate(
 //! #     &client_blind_result.message,
 //! #     None,
 //! # ).expect("Unable to perform server evaluate");
 //! let client_finalize_result = client_blind_result
 //!     .state
-//!     .finalize(b"input", &server_evaluate_result.message, None)
+//!     .finalize(b"input", &message, None)
 //!     .expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -479,7 +478,12 @@
 
 #![deny(unsafe_code)]
 #![no_std]
-#![warn(clippy::cargo, clippy::missing_errors_doc, missing_docs)]
+#![warn(
+    clippy::cargo,
+    clippy::missing_errors_doc,
+    missing_debug_implementations,
+    missing_docs
+)]
 #![allow(clippy::multiple_crate_versions)]
 
 #[cfg(any(feature = "alloc", test))]
@@ -513,8 +517,9 @@ pub use crate::serialization::{
 pub use crate::voprf::VerifiableServerBatchEvaluateResult;
 pub use crate::voprf::{
     BlindedElement, EvaluationElement, Mode, NonVerifiableClient, NonVerifiableClientBlindResult,
-    NonVerifiableServer, NonVerifiableServerEvaluateResult, PreparedEvaluationElement,
-    PreparedTscalar, Proof, VerifiableClient, VerifiableClientBatchFinalizeResult,
-    VerifiableClientBlindResult, VerifiableServer, VerifiableServerBatchEvaluateFinishResult,
-    VerifiableServerBatchEvaluatePrepareResult, VerifiableServerEvaluateResult,
+    NonVerifiableServer, PreparedEvaluationElement, PreparedTscalar, Proof, VerifiableClient,
+    VerifiableClientBatchFinalizeResult, VerifiableClientBlindResult, VerifiableServer,
+    VerifiableServerBatchEvaluateFinishResult, VerifiableServerBatchEvaluateFinishedMessages,
+    VerifiableServerBatchEvaluatePrepareResult,
+    VerifiableServerBatchEvaluatePreparedEvaluationElements, VerifiableServerEvaluateResult,
 };

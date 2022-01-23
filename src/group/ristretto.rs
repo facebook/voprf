@@ -22,6 +22,9 @@ use crate::voprf::{self, Mode};
 use crate::{CipherSuite, Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
+#[cfg(feature = "ristretto255")]
 pub struct Ristretto255;
 
 #[cfg(feature = "ristretto255-ciphersuite")]
