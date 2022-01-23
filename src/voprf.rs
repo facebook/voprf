@@ -262,7 +262,7 @@ where
     ///
     /// # Errors
     /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    /// - [`Error::Metadata`] if the `metadata` is longer then [`u16::MAX`].
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn finalize(
         &self,
         input: &[u8],
@@ -344,10 +344,9 @@ where
 
     /// Computes the third step for the multiplicative blinding version of
     /// DH-OPRF, in which the client unblinds the server's message.
-    /// Allows for batching of the finalization of multiple [VerifiableClient]
-    /// and [EvaluationElement] pairs
     ///
     /// # Errors
+    /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
     /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
     pub fn finalize(
@@ -375,6 +374,9 @@ where
     /// - [`Error::Batch`] if the number of `clients` and `messages` don't match
     ///   or is longer then [`u16::MAX`].
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
+    ///
+    /// The resulting messages can each fail individually with [`Error::Input`]
+    /// if the `input` is empty or longer then [`u16::MAX`].
     pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
         inputs: &'a II,
         clients: &'a IC,
