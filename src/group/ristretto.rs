@@ -103,7 +103,7 @@ impl Group for Ristretto255 {
         elem.compress().to_bytes().into()
     }
 
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+    fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem> {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
             .filter(|point| point != &RistrettoPoint::identity())
@@ -141,8 +141,11 @@ impl Group for Ristretto255 {
         scalar.to_bytes().into()
     }
 
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
-        Scalar::from_canonical_bytes((*scalar_bits).into())
+    fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar> {
+        scalar_bits
+            .try_into()
+            .ok()
+            .and_then(Scalar::from_canonical_bytes)
             .filter(|scalar| scalar != &Scalar::zero())
             .ok_or(Error::Deserialization)
     }

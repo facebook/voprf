@@ -13,7 +13,7 @@ use core::ops::Add;
 use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, Unsigned, U256};
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::{
@@ -46,7 +46,7 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
+        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
 
         Ok(Self { blind })
     }
@@ -80,8 +80,8 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let blind = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
-        let blinded_element = CS::Group::deserialize_elem(&deserialize(&mut input)?)?;
+        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
+        let blinded_element = deserialize_elem::<CS::Group, _>(&mut input)?;
 
         Ok(Self {
             blind,
@@ -110,7 +110,7 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
+        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
 
         Ok(Self { sk })
     }
@@ -143,8 +143,8 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let sk = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
-        let pk = CS::Group::deserialize_elem(&deserialize(&mut input)?)?;
+        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
+        let pk = deserialize_elem::<CS::Group, _>(&mut input)?;
 
         Ok(Self { sk, pk })
     }
@@ -178,8 +178,8 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let c_scalar = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
-        let s_scalar = CS::Group::deserialize_scalar(&deserialize(&mut input)?)?;
+        let c_scalar = deserialize_scalar::<CS::Group, _>(&mut input)?;
+        let s_scalar = deserialize_scalar::<CS::Group, _>(&mut input)?;
 
         Ok(Proof { c_scalar, s_scalar })
     }
@@ -205,7 +205,7 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = CS::Group::deserialize_elem(&deserialize(&mut input)?)?;
+        let value = deserialize_elem::<CS::Group, _>(&mut input)?;
 
         Ok(Self(value))
     }
@@ -231,15 +231,22 @@ where
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
-        let value = CS::Group::deserialize_elem(&deserialize(&mut input)?)?;
+        let value = deserialize_elem::<CS::Group, _>(&mut input)?;
 
         Ok(Self(value))
     }
 }
 
-fn deserialize<L: ArrayLength<u8>>(
-    input: &mut impl Iterator<Item = u8>,
-) -> Result<GenericArray<u8, L>> {
-    let input = input.by_ref().take(L::USIZE);
-    GenericArray::from_exact_iter(input).ok_or(Error::Deserialization)
+fn deserialize_elem<G: Group, I: Iterator<Item = u8>>(input: &mut I) -> Result<G::Elem> {
+    let input = input.by_ref().take(G::ElemLen::USIZE);
+    GenericArray::<_, G::ElemLen>::from_exact_iter(input)
+        .ok_or(Error::Deserialization)
+        .and_then(|bytes| G::deserialize_elem(&bytes))
+}
+
+fn deserialize_scalar<G: Group, I: Iterator<Item = u8>>(input: &mut I) -> Result<G::Scalar> {
+    let input = input.by_ref().take(G::ScalarLen::USIZE);
+    GenericArray::<_, G::ScalarLen>::from_exact_iter(input)
+        .ok_or(Error::Deserialization)
+        .and_then(|bytes| G::deserialize_scalar(&bytes))
 }

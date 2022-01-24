@@ -93,7 +93,7 @@ pub trait Group {
     /// # Errors
     /// [`Error::Deserialization`](crate::Error::Deserialization) if the element
     /// is not a valid point on the group or the identity element.
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
+    fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem>;
 
     /// picks a scalar at random
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
@@ -117,7 +117,7 @@ pub trait Group {
     /// # Errors
     /// [`Error::Deserialization`](crate::Error::Deserialization) if the scalar
     /// is not a valid point on the group or zero.
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
+    fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar>;
 }
 
 #[cfg(test)]

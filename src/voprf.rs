@@ -447,7 +447,7 @@ where
     /// [`Error::Deserialization`] if the private key is not a valid point on
     /// the group or zero.
     pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self> {
-        let sk = CS::Group::deserialize_scalar(private_key_bytes.into())?;
+        let sk = CS::Group::deserialize_scalar(private_key_bytes)?;
         Ok(Self { sk })
     }
 
@@ -531,7 +531,7 @@ where
     /// [`Error::Deserialization`] if the private key is not a valid point on
     /// the group or zero.
     pub fn new_with_key(key: &[u8]) -> Result<Self> {
-        let sk = CS::Group::deserialize_scalar(key.into())?;
+        let sk = CS::Group::deserialize_scalar(key)?;
         let pk = CS::Group::base_elem() * &sk;
         Ok(Self { sk, pk })
     }
