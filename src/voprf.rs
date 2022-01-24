@@ -707,6 +707,52 @@ where
     }
 }
 
+impl<CS: CipherSuite> BlindedElement<CS>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    #[cfg(feature = "danger")]
+    /// Creates a [BlindedElement] from a raw group element.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the value itself!
+    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
+        Self(value)
+    }
+
+    #[cfg(feature = "danger")]
+    /// Exposes the internal value
+    pub fn value(&self) -> <CS::Group as Group>::Elem {
+        self.0
+    }
+}
+
+impl<CS: CipherSuite> EvaluationElement<CS>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    #[cfg(feature = "danger")]
+    /// Creates an [EvaluationElement] from a raw group element.
+    ///
+    /// # Caution
+    ///
+    /// This should be used with caution, since it does not perform any checks
+    /// on the validity of the value itself!
+    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
+        Self(value)
+    }
+
+    #[cfg(feature = "danger")]
+    /// Exposes the internal value
+    pub fn value(&self) -> <CS::Group as Group>::Elem {
+        self.0
+    }
+}
+
 /////////////////////////
 // Convenience Structs //
 //==================== //
@@ -866,56 +912,10 @@ where
     pub proof: Proof<CS>,
 }
 
-///////////////////////////////////////////////
-// Inner functions and Trait Implementations //
-// ========================================= //
-///////////////////////////////////////////////
-
-impl<CS: CipherSuite> BlindedElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates a [BlindedElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
-    }
-}
-
-impl<CS: CipherSuite> EvaluationElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates an [EvaluationElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
-    }
-}
+/////////////////////
+// Inner functions //
+// =============== //
+/////////////////////
 
 type BlindResult<C> = (
     <<C as CipherSuite>::Group as Group>::Scalar,
