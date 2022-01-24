@@ -250,3 +250,53 @@ fn deserialize_scalar<G: Group, I: Iterator<Item = u8>>(input: &mut I) -> Result
         .ok_or(Error::Deserialization)
         .and_then(|bytes| G::deserialize_scalar(&bytes))
 }
+
+#[cfg(feature = "serde")]
+pub(crate) mod serde {
+    use core::marker::PhantomData;
+
+    use generic_array::GenericArray;
+    use serde::de::{Deserializer, Error};
+    use serde::ser::Serializer;
+    use serde::{Deserialize, Serialize};
+
+    use crate::Group;
+
+    pub(crate) struct Element<G: Group>(PhantomData<G>);
+
+    impl<'de, G: Group> Element<G> {
+        pub(crate) fn deserialize<D>(deserializer: D) -> Result<G::Elem, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            GenericArray::<_, G::ElemLen>::deserialize(deserializer)
+                .and_then(|bytes| G::deserialize_elem(&bytes).map_err(D::Error::custom))
+        }
+
+        pub(crate) fn serialize<S>(self_: &G::Elem, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            G::serialize_elem(*self_).serialize(serializer)
+        }
+    }
+
+    pub(crate) struct Scalar<G: Group>(PhantomData<G>);
+
+    impl<'de, G: Group> Scalar<G> {
+        pub(crate) fn deserialize<D>(deserializer: D) -> Result<G::Scalar, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            GenericArray::<_, G::ScalarLen>::deserialize(deserializer)
+                .and_then(|bytes| G::deserialize_scalar(&bytes).map_err(D::Error::custom))
+        }
+
+        pub(crate) fn serialize<S>(self_: &G::Scalar, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            G::serialize_scalar(*self_).serialize(serializer)
+        }
+    }
+}

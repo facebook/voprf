@@ -20,6 +20,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
+#[cfg(feature = "serde")]
+use crate::serialization::serde::{Element, Scalar};
 use crate::util::{i2osp_2, i2osp_2_array};
 use crate::{CipherSuite, Error, Group, Result};
 
@@ -68,16 +70,14 @@ impl Mode {
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct NonVerifiableClient<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
 }
 
@@ -89,19 +89,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>, <CS::Group as \
-                       Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize, <CS::Group as Group>::Elem: \
-                     serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct VerifiableClient<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate) blinded_element: <CS::Group as Group>::Elem,
 }
 
@@ -113,16 +110,14 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct NonVerifiableServer<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
 }
 
@@ -134,19 +129,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>, <CS::Group as \
-                       Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize, <CS::Group as Group>::Elem: \
-                     serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct VerifiableServer<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate) pk: <CS::Group as Group>::Elem,
 }
 
@@ -158,17 +150,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct Proof<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) c_scalar: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) s_scalar: <CS::Group as Group>::Scalar,
 }
 
@@ -180,12 +171,12 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Elem: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
-pub struct BlindedElement<CS: CipherSuite>(pub(crate) <CS::Group as Group>::Elem)
+pub struct BlindedElement<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
+    pub(crate)  <CS::Group as Group>::Elem,
+)
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
@@ -198,12 +189,12 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Elem: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
-pub struct EvaluationElement<CS: CipherSuite>(pub(crate) <CS::Group as Group>::Elem)
+pub struct EvaluationElement<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
+    pub(crate)  <CS::Group as Group>::Elem,
+)
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
@@ -834,10 +825,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Elem: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct PreparedEvaluationElement<CS: CipherSuite>(EvaluationElement<CS>)
 where
@@ -851,12 +839,12 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
-pub struct PreparedTscalar<CS: CipherSuite>(<CS::Group as Group>::Scalar)
+pub struct PreparedTscalar<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
+    <CS::Group as Group>::Scalar,
+)
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
