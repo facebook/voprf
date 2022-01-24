@@ -16,6 +16,7 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use subtle::ConstantTimeEq;
 
 use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
@@ -125,6 +126,10 @@ impl Group for Ristretto255 {
 
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
         scalar.invert()
+    }
+
+    fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
+        scalar.ct_eq(&Scalar::zero())
     }
 
     #[cfg(test)]

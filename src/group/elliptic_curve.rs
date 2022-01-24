@@ -103,6 +103,10 @@ where
         Option::from(scalar.invert()).unwrap()
     }
 
+    fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
+        scalar.is_zero()
+    }
+
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
         Scalar::<Self>::zero()

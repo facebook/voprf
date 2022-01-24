@@ -20,7 +20,7 @@ use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
 pub use ristretto::Ristretto255;
-use subtle::ConstantTimeEq;
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use crate::voprf::Mode;
@@ -100,6 +100,9 @@ pub trait Group {
 
     /// The multiplicative inverse of this scalar
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
+
+    /// Returns `true` if the scalar is zero.
+    fn is_zero_scalar(scalar: Self::Scalar) -> Choice;
 
     /// Returns the scalar representing zero
     #[cfg(test)]

@@ -474,7 +474,8 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate(
         &self,
         blinded_element: &BlindedElement<CS>,
@@ -496,6 +497,13 @@ where
             CS::Group::hash_to_scalar::<CS>(&context, Mode::Base).map_err(|_| Error::Metadata)?;
         // t = skS + m
         let t = self.sk + &m;
+
+        // if t == 0:
+        if bool::from(CS::Group::is_zero_scalar(t)) {
+            // raise InverseError
+            return Err(Error::Protocol);
+        }
+
         // Z = t^(-1) * R
         let z = blinded_element.0 * &CS::Group::invert_scalar(t);
 
@@ -553,7 +561,8 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
@@ -584,7 +593,8 @@ where
     /// messages from a [VerifiableClient]
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     #[cfg(feature = "alloc")]
     pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
@@ -626,7 +636,8 @@ where
     /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
         &self,
         blinded_elements: I,
@@ -646,6 +657,13 @@ where
         let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)
             .map_err(|_| Error::Metadata)?;
         let t = self.sk + &m;
+
+        // if t == 0:
+        if bool::from(CS::Group::is_zero_scalar(t)) {
+            // raise InverseError
+            return Err(Error::Protocol);
+        }
+
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
             // possible if we `move` from context.
