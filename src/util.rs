@@ -12,16 +12,16 @@ use core::convert::TryFrom;
 use generic_array::typenum::{IsLess, U2, U256};
 use generic_array::{ArrayLength, GenericArray};
 
-use crate::{Error, Result};
+use crate::InternalError;
 
-pub(crate) fn i2osp_2(input: usize) -> Result<GenericArray<u8, U2>> {
+pub(crate) fn i2osp_2(input: usize) -> Result<GenericArray<u8, U2>, InternalError> {
     u16::try_from(input)
         .map(|input| input.to_be_bytes().into())
-        .map_err(|_| Error::SerializationError)
+        .map_err(|_| InternalError::I2osp)
 }
 
 pub(crate) fn i2osp_2_array<L: ArrayLength<u8> + IsLess<U256>>(
-    _: GenericArray<u8, L>,
+    _: &GenericArray<u8, L>,
 ) -> GenericArray<u8, U2> {
     L::U16.to_be_bytes().into()
 }

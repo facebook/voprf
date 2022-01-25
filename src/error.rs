@@ -10,32 +10,32 @@
 use displaydoc::Display;
 
 /// [`Result`](core::result::Result) shorthand that uses [`Error`].
-pub type Result<T> = core::result::Result<T, Error>;
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Represents an error in the manipulation of internal cryptographic data
 #[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Error {
-    /// Could not parse byte sequence for key
-    InvalidByteSequence,
-    /// Could not deserialize element, or deserialized to the identity element
-    PointError,
-    /// Computing the hash-to-curve function failed
-    HashToCurveError,
-    /// Failure to serialize or deserialize bytes
-    SerializationError,
-    /// Use of incompatible modes (base vs. verifiable)
-    IncompatibleModeError,
-    /**
-     * Internal error thrown when different-lengthed slices are supplied
-     * to the compute_composites() function.
-     */
-    MismatchedLengthsForCompositeInputs,
+    /// Size of input is empty or longer then [`u16::MAX`].
+    Input,
+    /// Size of metadata is longer then `u16::MAX - 21`.
+    Metadata,
+    /// Failure to deserialize bytes
+    Deserialization,
+    /// Batched items are more then [`u16::MAX`] or length don't match.
+    Batch,
     /// In verifiable mode, occurs when the proof failed to verify
-    ProofVerificationError,
-    /// Encountered insufficient bytes when attempting to deserialize
-    SizeError,
-    /// Encountered an invalid scalar
-    ScalarError,
+    ProofVerification,
+    /// Size of seed is longer then [`u16::MAX`].
+    Seed,
+}
+
+/// Only used to implement [`Group`](crate::Group).
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum InternalError {
+    /// Size of input is empty or longer then [`u16::MAX`].
+    Input,
+    /// `input` is longer then [`u16::MAX`].
+    I2osp,
 }
 
 #[cfg(feature = "std")]

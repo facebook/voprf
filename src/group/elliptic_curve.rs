@@ -21,7 +21,7 @@ use rand_core::{CryptoRng, RngCore};
 use super::Group;
 use crate::group::{STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
-use crate::{CipherSuite, Error, Result};
+use crate::{CipherSuite, Error, InternalError, Result};
 
 impl<C> Group for C
 where
@@ -41,7 +41,10 @@ where
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    fn hash_to_curve<CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -49,11 +52,15 @@ where
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<CS>(mode));
 
-        Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(msg, &dst).map_err(|_| Error::PointError)
+        Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(input, &dst)
+            .map_err(|_| InternalError::Input)
     }
 
     // Implements the `HashToScalar()` function
-    fn hash_to_scalar<CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
+    fn hash_to_scalar<CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -62,7 +69,7 @@ where
             GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<CS>(mode));
 
         <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<CS::Hash>>(input, &dst)
-            .map_err(|_| Error::PointError)
+            .map_err(|_| InternalError::Input)
     }
 
     fn base_elem() -> Self::Elem {
@@ -85,7 +92,7 @@ where
     fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
         PublicKey::<Self>::from_sec1_bytes(element_bits)
             .map(|public_key| public_key.to_projective())
-            .map_err(|_| Error::PointError)
+            .map_err(|_| Error::Deserialization)
     }
 
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
@@ -108,6 +115,6 @@ where
     fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
         SecretKey::<Self>::from_be_bytes(scalar_bits)
             .map(|secret_key| *secret_key.to_nonzero_scalar())
-            .map_err(|_| Error::ScalarError)
+            .map_err(|_| Error::Deserialization)
     }
 }

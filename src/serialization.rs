@@ -40,6 +40,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -71,6 +74,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -98,6 +104,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -128,6 +137,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -160,6 +172,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -184,6 +199,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -207,6 +225,9 @@ where
     }
 
     /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
     pub fn deserialize(input: &[u8]) -> Result<Self> {
         let mut input = input.iter().copied();
 
@@ -220,5 +241,5 @@ fn deserialize<L: ArrayLength<u8>>(
     input: &mut impl Iterator<Item = u8>,
 ) -> Result<GenericArray<u8, L>> {
     let input = input.by_ref().take(L::USIZE);
-    GenericArray::from_exact_iter(input).ok_or(Error::SizeError)
+    GenericArray::from_exact_iter(input).ok_or(Error::Deserialization)
 }

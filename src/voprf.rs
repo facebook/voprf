@@ -220,6 +220,9 @@ where
 {
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
@@ -240,6 +243,9 @@ where
     ///
     /// This should be used with caution, since it does not perform any checks
     /// on the validity of the blinding factor!
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
@@ -253,6 +259,10 @@ where
 
     /// Computes the third step for the multiplicative blinding version of
     /// DH-OPRF, in which the client unblinds the server's message.
+    ///
+    /// # Errors
+    /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn finalize(
         &self,
         input: &[u8],
@@ -261,10 +271,10 @@ where
     ) -> Result<Output<CS::Hash>> {
         let unblinded_element = evaluation_element.0 * &CS::Group::invert_scalar(self.blind);
         let mut outputs = finalize_after_unblind::<CS, _, _>(
-            Some((input, unblinded_element)).into_iter(),
+            iter::once((input, unblinded_element)),
             metadata.unwrap_or_default(),
             Mode::Base,
-        )?;
+        );
         outputs.next().unwrap()
     }
 
@@ -288,6 +298,9 @@ where
 {
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
@@ -312,6 +325,9 @@ where
     ///
     /// This should be used with caution, since it does not perform any checks
     /// on the validity of the blinding factor!
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
@@ -328,6 +344,11 @@ where
 
     /// Computes the third step for the multiplicative blinding version of
     /// DH-OPRF, in which the client unblinds the server's message.
+    ///
+    /// # Errors
+    /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::ProofVerification`] if the `proof` failed to verify.
     pub fn finalize(
         &self,
         input: &[u8],
@@ -336,9 +357,9 @@ where
         pk: <CS::Group as Group>::Elem,
         metadata: Option<&[u8]>,
     ) -> Result<Output<CS::Hash>> {
-        let inputs: &[&[u8]; 1] = core::array::from_ref(&input);
-        let clients: &[Self; 1] = core::array::from_ref(self);
-        let messages: &[EvaluationElement<CS>; 1] = core::array::from_ref(evaluation_element);
+        let inputs = core::array::from_ref(&input);
+        let clients = core::array::from_ref(self);
+        let messages = core::array::from_ref(evaluation_element);
 
         let mut batch_result =
             Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;
@@ -347,6 +368,15 @@ where
 
     /// Allows for batching of the finalization of multiple [VerifiableClient]
     /// and [EvaluationElement] pairs
+    ///
+    /// # Errors
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Batch`] if the number of `clients` and `messages` don't match
+    ///   or is longer then [`u16::MAX`].
+    /// - [`Error::ProofVerification`] if the `proof` failed to verify.
+    ///
+    /// The resulting messages can each fail individually with [`Error::Input`]
+    /// if the `input` is empty or longer then [`u16::MAX`].
     pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
         inputs: &'a II,
         clients: &'a IC,
@@ -371,11 +401,11 @@ where
 
         let inputs_and_unblinded_elements = inputs.into_iter().zip(unblinded_elements);
 
-        finalize_after_unblind::<CS, _, _>(
+        Ok(finalize_after_unblind::<CS, _, _>(
             inputs_and_unblinded_elements,
             metadata,
             Mode::Verifiable,
-        )
+        ))
     }
 
     #[cfg(test)]
@@ -403,14 +433,19 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Produces a new instance of a [NonVerifiableServer] using a supplied RNG
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut seed = Output::<CS::Hash>::default();
         rng.fill_bytes(&mut seed);
-        Self::new_from_seed(&seed)
+        // This can't fail as the hash output is type constrained.
+        Self::new_from_seed(&seed).unwrap()
     }
 
     /// Produces a new instance of a [NonVerifiableServer] using a supplied set
     /// of bytes to represent the server's private key
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if the private key is not a valid point on
+    /// the group or zero.
     pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self> {
         let sk = CS::Group::deserialize_scalar(private_key_bytes.into())?;
         Ok(Self { sk })
@@ -420,8 +455,11 @@ where
     /// of bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
+    ///
+    /// # Errors
+    /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Base)?;
+        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Base).map_err(|_| Error::Seed)?;
         Ok(Self { sk })
     }
 
@@ -434,6 +472,9 @@ where
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
+    ///
+    /// # Errors
+    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn evaluate(
         &self,
         blinded_element: &BlindedElement<CS>,
@@ -447,11 +488,12 @@ where
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
         let context = GenericArray::from(STR_CONTEXT)
             .concat(context_string)
-            .concat(i2osp_2(metadata.len())?);
+            .concat(i2osp_2(metadata.len()).map_err(|_| Error::Metadata)?);
         let context = [&context, metadata];
 
         // m = GG.HashToScalar(context)
-        let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Base)?;
+        let m =
+            CS::Group::hash_to_scalar::<CS>(&context, Mode::Base).map_err(|_| Error::Metadata)?;
         // t = skS + m
         let t = self.sk + &m;
         // Z = t^(-1) * R
@@ -469,14 +511,19 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Produces a new instance of a [VerifiableServer] using a supplied RNG
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut seed = Output::<CS::Hash>::default();
         rng.fill_bytes(&mut seed);
-        Self::new_from_seed(&seed)
+        // This can't fail as the hash output is type constrained.
+        Self::new_from_seed(&seed).unwrap()
     }
 
     /// Produces a new instance of a [VerifiableServer] using a supplied set of
     /// bytes to represent the server's private key
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if the private key is not a valid point on
+    /// the group or zero.
     pub fn new_with_key(key: &[u8]) -> Result<Self> {
         let sk = CS::Group::deserialize_scalar(key.into())?;
         let pk = CS::Group::base_elem() * &sk;
@@ -487,8 +534,12 @@ where
     /// bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
+    ///
+    /// # Errors
+    /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
     pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Verifiable)?;
+        let sk =
+            CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Verifiable).map_err(|_| Error::Seed)?;
         let pk = CS::Group::base_elem() * &sk;
         Ok(Self { sk, pk })
     }
@@ -502,6 +553,9 @@ where
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
+    ///
+    /// # Errors
+    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
@@ -511,19 +565,16 @@ where
         let VerifiableServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements: mut evaluation_elements,
             t,
-        } = self.batch_evaluate_prepare(Some(blinded_element).into_iter(), metadata)?;
+        } = self.batch_evaluate_prepare(iter::once(blinded_element), metadata)?;
 
         let prepared_element = [evaluation_elements.next().unwrap()];
 
+        // This can't fail because we know the size of the inputs.
         let VerifiableServerBatchEvaluateFinishResult {
             mut messages,
             proof,
-        } = Self::batch_evaluate_finish(
-            rng,
-            Some(blinded_element).into_iter(),
-            &prepared_element,
-            &t,
-        )?;
+        } = Self::batch_evaluate_finish(rng, iter::once(blinded_element), &prepared_element, &t)
+            .unwrap();
 
         let message = messages.next().unwrap();
 
@@ -533,6 +584,9 @@ where
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
     /// messages from a [VerifiableClient]
+    ///
+    /// # Errors
+    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     #[cfg(feature = "alloc")]
     pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
@@ -552,13 +606,15 @@ where
 
         let prepared_elements = evaluation_elements.collect();
 
+        // This can't fail because we know the size of the inputs.
         let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
             Self::batch_evaluate_finish::<_, _, Vec<_>>(
                 rng,
                 blinded_elements.into_iter(),
                 &prepared_elements,
                 &t,
-            )?;
+            )
+            .unwrap();
 
         Ok(VerifiableServerBatchEvaluateResult {
             messages: messages.collect(),
@@ -570,6 +626,9 @@ where
     /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
     /// [`collect`](Iterator::collect)ed and passed into
     /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
+    ///
+    /// # Errors
+    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
         &self,
         blinded_elements: I,
@@ -583,10 +642,11 @@ where
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
         let context = GenericArray::from(STR_CONTEXT)
             .concat(context_string)
-            .concat(i2osp_2(metadata.len())?);
+            .concat(i2osp_2(metadata.len()).map_err(|_| Error::Metadata)?);
         let context = [&context, metadata];
 
-        let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)?;
+        let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)
+            .map_err(|_| Error::Metadata)?;
         let t = self.sk + &m;
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
@@ -604,6 +664,10 @@ where
 
     /// See [`batch_evaluate_prepare`](Self::batch_evaluate_prepare) for more
     /// details.
+    ///
+    /// # Errors
+    /// [`Error::Batch`] if the number of `blinded_elements` and
+    /// `evaluation_elements` don't match or is longer then [`u16::MAX`].
     pub fn batch_evaluate_finish<'a, 'b, R: RngCore + CryptoRng, IB, IE>(
         rng: &mut R,
         blinded_elements: IB,
@@ -837,6 +901,8 @@ type BlindResult<C> = (
 );
 
 // Inner function for blind. Returns the blind scalar and the blinded element
+//
+// Can only fail with [`Error::Input`].
 fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
     input: &[u8],
     blinding_factor_rng: &mut R,
@@ -855,6 +921,8 @@ where
 // Inner function for blind that assumes that the blinding factor has already
 // been chosen, and therefore takes it as input. Does not check if the blinding
 // factor is non-zero.
+//
+// Can only fail with [`Error::Input`].
 fn deterministic_blind_unchecked<CS: CipherSuite>(
     input: &[u8],
     blind: &<CS::Group as Group>::Scalar,
@@ -864,7 +932,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode)?;
+    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode).map_err(|_| Error::Input)?;
     Ok(hashed_point * blind)
 }
 
@@ -884,6 +952,8 @@ type VerifiableUnblindResult<'a, CS, IC, IM> = Map<
     ) -> <<CS as CipherSuite>::Group as Group>::Elem,
 >;
 
+// Can only fail with [`Error::Metadata`], [`Error::Batch] or
+// [`Error::ProofVerification`].
 fn verifiable_unblind<'a, CS: 'a + CipherSuite, IC, IM>(
     clients: &'a IC,
     messages: &'a IM,
@@ -906,10 +976,12 @@ where
     // context = "Context-" || contextString || I2OSP(len(info), 2) || info
     let context = GenericArray::from(STR_CONTEXT)
         .concat(context_string)
-        .concat(i2osp_2(info.len())?);
+        .concat(i2osp_2(info.len()).map_err(|_| Error::Metadata)?);
     let context = [&context, info];
 
-    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)?;
+    // The `input` used here is the metadata.
+    let m =
+        CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable).map_err(|_| Error::Metadata)?;
 
     let g = CS::Group::base_elem();
     let t = g * &m;
@@ -931,6 +1003,7 @@ where
         .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind)))
 }
 
+// Can only fail with [`Error::Batch`].
 #[allow(clippy::many_single_char_names)]
 fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     rng: &mut R,
@@ -968,7 +1041,7 @@ where
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
-    let challenge_dst_len = i2osp_2_array(challenge_dst);
+    let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
     //           I2OSP(len(a1), 2) || a1 ||
@@ -990,12 +1063,14 @@ where
         &challenge_dst,
     ];
 
-    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
+    // This can't fail, the size of the `input` is known.
+    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
 }
 
+// Can only fail with [`Error::ProofVerification`] or [`Error::Batch`].
 #[allow(clippy::many_single_char_names)]
 fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
@@ -1029,7 +1104,7 @@ where
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
         GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
-    let challenge_dst_len = i2osp_2_array(challenge_dst);
+    let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
     //           I2OSP(len(a1), 2) || a1 ||
@@ -1051,11 +1126,12 @@ where
         &challenge_dst,
     ];
 
-    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
+    // This can't fail, the size of the `input` is known.
+    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
-        false => Err(Error::ProofVerificationError),
+        false => Err(Error::ProofVerification),
     }
 }
 
@@ -1069,6 +1145,7 @@ type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
     ) -> Result<Output<<C as CipherSuite>::Hash>>,
 >;
 
+// Returned values can only fail with [`Error::Input`] or [`Error::Metadata`].
 fn finalize_after_unblind<
     'a,
     CS: CipherSuite,
@@ -1078,7 +1155,7 @@ fn finalize_after_unblind<
     inputs_and_unblinded_elements: IE,
     info: &'a [u8],
     mode: Mode,
-) -> Result<FinalizeAfterUnblindResult<CS, I, IE>>
+) -> FinalizeAfterUnblindResult<CS, I, IE>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -1089,12 +1166,12 @@ where
     // finalizeDST = "Finalize-" || contextString
     let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<CS>(mode));
 
-    Ok(inputs_and_unblinded_elements
+    inputs_and_unblinded_elements
         // To make a return type possible, we have to convert to a `fn` pointer,
         // which isn't possible if we `move` from context.
         .zip(iter::repeat((info, finalize_dst)))
         .map(|((input, unblinded_element), (info, finalize_dst))| {
-            let finalize_dst_len = i2osp_2_array(finalize_dst);
+            let finalize_dst_len = i2osp_2_array(&finalize_dst);
             let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
             // hashInput = I2OSP(len(input), 2) || input ||
@@ -1103,16 +1180,16 @@ where
             //             I2OSP(len(finalizeDST), 2) || finalizeDST
             // return Hash(hashInput)
             Ok(CS::Hash::new()
-                .chain_update(i2osp_2(input.as_ref().len())?)
+                .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
                 .chain_update(input.as_ref())
-                .chain_update(i2osp_2(info.len())?)
+                .chain_update(i2osp_2(info.len()).map_err(|_| Error::Metadata)?)
                 .chain_update(info)
                 .chain_update(elem_len)
                 .chain_update(CS::Group::serialize_elem(unblinded_element))
                 .chain_update(finalize_dst_len)
                 .chain_update(finalize_dst)
                 .finalize())
-        }))
+        })
 }
 
 type ComputeCompositesResult<C> = (
@@ -1120,6 +1197,7 @@ type ComputeCompositesResult<C> = (
     <<C as CipherSuite>::Group as Group>::Elem,
 );
 
+// Can only fail with [`Error::Batch`].
 fn compute_composites<CS: CipherSuite>(
     k_option: Option<<CS::Group as Group>::Scalar>,
     b: <CS::Group as Group>::Elem,
@@ -1135,23 +1213,23 @@ where
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
     if c_slice.len() != d_slice.len() {
-        return Err(Error::MismatchedLengthsForCompositeInputs);
+        return Err(Error::Batch);
     }
 
-    let len = u16::try_from(c_slice.len()).map_err(|_| Error::SerializationError)?;
+    let len = u16::try_from(c_slice.len()).map_err(|_| Error::Batch)?;
 
     let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<CS>(Mode::Verifiable));
     let composite_dst =
         GenericArray::from(STR_COMPOSITE).concat(get_context_string::<CS>(Mode::Verifiable));
-    let composite_dst_len = i2osp_2_array(composite_dst);
+    let composite_dst_len = i2osp_2_array(&composite_dst);
 
     let seed = CS::Hash::new()
         .chain_update(&elem_len)
         .chain_update(CS::Group::serialize_elem(b))
-        .chain_update(i2osp_2_array(seed_dst))
+        .chain_update(i2osp_2_array(&seed_dst))
         .chain_update(seed_dst)
         .finalize();
-    let seed_len = i2osp_2(seed.len())?;
+    let seed_len = i2osp_2_array(&seed);
 
     let mut m = CS::Group::identity_elem();
     let mut z = CS::Group::identity_elem();
@@ -1166,8 +1244,8 @@ where
         //           I2OSP(len(Di), 2) || Di ||
         //           I2OSP(len(compositeDST), 2) || compositeDST
         let h2_input = [
-            &seed_len,
-            seed.as_slice(),
+            seed_len.as_slice(),
+            &seed,
             &i.to_be_bytes(),
             &elem_len,
             &ci,
@@ -1176,7 +1254,8 @@ where
             &composite_dst_len,
             &composite_dst,
         ];
-        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable)?;
+        // This can't fail, the size of the `input` is known.
+        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable).unwrap();
         m = c.0 * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -1243,8 +1322,7 @@ mod tests {
 
         let res = point * &CS::Group::invert_scalar(key + &m);
 
-        finalize_after_unblind::<CS, _, _>(Some((input, res)).into_iter(), info, mode)
-            .unwrap()
+        finalize_after_unblind::<CS, _, _>(iter::once((input, res)), info, mode)
             .next()
             .unwrap()
             .unwrap()
@@ -1259,7 +1337,7 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = NonVerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = NonVerifiableServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
@@ -1280,7 +1358,7 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VerifiableClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -1307,7 +1385,7 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VerifiableClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -1344,7 +1422,7 @@ mod tests {
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
         }
-        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng);
         let VerifiableServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements,
             t,
@@ -1399,7 +1477,7 @@ mod tests {
             client_states.push(client_blind_result.state);
             client_messages.push(client_blind_result.message);
         }
-        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng);
         let VerifiableServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements,
             t,
@@ -1452,11 +1530,10 @@ mod tests {
 
         let point = CS::Group::hash_to_curve::<CS>(&[&input], Mode::Base).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(
-            Some((input.as_ref(), point)).into_iter(),
+            iter::once((input.as_ref(), point)),
             info,
             Mode::Base,
         )
-        .unwrap()
         .next()
         .unwrap()
         .unwrap();
@@ -1511,7 +1588,7 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = NonVerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = NonVerifiableServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
@@ -1538,7 +1615,7 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VerifiableClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VerifiableServer::<CS>::new(&mut rng).unwrap();
+        let server = VerifiableServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();

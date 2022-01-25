@@ -24,7 +24,7 @@ use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 use crate::voprf::Mode;
-use crate::{CipherSuite, Result};
+use crate::{CipherSuite, InternalError, Result};
 
 pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
 pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
@@ -52,14 +52,28 @@ pub trait Group {
     /// The byte length necessary to represent scalars
     type ScalarLen: ArrayLength<u8> + 'static;
 
-    /// transforms a password and domain separation tag (DST) into a curve point
-    fn hash_to_curve<CS: CipherSuite>(msg: &[&[u8]], mode: Mode) -> Result<Self::Elem>
+    /// Transforms a password and domain separation tag (DST) into a curve point
+    ///
+    /// # Errors
+    /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
+    /// then [`u16::MAX`].
+    fn hash_to_curve<CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
-    fn hash_to_scalar<CS: CipherSuite>(input: &[&[u8]], mode: Mode) -> Result<Self::Scalar>
+    ///
+    /// # Errors
+    /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
+    /// then [`u16::MAX`].
+    fn hash_to_scalar<CS: CipherSuite>(
+        input: &[&[u8]],
+        mode: Mode,
+    ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
@@ -75,6 +89,10 @@ pub trait Group {
 
     /// Return an element from its fixed-length bytes representation. If the
     /// element is the identity element, return an error.
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`](crate::Error::Deserialization) if the element
+    /// is not a valid point on the group or the identity element.
     fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
 
     /// picks a scalar at random
@@ -92,6 +110,10 @@ pub trait Group {
 
     /// Return a scalar from its fixed-length bytes representation. If the
     /// scalar is zero or invalid, then return an error.
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`](crate::Error::Deserialization) if the scalar
+    /// is not a valid point on the group or zero.
     fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
 }
 
