@@ -20,6 +20,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
+#[cfg(feature = "serde")]
+use crate::serialization::serde::{Element, Scalar};
 use crate::util::{i2osp_2, i2osp_2_array};
 use crate::{CipherSuite, Error, Group, Result};
 
@@ -37,7 +39,7 @@ const STR_VOPRF: [u8; 8] = *b"VOPRF08-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
 /// is only used for custom implementations for [`Group`].
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Mode {
     /// Non-verifiable mode.
     Base,
@@ -68,16 +70,14 @@ impl Mode {
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct NonVerifiableClient<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
 }
 
@@ -89,19 +89,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>, <CS::Group as \
-                       Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize, <CS::Group as Group>::Elem: \
-                     serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct VerifiableClient<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate) blinded_element: <CS::Group as Group>::Elem,
 }
 
@@ -113,16 +110,14 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct NonVerifiableServer<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
 }
 
@@ -134,19 +129,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>, <CS::Group as \
-                       Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize, <CS::Group as Group>::Elem: \
-                     serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct VerifiableServer<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate) pk: <CS::Group as Group>::Elem,
 }
 
@@ -158,17 +150,16 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Scalar: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Scalar: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
 pub struct Proof<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) c_scalar: <CS::Group as Group>::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) s_scalar: <CS::Group as Group>::Scalar,
 }
 
@@ -180,12 +171,12 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Elem: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
-pub struct BlindedElement<CS: CipherSuite>(pub(crate) <CS::Group as Group>::Elem)
+pub struct BlindedElement<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
+    pub(crate)  <CS::Group as Group>::Elem,
+)
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
@@ -198,12 +189,12 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(bound(
-        deserialize = "<CS::Group as Group>::Elem: serde::Deserialize<'de>",
-        serialize = "<CS::Group as Group>::Elem: serde::Serialize"
-    ))
+    serde(crate = "serde", bound = "")
 )]
-pub struct EvaluationElement<CS: CipherSuite>(pub(crate) <CS::Group as Group>::Elem)
+pub struct EvaluationElement<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
+    pub(crate)  <CS::Group as Group>::Elem,
+)
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
@@ -447,7 +438,7 @@ where
     /// [`Error::Deserialization`] if the private key is not a valid point on
     /// the group or zero.
     pub fn new_with_key(private_key_bytes: &[u8]) -> Result<Self> {
-        let sk = CS::Group::deserialize_scalar(private_key_bytes.into())?;
+        let sk = CS::Group::deserialize_scalar(private_key_bytes)?;
         Ok(Self { sk })
     }
 
@@ -474,12 +465,13 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate(
         &self,
         blinded_element: &BlindedElement<CS>,
         metadata: Option<&[u8]>,
-    ) -> Result<NonVerifiableServerEvaluateResult<CS>> {
+    ) -> Result<EvaluationElement<CS>> {
         // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.1.1-1
 
         let context_string = get_context_string::<CS>(Mode::Base);
@@ -496,12 +488,17 @@ where
             CS::Group::hash_to_scalar::<CS>(&context, Mode::Base).map_err(|_| Error::Metadata)?;
         // t = skS + m
         let t = self.sk + &m;
+
+        // if t == 0:
+        if bool::from(CS::Group::is_zero_scalar(t)) {
+            // raise InverseError
+            return Err(Error::Protocol);
+        }
+
         // Z = t^(-1) * R
         let z = blinded_element.0 * &CS::Group::invert_scalar(t);
 
-        Ok(NonVerifiableServerEvaluateResult {
-            message: EvaluationElement(z),
-        })
+        Ok(EvaluationElement(z))
     }
 }
 
@@ -525,7 +522,7 @@ where
     /// [`Error::Deserialization`] if the private key is not a valid point on
     /// the group or zero.
     pub fn new_with_key(key: &[u8]) -> Result<Self> {
-        let sk = CS::Group::deserialize_scalar(key.into())?;
+        let sk = CS::Group::deserialize_scalar(key)?;
         let pk = CS::Group::base_elem() * &sk;
         Ok(Self { sk, pk })
     }
@@ -555,7 +552,8 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
@@ -586,7 +584,8 @@ where
     /// messages from a [VerifiableClient]
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     #[cfg(feature = "alloc")]
     pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
@@ -628,7 +627,8 @@ where
     /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
     ///
     /// # Errors
-    /// [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
         &self,
         blinded_elements: I,
@@ -648,6 +648,13 @@ where
         let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Verifiable)
             .map_err(|_| Error::Metadata)?;
         let t = self.sk + &m;
+
+        // if t == 0:
+        if bool::from(CS::Group::is_zero_scalar(t)) {
+            // raise InverseError
+            return Err(Error::Protocol);
+        }
+
         let evaluation_elements = blinded_elements
             // To make a return type possible, we have to convert to a `fn` pointer, which isn't
             // possible if we `move` from context.
@@ -690,14 +697,14 @@ where
             u,
             evaluation_elements
                 .into_iter()
-                .map(|element| element.0.copy()),
-            blinded_elements.map(BlindedElement::copy),
+                .map(|element| element.0.clone()),
+            blinded_elements.cloned(),
         )?;
         let messages =
             evaluation_elements
                 .into_iter()
                 .map(<fn(&PreparedEvaluationElement<CS>) -> _>::from(|element| {
-                    element.0.copy()
+                    element.0.clone()
                 }));
 
         Ok(VerifiableServerBatchEvaluateFinishResult { messages, proof })
@@ -709,146 +716,11 @@ where
     }
 }
 
-/////////////////////////
-// Convenience Structs //
-//==================== //
-/////////////////////////
-
-/// Contains the fields that are returned by a non-verifiable client blind
-pub struct NonVerifiableClientBlindResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// The state to be persisted on the client
-    pub state: NonVerifiableClient<CS>,
-    /// The message to send to the server
-    pub message: BlindedElement<CS>,
-}
-
-/// Contains the fields that are returned by a non-verifiable server evaluate
-pub struct NonVerifiableServerEvaluateResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// The message to send to the client
-    pub message: EvaluationElement<CS>,
-}
-
-/// Contains the fields that are returned by a verifiable client blind
-pub struct VerifiableClientBlindResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// The state to be persisted on the client
-    pub state: VerifiableClient<CS>,
-    /// The message to send to the server
-    pub message: BlindedElement<CS>,
-}
-
-/// Concrete return type for [`VerifiableClient::batch_finalize`].
-pub type VerifiableClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnblindResult<
-    'a,
-    C,
-    I,
-    Zip<<&'a II as IntoIterator>::IntoIter, VerifiableUnblindResult<'a, C, IC, IM>>,
->;
-
-/// Contains the fields that are returned by a verifiable server evaluate
-pub struct VerifiableServerEvaluateResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// The message to send to the client
-    pub message: EvaluationElement<CS>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-/// Contains prepared [`EvaluationElement`]s by a verifiable server batch
-/// evaluate preparation.
-pub struct PreparedEvaluationElement<CS: CipherSuite>(EvaluationElement<CS>)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Contains the prepared `t` by a verifiable server batch evaluate preparation.
-#[derive(DeriveWhere)]
-#[derive_where(Zeroize(drop))]
-pub struct PreparedTscalar<CS: CipherSuite>(<CS::Group as Group>::Scalar)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// preparation.
-pub struct VerifiableServerBatchEvaluatePrepareResult<
-    'a,
-    CS: 'a + CipherSuite,
-    I: Iterator<Item = &'a BlindedElement<CS>>,
-> where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// Prepared [`EvaluationElement`]s that will become messages.
-    #[allow(clippy::type_complexity)]
-    pub prepared_evaluation_elements: Map<
-        Zip<I, Repeat<<CS::Group as Group>::Scalar>>,
-        fn((&BlindedElement<CS>, <CS::Group as Group>::Scalar)) -> PreparedEvaluationElement<CS>,
-    >,
-    /// Prepared `t` needed to finish the verifiable server batch evaluation.
-    pub t: PreparedTscalar<CS>,
-}
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// finish.
-pub struct VerifiableServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<CS>>,
-{
-    /// The messages to send to the client
-    #[allow(clippy::type_complexity)]
-    pub messages: Map<
-        <&'a I as IntoIterator>::IntoIter,
-        fn(&PreparedEvaluationElement<CS>) -> EvaluationElement<CS>,
-    >,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-#[cfg(feature = "alloc")]
-pub struct VerifiableServerBatchEvaluateResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// The messages to send to the client
-    pub messages: alloc::vec::Vec<EvaluationElement<CS>>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-///////////////////////////////////////////////
-// Inner functions and Trait Implementations //
-// ========================================= //
-///////////////////////////////////////////////
-
 impl<CS: CipherSuite> BlindedElement<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    /// Only used to easier validate allocation
-    fn copy(&self) -> Self {
-        Self(self.0)
-    }
-
     #[cfg(feature = "danger")]
     /// Creates a [BlindedElement] from a raw group element.
     ///
@@ -872,11 +744,6 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    /// Only used to easier validate allocation
-    fn copy(&self) -> Self {
-        Self(self.0)
-    }
-
     #[cfg(feature = "danger")]
     /// Creates an [EvaluationElement] from a raw group element.
     ///
@@ -894,6 +761,167 @@ where
         self.0
     }
 }
+
+/////////////////////////
+// Convenience Structs //
+//==================== //
+/////////////////////////
+
+/// Contains the fields that are returned by a non-verifiable client blind
+#[derive(DeriveWhere)]
+#[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
+pub struct NonVerifiableClientBlindResult<CS: CipherSuite>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// The state to be persisted on the client
+    pub state: NonVerifiableClient<CS>,
+    /// The message to send to the server
+    pub message: BlindedElement<CS>,
+}
+
+/// Contains the fields that are returned by a verifiable client blind
+#[derive(DeriveWhere)]
+#[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
+pub struct VerifiableClientBlindResult<CS: CipherSuite>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// The state to be persisted on the client
+    pub state: VerifiableClient<CS>,
+    /// The message to send to the server
+    pub message: BlindedElement<CS>,
+}
+
+/// Concrete return type for [`VerifiableClient::batch_finalize`].
+pub type VerifiableClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnblindResult<
+    'a,
+    C,
+    I,
+    Zip<<&'a II as IntoIterator>::IntoIter, VerifiableUnblindResult<'a, C, IC, IM>>,
+>;
+
+/// Contains the fields that are returned by a verifiable server evaluate
+#[derive(DeriveWhere)]
+#[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
+pub struct VerifiableServerEvaluateResult<CS: CipherSuite>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// The message to send to the client
+    pub message: EvaluationElement<CS>,
+    /// The proof for the client to verify
+    pub proof: Proof<CS>,
+}
+
+/// Contains prepared [`EvaluationElement`]s by a verifiable server batch
+/// evaluate preparation.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Elem)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(crate = "serde", bound = "")
+)]
+pub struct PreparedEvaluationElement<CS: CipherSuite>(EvaluationElement<CS>)
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+
+/// Contains the prepared `t` by a verifiable server batch evaluate preparation.
+#[derive(DeriveWhere)]
+#[derive_where(Clone, Zeroize(drop))]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(crate = "serde", bound = "")
+)]
+pub struct PreparedTscalar<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
+    <CS::Group as Group>::Scalar,
+)
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+
+/// Concrete type of [`EvaluationElement`]s in
+/// [`VerifiableServerBatchEvaluatePrepareResult`].
+pub type VerifiableServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
+    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
+    fn(
+        (
+            &BlindedElement<CS>,
+            <<CS as CipherSuite>::Group as Group>::Scalar,
+        ),
+    ) -> PreparedEvaluationElement<CS>,
+>;
+
+/// Contains the fields that are returned by a verifiable server batch evaluate
+/// preparation.
+#[derive(DeriveWhere)]
+#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
+pub struct VerifiableServerBatchEvaluatePrepareResult<
+    'a,
+    CS: 'a + CipherSuite,
+    I: Iterator<Item = &'a BlindedElement<CS>>,
+> where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// Prepared [`EvaluationElement`]s that will become messages.
+    pub prepared_evaluation_elements:
+        VerifiableServerBatchEvaluatePreparedEvaluationElements<CS, I>,
+    /// Prepared `t` needed to finish the verifiable server batch evaluation.
+    pub t: PreparedTscalar<CS>,
+}
+
+/// Concrete type of [`EvaluationElement`]s in
+/// [`VerifiableServerBatchEvaluateFinishResult`].
+pub type VerifiableServerBatchEvaluateFinishedMessages<'a, CS, I> = Map<
+    <&'a I as IntoIterator>::IntoIter,
+    fn(&PreparedEvaluationElement<CS>) -> EvaluationElement<CS>,
+>;
+
+/// Contains the fields that are returned by a verifiable server batch evaluate
+/// finish.
+#[derive(DeriveWhere)]
+#[derive_where(Debug; <&'a I as core::iter::IntoIterator>::IntoIter, <CS::Group as Group>::Scalar)]
+pub struct VerifiableServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<CS>>,
+{
+    /// The [`EvaluationElement`]s to send to the client
+    pub messages: VerifiableServerBatchEvaluateFinishedMessages<'a, CS, I>,
+    /// The proof for the client to verify
+    pub proof: Proof<CS>,
+}
+
+/// Contains the fields that are returned by a verifiable server batch evaluate
+#[derive(DeriveWhere)]
+#[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
+#[cfg(feature = "alloc")]
+pub struct VerifiableServerBatchEvaluateResult<CS: CipherSuite>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// The messages to send to the client
+    pub messages: alloc::vec::Vec<EvaluationElement<CS>>,
+    /// The proof for the client to verify
+    pub proof: Proof<CS>,
+}
+
+/////////////////////
+// Inner functions //
+// =============== //
+/////////////////////
 
 type BlindResult<C> = (
     <<C as CipherSuite>::Group as Group>::Scalar,
@@ -991,7 +1019,7 @@ where
         .into_iter()
         // Convert to `fn` pointer to make a return type possible.
         .map(<fn(&VerifiableClient<CS>) -> _>::from(|x| x.blind));
-    let evaluation_elements = messages.into_iter().map(EvaluationElement::copy);
+    let evaluation_elements = messages.into_iter().cloned();
     let blinded_elements = clients
         .into_iter()
         .map(|client| BlindedElement(client.blinded_element));
@@ -1338,12 +1366,12 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
         let server = NonVerifiableServer::<CS>::new(&mut rng);
-        let server_result = server
+        let message = server
             .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
         let client_finalize_result = client_blind_result
             .state
-            .finalize(input, &server_result.message, Some(info))
+            .finalize(input, &message, Some(info))
             .unwrap();
         let res2 = prf::<CS>(input, server.get_private_key(), info, Mode::Base);
         assert_eq!(client_finalize_result, res2);
@@ -1589,7 +1617,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
         let server = NonVerifiableServer::<CS>::new(&mut rng);
-        let server_result = server
+        let message = server
             .evaluate(&client_blind_result.message, Some(info))
             .unwrap();
 
@@ -1597,7 +1625,7 @@ mod tests {
         Zeroize::zeroize(&mut state);
         assert!(state.serialize().iter().all(|&x| x == 0));
 
-        let mut message = server_result.message;
+        let mut message = message;
         Zeroize::zeroize(&mut message);
         assert!(message.serialize().iter().all(|&x| x == 0));
     }

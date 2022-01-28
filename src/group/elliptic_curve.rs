@@ -89,7 +89,7 @@ where
         result
     }
 
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+    fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem> {
         PublicKey::<Self>::from_sec1_bytes(element_bits)
             .map(|public_key| public_key.to_projective())
             .map_err(|_| Error::Deserialization)
@@ -103,6 +103,10 @@ where
         Option::from(scalar.invert()).unwrap()
     }
 
+    fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
+        scalar.is_zero()
+    }
+
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
         Scalar::<Self>::zero()
@@ -112,7 +116,7 @@ where
         scalar.into()
     }
 
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
+    fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar> {
         SecretKey::<Self>::from_be_bytes(scalar_bits)
             .map(|secret_key| *secret_key.to_nonzero_scalar())
             .map_err(|_| Error::Deserialization)

@@ -13,7 +13,7 @@ use core::ops::Add;
 use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::ArrayLength;
 use json::JsonValue;
 
 use crate::tests::mock_rng::CycleRng;
@@ -183,9 +183,7 @@ where
 {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let blind = CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
-                &parameters.blind[i],
-            ))?;
+            let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
             let client_result = NonVerifiableClient::<CS>::deterministic_blind_unchecked(
                 &parameters.input[i],
                 blind,
@@ -212,9 +210,7 @@ where
 {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let blind = CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
-                &parameters.blind[i],
-            ))?;
+            let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
             let client_blind_result =
                 VerifiableClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
 
@@ -240,14 +236,14 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
-            let server_result = server.evaluate(
+            let message = server.evaluate(
                 &BlindedElement::deserialize(&parameters.blinded_element[i])?,
                 Some(&parameters.info),
             )?;
 
             assert_eq!(
                 &parameters.evaluation_element[i],
-                &server_result.message.serialize().as_slice()
+                &message.serialize().as_slice()
             );
         }
     }
@@ -306,7 +302,7 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let client = NonVerifiableClient::<CS>::from_blind(CS::Group::deserialize_scalar(
-                &GenericArray::clone_from_slice(&parameters.blind[i]),
+                &parameters.blind[i],
             )?);
 
             let client_finalize_result = client.finalize(
@@ -330,12 +326,8 @@ where
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
             let client = VerifiableClient::<CS>::from_blind_and_element(
-                CS::Group::deserialize_scalar(&GenericArray::clone_from_slice(
-                    &parameters.blind[i],
-                ))?,
-                CS::Group::deserialize_elem(&GenericArray::clone_from_slice(
-                    &parameters.blinded_element[i],
-                ))?,
+                CS::Group::deserialize_scalar(&parameters.blind[i])?,
+                CS::Group::deserialize_elem(&parameters.blinded_element[i])?,
             );
             clients.push(client.clone());
         }
@@ -351,7 +343,7 @@ where
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
-            CS::Group::deserialize_elem(GenericArray::from_slice(&parameters.pksm))?,
+            CS::Group::deserialize_elem(&parameters.pksm)?,
             Some(&parameters.info),
         )?;
 

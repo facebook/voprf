@@ -20,7 +20,7 @@ use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
 pub use ristretto::Ristretto255;
-use subtle::ConstantTimeEq;
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use crate::voprf::Mode;
@@ -93,13 +93,16 @@ pub trait Group {
     /// # Errors
     /// [`Error::Deserialization`](crate::Error::Deserialization) if the element
     /// is not a valid point on the group or the identity element.
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem>;
+    fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem>;
 
     /// picks a scalar at random
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
 
     /// The multiplicative inverse of this scalar
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
+
+    /// Returns `true` if the scalar is zero.
+    fn is_zero_scalar(scalar: Self::Scalar) -> Choice;
 
     /// Returns the scalar representing zero
     #[cfg(test)]
@@ -114,7 +117,7 @@ pub trait Group {
     /// # Errors
     /// [`Error::Deserialization`](crate::Error::Deserialization) if the scalar
     /// is not a valid point on the group or zero.
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar>;
+    fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar>;
 }
 
 #[cfg(test)]

@@ -27,6 +27,8 @@ pub enum Error {
     ProofVerification,
     /// Size of seed is longer then [`u16::MAX`].
     Seed,
+    /// The protocol has failed and can't be completed.
+    Protocol,
 }
 
 /// Only used to implement [`Group`](crate::Group).

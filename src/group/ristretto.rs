@@ -16,12 +16,16 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use subtle::ConstantTimeEq;
 
 use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 use crate::voprf::{self, Mode};
 use crate::{CipherSuite, Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
+#[cfg(feature = "ristretto255")]
 pub struct Ristretto255;
 
 #[cfg(feature = "ristretto255-ciphersuite")]
@@ -99,7 +103,7 @@ impl Group for Ristretto255 {
         elem.compress().to_bytes().into()
     }
 
-    fn deserialize_elem(element_bits: &GenericArray<u8, Self::ElemLen>) -> Result<Self::Elem> {
+    fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem> {
         CompressedRistretto::from_slice(element_bits)
             .decompress()
             .filter(|point| point != &RistrettoPoint::identity())
@@ -124,6 +128,10 @@ impl Group for Ristretto255 {
         scalar.invert()
     }
 
+    fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
+        scalar.ct_eq(&Scalar::zero())
+    }
+
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
         Scalar::zero()
@@ -133,8 +141,11 @@ impl Group for Ristretto255 {
         scalar.to_bytes().into()
     }
 
-    fn deserialize_scalar(scalar_bits: &GenericArray<u8, Self::ScalarLen>) -> Result<Self::Scalar> {
-        Scalar::from_canonical_bytes((*scalar_bits).into())
+    fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar> {
+        scalar_bits
+            .try_into()
+            .ok()
+            .and_then(Scalar::from_canonical_bytes)
             .filter(|scalar| scalar != &Scalar::zero())
             .ok_or(Error::Deserialization)
     }
