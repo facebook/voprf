@@ -9,10 +9,16 @@
 
 use core::convert::TryFrom;
 
-use generic_array::typenum::{IsLess, U2, U256};
+use generic_array::typenum::{IsLess, U1, U2, U256};
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::InternalError;
+
+pub(crate) fn i2osp_1(input: usize) -> Result<GenericArray<u8, U1>, InternalError> {
+    u8::try_from(input)
+        .map(|input| input.to_be_bytes().into())
+        .map_err(|_| InternalError::I2osp)
+}
 
 pub(crate) fn i2osp_2(input: usize) -> Result<GenericArray<u8, U2>, InternalError> {
     u16::try_from(input)

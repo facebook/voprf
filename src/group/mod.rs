@@ -15,6 +15,7 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
+use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
@@ -73,6 +74,26 @@ pub trait Group {
     fn hash_to_scalar<CS: CipherSuite>(
         input: &[&[u8]],
         mode: Mode,
+    ) -> Result<Self::Scalar, InternalError>
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let dst = GenericArray::from(STR_HASH_TO_SCALAR)
+            .concat(crate::voprf::create_context_string::<CS>(mode));
+
+        Self::hash_to_scalar_with_dst::<CS>(input, &dst)
+    }
+
+    /// Hashes a slice of pseudo-random bytes to a scalar, allowing for
+    /// specifying a custom domain separation tag (DST)
+    ///
+    /// # Errors
+    /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
+    /// then [`u16::MAX`].
+    fn hash_to_scalar_with_dst<CS: CipherSuite>(
+        input: &[&[u8]],
+        dst: &[u8],
     ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:

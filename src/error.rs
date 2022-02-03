@@ -29,6 +29,8 @@ pub enum Error {
     Seed,
     /// The protocol has failed and can't be completed.
     Protocol,
+    /// Issue with deriving a keypair
+    DeriveKeyPair,
 }
 
 /// Only used to implement [`Group`](crate::Group).

@@ -18,7 +18,7 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use super::{Group, STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
+use super::{Group, STR_HASH_TO_GROUP};
 use crate::voprf::{self, Mode};
 use crate::{CipherSuite, Error, InternalError, Result};
 
@@ -58,8 +58,8 @@ impl Group for Ristretto255 {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst =
-            GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<Self>(mode));
+        let dst = GenericArray::from(STR_HASH_TO_GROUP)
+            .concat(voprf::create_context_string::<Self>(mode));
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
         ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
@@ -71,19 +71,16 @@ impl Group for Ristretto255 {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<'a, CS: CipherSuite>(
+    fn hash_to_scalar_with_dst<'a, CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst =
-            GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<Self>(mode));
-
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
+        ExpandMsgXmd::<CS::Hash>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 

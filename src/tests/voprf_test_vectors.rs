@@ -40,11 +40,11 @@ struct VOPRFTestVectorParameters {
 
 fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
     VOPRFTestVectorParameters {
-        seed: decode(values, "seed"),
+        seed: decode(values, "Seed"),
         sksm: decode(values, "skSm"),
         pksm: decode(values, "pkSm"),
         input: decode_vec(values, "Input"),
-        info: decode(values, "Info"),
+        info: decode(values, "KeyInfo"),
         blind: decode_vec(values, "Blind"),
         blinded_element: decode_vec(values, "BlindedElement"),
         evaluation_element: decode_vec(values, "EvaluationElement"),
@@ -97,14 +97,16 @@ fn test_vectors() -> Result<()> {
         let ristretto_base_tvs = json_to_test_vectors!(
             rfc,
             String::from("ristretto255, SHA-512"),
-            String::from("Base")
+            String::from("OPRF")
         );
+        assert_ne!(ristretto_base_tvs.len(), 0);
 
         let ristretto_verifiable_tvs = json_to_test_vectors!(
             rfc,
             String::from("ristretto255, SHA-512"),
-            String::from("Verifiable")
+            String::from("VOPRF")
         );
+        assert_ne!(ristretto_verifiable_tvs.len(), 0);
 
         test_base_seed_to_key::<Ristretto255>(&ristretto_base_tvs)?;
         test_base_blind::<Ristretto255>(&ristretto_base_tvs)?;
@@ -119,12 +121,14 @@ fn test_vectors() -> Result<()> {
 
     let p256base_tvs =
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
+    assert_ne!(p256base_tvs.len(), 0);
 
     let p256verifiable_tvs = json_to_test_vectors!(
         rfc,
         String::from("P-256, SHA-256"),
         String::from("Verifiable")
     );
+    assert_ne!(p256verifiable_tvs.len(), 0);
 
     test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
     test_base_blind::<NistP256>(&p256base_tvs)?;
@@ -145,7 +149,7 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = NonVerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
+        let server = NonVerifiableServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -161,7 +165,7 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = VerifiableServer::<CS>::new_from_seed(&parameters.seed)?;
+        let server = VerifiableServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -236,10 +240,9 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
-            let message = server.evaluate(
-                &BlindedElement::deserialize(&parameters.blinded_element[i])?,
-                Some(&parameters.info),
-            )?;
+            let message = server.evaluate(&BlindedElement::deserialize(
+                &parameters.blinded_element[i],
+            )?)?;
 
             assert_eq!(
                 &parameters.evaluation_element[i],

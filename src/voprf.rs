@@ -15,14 +15,14 @@ use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U20, U256};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U256, U8};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
-use crate::util::{i2osp_2, i2osp_2_array};
+use crate::util::{i2osp_1, i2osp_2, i2osp_2_array};
 use crate::{CipherSuite, Error, Group, Result};
 
 ///////////////
@@ -30,12 +30,13 @@ use crate::{CipherSuite, Error, Group, Result};
 // ========= //
 ///////////////
 
-const STR_FINALIZE: [u8; 9] = *b"Finalize-";
+const STR_FINALIZE: [u8; 8] = *b"Finalize";
 const STR_SEED: [u8; 5] = *b"Seed-";
+const STR_DERIVE_KEYPAIR: [u8; 13] = *b"DeriveKeyPair";
 const STR_CONTEXT: [u8; 8] = *b"Context-";
 const STR_COMPOSITE: [u8; 10] = *b"Composite-";
 const STR_CHALLENGE: [u8; 10] = *b"Challenge-";
-const STR_VOPRF: [u8; 8] = *b"VOPRF08-";
+const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
 /// is only used for custom implementations for [`Group`].
@@ -257,7 +258,6 @@ where
         let mut outputs = finalize_after_unblind::<CS, _, _>(
             iter::once((input, unblinded_element)),
             metadata.unwrap_or_default(),
-            Mode::Base,
         );
         outputs.next().unwrap()
     }
@@ -388,7 +388,6 @@ where
         Ok(finalize_after_unblind::<CS, _, _>(
             inputs_and_unblinded_elements,
             metadata,
-            Mode::Verifiable,
         ))
     }
 
@@ -421,7 +420,7 @@ where
         let mut seed = Output::<CS::Hash>::default();
         rng.fill_bytes(&mut seed);
         // This can't fail as the hash output is type constrained.
-        Self::new_from_seed(&seed).unwrap()
+        Self::new_from_seed(&seed, &[]).unwrap()
     }
 
     /// Produces a new instance of a [NonVerifiableServer] using a supplied set
@@ -442,8 +441,8 @@ where
     ///
     /// # Errors
     /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
-    pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk = CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Base).map_err(|_| Error::Seed)?;
+    pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
+        let (sk, _) = derive_keypair::<CS>(seed, info, Mode::Base).map_err(|_| Error::Seed)?;
         Ok(Self { sk })
     }
 
@@ -458,40 +457,9 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn evaluate(
-        &self,
-        blinded_element: &BlindedElement<CS>,
-        metadata: Option<&[u8]>,
-    ) -> Result<EvaluationElement<CS>> {
-        // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.1.1-1
-
-        let context_string = get_context_string::<CS>(Mode::Base);
-        let metadata = metadata.unwrap_or_default();
-
-        // context = "Context-" || contextString || I2OSP(len(info), 2) || info
-        let context = GenericArray::from(STR_CONTEXT)
-            .concat(context_string)
-            .concat(i2osp_2(metadata.len()).map_err(|_| Error::Metadata)?);
-        let context = [&context, metadata];
-
-        // m = GG.HashToScalar(context)
-        let m =
-            CS::Group::hash_to_scalar::<CS>(&context, Mode::Base).map_err(|_| Error::Metadata)?;
-        // t = skS + m
-        let t = self.sk + &m;
-
-        // if t == 0:
-        if bool::from(CS::Group::is_zero_scalar(t)) {
-            // raise InverseError
-            return Err(Error::Protocol);
-        }
-
-        // Z = t^(-1) * R
-        let z = blinded_element.0 * &CS::Group::invert_scalar(t);
-
-        Ok(EvaluationElement(z))
+    pub fn evaluate(&self, blinded_element: &BlindedElement<CS>) -> Result<EvaluationElement<CS>> {
+        Ok(EvaluationElement(blinded_element.0 * &self.sk))
     }
 }
 
@@ -505,7 +473,7 @@ where
         let mut seed = Output::<CS::Hash>::default();
         rng.fill_bytes(&mut seed);
         // This can't fail as the hash output is type constrained.
-        Self::new_from_seed(&seed).unwrap()
+        Self::new_from_seed(&seed, &[]).unwrap()
     }
 
     /// Produces a new instance of a [VerifiableServer] using a supplied set of
@@ -527,10 +495,9 @@ where
     ///
     /// # Errors
     /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
-    pub fn new_from_seed(seed: &[u8]) -> Result<Self> {
-        let sk =
-            CS::Group::hash_to_scalar::<CS>(&[seed], Mode::Verifiable).map_err(|_| Error::Seed)?;
-        let pk = CS::Group::base_elem() * &sk;
+    pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
+        let (sk, pk) =
+            derive_keypair::<CS>(seed, info, Mode::Verifiable).map_err(|_| Error::Seed)?;
         Ok(Self { sk, pk })
     }
 
@@ -629,7 +596,7 @@ where
     ) -> Result<VerifiableServerBatchEvaluatePrepareResult<'a, CS, I>> {
         // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
 
-        let context_string = get_context_string::<CS>(Mode::Verifiable);
+        let context_string = create_context_string::<CS>(Mode::Verifiable);
         let metadata = metadata.unwrap_or_default();
 
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
@@ -908,6 +875,46 @@ where
 // =============== //
 /////////////////////
 
+#[allow(clippy::type_complexity)]
+pub(crate) fn derive_keypair<CS: CipherSuite>(
+    seed: &[u8],
+    info: &[u8],
+    mode: Mode,
+) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem), Error>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let context_string = create_context_string::<CS>(mode);
+    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
+
+    // deriveInput = seed || I2OSP(len(info), 2) || info
+    let info_len = i2osp_2(info.len()).map_err(|_| Error::Metadata)?;
+
+    let mut counter: usize = 0;
+
+    loop {
+        if counter > 255 {
+            break Err(Error::DeriveKeyPair);
+        }
+
+        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
+        // || contextString)
+        let counter_i2osp = i2osp_1(counter).map_err(|_| Error::DeriveKeyPair)?;
+        let sk_s = <CS::Group as Group>::hash_to_scalar_with_dst::<CS>(
+            &[seed, info_len.as_slice(), info, counter_i2osp.as_slice()],
+            &dst,
+        )
+        .map_err(|_| Error::DeriveKeyPair)?;
+
+        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
+            let pk_s = CS::Group::base_elem() * &sk_s;
+            break Ok((sk_s, pk_s));
+        }
+        counter += 1;
+    }
+}
+
 type BlindResult<C> = (
     <<C as CipherSuite>::Group as Group>::Scalar,
     <<C as CipherSuite>::Group as Group>::Elem,
@@ -984,7 +991,7 @@ where
 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
 
-    let context_string = get_context_string::<CS>(Mode::Verifiable);
+    let context_string = create_context_string::<CS>(Mode::Verifiable);
 
     // context = "Context-" || contextString || I2OSP(len(info), 2) || info
     let context = GenericArray::from(STR_CONTEXT)
@@ -1053,7 +1060,7 @@ where
 
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
+        GenericArray::from(STR_CHALLENGE).concat(create_context_string::<CS>(Mode::Verifiable));
     let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
@@ -1116,7 +1123,7 @@ where
 
     // challengeDST = "Challenge-" || contextString
     let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(get_context_string::<CS>(Mode::Verifiable));
+        GenericArray::from(STR_CHALLENGE).concat(create_context_string::<CS>(Mode::Verifiable));
     let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
@@ -1149,11 +1156,11 @@ where
 }
 
 type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
-    Zip<IE, Repeat<(&'a [u8], GenericArray<u8, U20>)>>,
+    Zip<IE, Repeat<GenericArray<u8, U8>>>,
     fn(
         (
             (I, <<C as CipherSuite>::Group as Group>::Elem),
-            (&'a [u8], GenericArray<u8, U20>),
+            GenericArray<u8, U8>,
         ),
     ) -> Result<Output<<C as CipherSuite>::Hash>>,
 >;
@@ -1166,8 +1173,7 @@ fn finalize_after_unblind<
     IE: 'a + Iterator<Item = (I, <CS::Group as Group>::Elem)>,
 >(
     inputs_and_unblinded_elements: IE,
-    info: &'a [u8],
-    mode: Mode,
+    _info: &'a [u8],
 ) -> FinalizeAfterUnblindResult<CS, I, IE>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -1176,30 +1182,24 @@ where
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.3.2-2
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
 
-    // finalizeDST = "Finalize-" || contextString
-    let finalize_dst = GenericArray::from(STR_FINALIZE).concat(get_context_string::<CS>(mode));
+    let finalize_dst = GenericArray::from(STR_FINALIZE);
 
     inputs_and_unblinded_elements
         // To make a return type possible, we have to convert to a `fn` pointer,
         // which isn't possible if we `move` from context.
-        .zip(iter::repeat((info, finalize_dst)))
-        .map(|((input, unblinded_element), (info, finalize_dst))| {
-            let finalize_dst_len = i2osp_2_array(&finalize_dst);
+        .zip(iter::repeat(finalize_dst))
+        .map(|((input, unblinded_element), finalize_dst)| {
             let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
             // hashInput = I2OSP(len(input), 2) || input ||
-            //             I2OSP(len(info), 2) || info ||
             //             I2OSP(len(unblindedElement), 2) || unblindedElement ||
-            //             I2OSP(len(finalizeDST), 2) || finalizeDST
+            //             "Finalize"
             // return Hash(hashInput)
             Ok(CS::Hash::new()
                 .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
                 .chain_update(input.as_ref())
-                .chain_update(i2osp_2(info.len()).map_err(|_| Error::Metadata)?)
-                .chain_update(info)
                 .chain_update(elem_len)
                 .chain_update(CS::Group::serialize_elem(unblinded_element))
-                .chain_update(finalize_dst_len)
                 .chain_update(finalize_dst)
                 .finalize())
         })
@@ -1231,9 +1231,10 @@ where
 
     let len = u16::try_from(c_slice.len()).map_err(|_| Error::Batch)?;
 
-    let seed_dst = GenericArray::from(STR_SEED).concat(get_context_string::<CS>(Mode::Verifiable));
+    let seed_dst =
+        GenericArray::from(STR_SEED).concat(create_context_string::<CS>(Mode::Verifiable));
     let composite_dst =
-        GenericArray::from(STR_COMPOSITE).concat(get_context_string::<CS>(Mode::Verifiable));
+        GenericArray::from(STR_COMPOSITE).concat(create_context_string::<CS>(Mode::Verifiable));
     let composite_dst_len = i2osp_2_array(&composite_dst);
 
     let seed = CS::Hash::new()
@@ -1286,7 +1287,7 @@ where
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
-pub(crate) fn get_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
+pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -1327,7 +1328,7 @@ mod tests {
     {
         let point = CS::Group::hash_to_curve::<CS>(&[input], mode).unwrap();
 
-        let context_string = get_context_string::<CS>(mode);
+        let context_string = create_context_string::<CS>(mode);
         let info_len = i2osp_2(info.len()).unwrap();
         let context = [&STR_CONTEXT, context_string.as_slice(), &info_len, info];
 
@@ -1335,7 +1336,7 @@ mod tests {
 
         let res = point * &CS::Group::invert_scalar(key + &m);
 
-        finalize_after_unblind::<CS, _, _>(iter::once((input, res)), info, mode)
+        finalize_after_unblind::<CS, _, _>(iter::once((input, res)), info)
             .next()
             .unwrap()
             .unwrap()
@@ -1351,9 +1352,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
         let server = NonVerifiableServer::<CS>::new(&mut rng);
-        let message = server
-            .evaluate(&client_blind_result.message, Some(info))
-            .unwrap();
+        let message = server.evaluate(&client_blind_result.message).unwrap();
         let client_finalize_result = client_blind_result
             .state
             .finalize(input, &message, Some(info))
@@ -1542,14 +1541,10 @@ mod tests {
             .unwrap();
 
         let point = CS::Group::hash_to_curve::<CS>(&[&input], Mode::Base).unwrap();
-        let res2 = finalize_after_unblind::<CS, _, _>(
-            iter::once((input.as_ref(), point)),
-            info,
-            Mode::Base,
-        )
-        .next()
-        .unwrap()
-        .unwrap();
+        let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), info)
+            .next()
+            .unwrap()
+            .unwrap();
 
         assert_eq!(client_finalize_result, res2);
     }
@@ -1598,13 +1593,10 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let input = b"input";
-        let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = NonVerifiableClient::<CS>::blind(input, &mut rng).unwrap();
         let server = NonVerifiableServer::<CS>::new(&mut rng);
-        let mut message = server
-            .evaluate(&client_blind_result.message, Some(info))
-            .unwrap();
+        let mut message = server.evaluate(&client_blind_result.message).unwrap();
 
         let mut state = server;
         unsafe { ptr::drop_in_place(&mut state) };
