@@ -34,8 +34,8 @@ const STR_FINALIZE: [u8; 8] = *b"Finalize";
 const STR_SEED: [u8; 5] = *b"Seed-";
 const STR_DERIVE_KEYPAIR: [u8; 13] = *b"DeriveKeyPair";
 const STR_CONTEXT: [u8; 8] = *b"Context-";
-const STR_COMPOSITE: [u8; 10] = *b"Composite-";
-const STR_CHALLENGE: [u8; 10] = *b"Challenge-";
+const STR_COMPOSITE: [u8; 9] = *b"Composite";
+const STR_CHALLENGE: [u8; 9] = *b"Challenge";
 const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
@@ -252,7 +252,7 @@ where
         &self,
         input: &[u8],
         evaluation_element: &EvaluationElement<CS>,
-        metadata: Option<&[u8]>,
+        metadata: Option<&[u8]>, // FIXME: not used
     ) -> Result<Output<CS::Hash>> {
         let unblinded_element = evaluation_element.0 * &CS::Group::invert_scalar(self.blind);
         let mut outputs = finalize_after_unblind::<CS, _, _>(
@@ -520,24 +520,7 @@ where
         blinded_element: &BlindedElement<CS>,
         metadata: Option<&[u8]>,
     ) -> Result<VerifiableServerEvaluateResult<CS>> {
-        let VerifiableServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements: mut evaluation_elements,
-            t,
-        } = self.batch_evaluate_prepare(iter::once(blinded_element), metadata)?;
-
-        let prepared_element = [evaluation_elements.next().unwrap()];
-
-        // This can't fail because we know the size of the inputs.
-        let VerifiableServerBatchEvaluateFinishResult {
-            mut messages,
-            proof,
-        } = Self::batch_evaluate_finish(rng, iter::once(blinded_element), &prepared_element, &t)
-            .unwrap();
-
-        let message = messages.next().unwrap();
-
-        //let batch_result = self.batch_evaluate(rng, blinded_elements, metadata)?;
-        Ok(VerifiableServerEvaluateResult { message, proof })
+        unimplemented!();
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
@@ -546,39 +529,31 @@ where
     /// # Errors
     /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    #[cfg(feature = "alloc")]
-    pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
+    pub fn batch_evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
-        blinded_elements: &'a I,
-        metadata: Option<&[u8]>,
-    ) -> Result<VerifiableServerBatchEvaluateResult<CS>>
-    where
-        CS: 'a,
-        &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
-        <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
-    {
-        let VerifiableServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements: evaluation_elements,
-            t,
-        } = self.batch_evaluate_prepare(blinded_elements.into_iter(), metadata)?;
+        blinded_elements: Vec<BlindedElement<CS>>,
+    ) -> Result<VerifiableServerBatchEvaluateResult<CS>> {
+        let evaluation_elements: Vec<EvaluationElement<CS>> = blinded_elements
+            .iter()
+            .map(|blinded_element| EvaluationElement(blinded_element.0 * &self.sk))
+            .collect();
 
-        let prepared_elements = evaluation_elements.collect();
+        let messages = evaluation_elements.clone();
 
-        // This can't fail because we know the size of the inputs.
-        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
-            Self::batch_evaluate_finish::<_, _, Vec<_>>(
-                rng,
-                blinded_elements.into_iter(),
-                &prepared_elements,
-                &t,
-            )
-            .unwrap();
+        let g = CS::Group::base_elem();
+        let proof = generate_proof(
+            rng,
+            self.sk,
+            g,
+            self.pk,
+            blinded_elements.into_iter(),
+            evaluation_elements
+                .into_iter()
+                .map(|element: EvaluationElement<CS>| element.clone()),
+        )?;
 
-        Ok(VerifiableServerBatchEvaluateResult {
-            messages: messages.collect(),
-            proof,
-        })
+        Ok(VerifiableServerBatchEvaluateResult { messages, proof })
     }
 
     /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
@@ -627,47 +602,6 @@ where
             prepared_evaluation_elements: evaluation_elements,
             t: PreparedTscalar(t),
         })
-    }
-
-    /// See [`batch_evaluate_prepare`](Self::batch_evaluate_prepare) for more
-    /// details.
-    ///
-    /// # Errors
-    /// [`Error::Batch`] if the number of `blinded_elements` and
-    /// `evaluation_elements` don't match or is longer then [`u16::MAX`].
-    pub fn batch_evaluate_finish<'a, 'b, R: RngCore + CryptoRng, IB, IE>(
-        rng: &mut R,
-        blinded_elements: IB,
-        evaluation_elements: &'b IE,
-        PreparedTscalar(t): &PreparedTscalar<CS>,
-    ) -> Result<VerifiableServerBatchEvaluateFinishResult<'b, CS, IE>>
-    where
-        CS: 'a + 'b,
-        IB: Iterator<Item = &'a BlindedElement<CS>> + ExactSizeIterator,
-        &'b IE: IntoIterator<Item = &'b PreparedEvaluationElement<CS>>,
-        <&'b IE as IntoIterator>::IntoIter: ExactSizeIterator,
-    {
-        let g = CS::Group::base_elem();
-        let u = g * t;
-
-        let proof = generate_proof(
-            rng,
-            *t,
-            g,
-            u,
-            evaluation_elements
-                .into_iter()
-                .map(|element| element.0.clone()),
-            blinded_elements.cloned(),
-        )?;
-        let messages =
-            evaluation_elements
-                .into_iter()
-                .map(<fn(&PreparedEvaluationElement<CS>) -> _>::from(|element| {
-                    element.0.clone()
-                }));
-
-        Ok(VerifiableServerBatchEvaluateFinishResult { messages, proof })
     }
 
     /// Retrieves the server's public key
@@ -835,11 +769,35 @@ pub struct VerifiableServerBatchEvaluatePrepareResult<
 }
 
 /// Concrete type of [`EvaluationElement`]s in
-/// [`VerifiableServerBatchEvaluateFinishResult`].
-pub type VerifiableServerBatchEvaluateFinishedMessages<'a, CS, I> = Map<
-    <&'a I as IntoIterator>::IntoIter,
-    fn(&PreparedEvaluationElement<CS>) -> EvaluationElement<CS>,
+/// [`VerifiableServerBatchEvaluateWithoutAllocMessages`].
+pub type VerifiableServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
+    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
+    fn(
+        (
+            &BlindedElement<CS>,
+            <<CS as CipherSuite>::Group as Group>::Scalar,
+        ),
+    ) -> EvaluationElement<CS>,
 >;
+
+/// Contains the fields that are returned by a verifiable server batch evaluate.
+#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
+pub struct VerifiableServerBatchEvaluateWithoutAllocResult<'a, CS: 'a + CipherSuite, I>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    I: IntoIterator<Item = &'a BlindedElement<CS>>,
+{
+    /// The [`EvaluationElement`]s to send to the client
+    pub messages: VerifiableServerBatchEvaluateWithoutAllocMessages<CS, I>,
+    /// The proof for the client to verify
+    pub proof: Proof<CS>,
+}
+
+/// Concrete type of [`EvaluationElement`]s in
+/// [`VerifiableServerBatchEvaluateFinishResult`].
+pub type VerifiableServerBatchEvaluateFinishedMessages<'a, CS, I> =
+    Map<<&'a I as IntoIterator>::IntoIter, fn(&BlindedElement<CS>) -> EvaluationElement<CS>>;
 
 /// Contains the fields that are returned by a verifiable server batch evaluate
 /// finish.
@@ -848,7 +806,7 @@ pub struct VerifiableServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<CS>>,
+    &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
 {
     /// The [`EvaluationElement`]s to send to the client
     pub messages: VerifiableServerBatchEvaluateFinishedMessages<'a, CS, I>,
@@ -1016,7 +974,7 @@ where
         .into_iter()
         .map(|client| BlindedElement(client.blinded_element));
 
-    verify_proof(g, u, evaluation_elements, blinded_elements, proof)?;
+    verify_proof(g, pk, blinded_elements, evaluation_elements, proof)?;
 
     Ok(blinds
         .zip(messages.into_iter())
@@ -1030,8 +988,8 @@ fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
-    ds: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    cs: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    ds: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
 ) -> Result<Proof<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -1058,16 +1016,12 @@ where
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
-    // challengeDST = "Challenge-" || contextString
-    let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(create_context_string::<CS>(Mode::Verifiable));
-    let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
     //           I2OSP(len(a1), 2) || a1 ||
     //           I2OSP(len(a2), 2) || a2 ||
     //           I2OSP(len(a3), 2) || a3 ||
-    //           I2OSP(len(challengeDST), 2) || challengeDST
+    //           "Challenge"
     let h2_input = [
         &elem_len,
         bm.as_slice(),
@@ -1079,8 +1033,7 @@ where
         &a2,
         &elem_len,
         &a3,
-        &challenge_dst_len,
-        &challenge_dst,
+        &GenericArray::from(STR_CHALLENGE),
     ];
 
     // This can't fail, the size of the `input` is known.
@@ -1095,8 +1048,8 @@ where
 fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
-    ds: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    cs: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    ds: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
     proof: &Proof<CS>,
 ) -> Result<()>
 where
@@ -1121,16 +1074,12 @@ where
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
-    // challengeDST = "Challenge-" || contextString
-    let challenge_dst =
-        GenericArray::from(STR_CHALLENGE).concat(create_context_string::<CS>(Mode::Verifiable));
-    let challenge_dst_len = i2osp_2_array(&challenge_dst);
     // h2Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(a0), 2) || a0 ||
     //           I2OSP(len(a1), 2) || a1 ||
     //           I2OSP(len(a2), 2) || a2 ||
     //           I2OSP(len(a3), 2) || a3 ||
-    //           I2OSP(len(challengeDST), 2) || challengeDST
+    //           "Challenge"
     let h2_input = [
         &elem_len,
         bm.as_slice(),
@@ -1142,8 +1091,7 @@ where
         &a2,
         &elem_len,
         &a3,
-        &challenge_dst_len,
-        &challenge_dst,
+        &GenericArray::from(STR_CHALLENGE),
     ];
 
     // This can't fail, the size of the `input` is known.
@@ -1214,8 +1162,8 @@ type ComputeCompositesResult<C> = (
 fn compute_composites<CS: CipherSuite>(
     k_option: Option<<CS::Group as Group>::Scalar>,
     b: <CS::Group as Group>::Elem,
-    c_slice: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
-    d_slice: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    c_slice: impl Iterator<Item = BlindedElement<CS>> + ExactSizeIterator,
+    d_slice: impl Iterator<Item = EvaluationElement<CS>> + ExactSizeIterator,
 ) -> Result<ComputeCompositesResult<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -1231,12 +1179,13 @@ where
 
     let len = u16::try_from(c_slice.len()).map_err(|_| Error::Batch)?;
 
+    // seedDST = "Seed-" || contextString
     let seed_dst =
         GenericArray::from(STR_SEED).concat(create_context_string::<CS>(Mode::Verifiable));
-    let composite_dst =
-        GenericArray::from(STR_COMPOSITE).concat(create_context_string::<CS>(Mode::Verifiable));
-    let composite_dst_len = i2osp_2_array(&composite_dst);
 
+    // h1Input = I2OSP(len(Bm), 2) || Bm ||
+    //           I2OSP(len(seedDST), 2) || seedDST
+    // seed = Hash(h1Input)
     let seed = CS::Hash::new()
         .chain_update(&elem_len)
         .chain_update(CS::Group::serialize_elem(b))
@@ -1256,7 +1205,7 @@ where
         // h2Input = I2OSP(len(seed), 2) || seed || I2OSP(i, 2) ||
         //           I2OSP(len(Ci), 2) || Ci ||
         //           I2OSP(len(Di), 2) || Di ||
-        //           I2OSP(len(compositeDST), 2) || compositeDST
+        //           "Composite"
         let h2_input = [
             seed_len.as_slice(),
             &seed,
@@ -1265,9 +1214,9 @@ where
             &ci,
             &elem_len,
             &di,
-            &composite_dst_len,
-            &composite_dst,
+            &GenericArray::from(STR_COMPOSITE),
         ];
+
         // This can't fail, the size of the `input` is known.
         let di = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Verifiable).unwrap();
         m = c.0 * &di + &m;
@@ -1415,112 +1364,6 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    fn verifiable_batch_retrieval<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
-        let info = b"info";
-        let mut rng = OsRng;
-        let mut inputs = vec![];
-        let mut client_states = vec![];
-        let mut client_messages = vec![];
-        let num_iterations = 10;
-        for _ in 0..num_iterations {
-            let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
-            let client_blind_result = VerifiableClient::<CS>::blind(&input, &mut rng).unwrap();
-            inputs.push(input);
-            client_states.push(client_blind_result.state);
-            client_messages.push(client_blind_result.message);
-        }
-        let server = VerifiableServer::<CS>::new(&mut rng);
-        let VerifiableServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements,
-            t,
-        } = server
-            .batch_evaluate_prepare(client_messages.iter(), Some(info))
-            .unwrap();
-        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
-            VerifiableServer::batch_evaluate_finish(
-                &mut rng,
-                client_messages.iter(),
-                &prepared_elements,
-                &t,
-            )
-            .unwrap();
-        let messages: Vec<_> = messages.collect();
-        let client_finalize_result = VerifiableClient::batch_finalize(
-            &inputs,
-            &client_states,
-            &messages,
-            &proof,
-            server.get_public_key(),
-            Some(info),
-        )
-        .unwrap()
-        .collect::<Result<Vec<_>>>()
-        .unwrap();
-        let mut res2 = vec![];
-        for input in inputs.iter().take(num_iterations) {
-            let output = prf::<CS>(input, server.get_private_key(), info, Mode::Verifiable);
-            res2.push(output);
-        }
-        assert_eq!(client_finalize_result, res2);
-    }
-
-    fn verifiable_batch_bad_public_key<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
-        let info = b"info";
-        let mut rng = OsRng;
-        let mut inputs = vec![];
-        let mut client_states = vec![];
-        let mut client_messages = vec![];
-        let num_iterations = 10;
-        for _ in 0..num_iterations {
-            let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
-            let client_blind_result = VerifiableClient::<CS>::blind(&input, &mut rng).unwrap();
-            inputs.push(input);
-            client_states.push(client_blind_result.state);
-            client_messages.push(client_blind_result.message);
-        }
-        let server = VerifiableServer::<CS>::new(&mut rng);
-        let VerifiableServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements,
-            t,
-        } = server
-            .batch_evaluate_prepare(client_messages.iter(), Some(info))
-            .unwrap();
-        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
-            VerifiableServer::batch_evaluate_finish(
-                &mut rng,
-                client_messages.iter(),
-                &prepared_elements,
-                &t,
-            )
-            .unwrap();
-        let messages: Vec<_> = messages.collect();
-        let wrong_pk = {
-            // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS>(&[b"msg"], Mode::Base).unwrap()
-        };
-        let client_finalize_result = VerifiableClient::batch_finalize(
-            &inputs,
-            &client_states,
-            &messages,
-            &proof,
-            wrong_pk,
-            Some(info),
-        );
-        assert!(client_finalize_result.is_err());
-    }
-
     fn base_inversion_unsalted<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
@@ -1648,9 +1491,7 @@ mod tests {
             base_retrieval::<Ristretto255>();
             base_inversion_unsalted::<Ristretto255>();
             verifiable_retrieval::<Ristretto255>();
-            verifiable_batch_retrieval::<Ristretto255>();
             verifiable_bad_public_key::<Ristretto255>();
-            verifiable_batch_bad_public_key::<Ristretto255>();
 
             zeroize_base_client::<Ristretto255>();
             zeroize_base_server::<Ristretto255>();
@@ -1661,9 +1502,7 @@ mod tests {
         base_retrieval::<NistP256>();
         base_inversion_unsalted::<NistP256>();
         verifiable_retrieval::<NistP256>();
-        verifiable_batch_retrieval::<NistP256>();
         verifiable_bad_public_key::<NistP256>();
-        verifiable_batch_bad_public_key::<NistP256>();
 
         zeroize_base_client::<NistP256>();
         zeroize_base_server::<NistP256>();

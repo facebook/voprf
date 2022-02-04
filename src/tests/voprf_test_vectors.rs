@@ -21,6 +21,7 @@ use crate::tests::parser::*;
 use crate::{
     BlindedElement, CipherSuite, EvaluationElement, Group, NonVerifiableClient,
     NonVerifiableServer, Proof, Result, VerifiableClient, VerifiableServer,
+    VerifiableServerBatchEvaluateResult,
 };
 
 #[derive(Debug)]
@@ -120,14 +121,11 @@ fn test_vectors() -> Result<()> {
     }
 
     let p256base_tvs =
-        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("Base"));
+        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("OPRF"));
     assert_ne!(p256base_tvs.len(), 0);
 
-    let p256verifiable_tvs = json_to_test_vectors!(
-        rfc,
-        String::from("P-256, SHA-256"),
-        String::from("Verifiable")
-    );
+    let p256verifiable_tvs =
+        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("VOPRF"));
     assert_ne!(p256verifiable_tvs.len(), 0);
 
     test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
@@ -260,10 +258,6 @@ where
     <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
     Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
 {
-    use crate::{
-        VerifiableServerBatchEvaluateFinishResult, VerifiableServerBatchEvaluatePrepareResult,
-    };
-
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = VerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -273,22 +267,11 @@ where
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let VerifiableServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements,
-            t,
-        } = server.batch_evaluate_prepare(blinded_elements.iter(), Some(&parameters.info))?;
-        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-        let VerifiableServerBatchEvaluateFinishResult { messages, proof } =
-            VerifiableServer::batch_evaluate_finish(
-                &mut rng,
-                blinded_elements.iter(),
-                &prepared_elements,
-                &t,
-            )?;
-        let messages: Vec<_> = messages.collect();
+        let VerifiableServerBatchEvaluateResult { messages, proof } =
+            server.batch_evaluate(&mut rng, blinded_elements)?;
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
-            assert_eq!(&parameter, &message.serialize().as_slice(),);
+            assert_eq!(&parameter, &message.serialize().as_slice());
         }
 
         assert_eq!(&parameters.proof, &proof.serialize().as_slice());
