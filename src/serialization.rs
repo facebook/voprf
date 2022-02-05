@@ -17,8 +17,8 @@ use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, Unsigned, U256};
 use generic_array::{ArrayLength, GenericArray};
 
 use crate::{
-    BlindedElement, CipherSuite, Error, EvaluationElement, Group, NonVerifiableClient,
-    NonVerifiableServer, Proof, Result, VerifiableClient, VerifiableServer,
+    BlindedElement, CipherSuite, Error, EvaluationElement, Group, OprfClient, OprfServer,
+    PoprfClient, PoprfServer, Proof, Result, VoprfClient, VoprfServer,
 };
 
 //////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@ use crate::{
 /// Length of [`NonVerifiableClient`] in bytes for serialization.
 pub type NonVerifiableClientLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
-impl<CS: CipherSuite> NonVerifiableClient<CS>
+impl<CS: CipherSuite> OprfClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -58,7 +58,39 @@ pub type VerifiableClientLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> VerifiableClient<CS>
+impl<CS: CipherSuite> VoprfClient<CS>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// Serialization into bytes
+    pub fn serialize(&self) -> GenericArray<u8, VerifiableClientLen<CS>>
+    where
+        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
+        VerifiableClientLen<CS>: ArrayLength<u8>,
+    {
+        <CS::Group as Group>::serialize_scalar(self.blind)
+            .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
+    }
+
+    /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
+        let mut input = input.iter().copied();
+
+        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
+        let blinded_element = deserialize_elem::<CS::Group, _>(&mut input)?;
+
+        Ok(Self {
+            blind,
+            blinded_element,
+        })
+    }
+}
+
+impl<CS: CipherSuite> PoprfClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -93,7 +125,7 @@ where
 /// Length of [`NonVerifiableServer`] in bytes for serialization.
 pub type NonVerifiableServerLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
-impl<CS: CipherSuite> NonVerifiableServer<CS>
+impl<CS: CipherSuite> OprfServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -122,7 +154,35 @@ pub type VerifiableServerLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> VerifiableServer<CS>
+impl<CS: CipherSuite> VoprfServer<CS>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    /// Serialization into bytes
+    pub fn serialize(&self) -> GenericArray<u8, VerifiableServerLen<CS>>
+    where
+        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
+        VerifiableServerLen<CS>: ArrayLength<u8>,
+    {
+        CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
+    }
+
+    /// Deserialization from bytes
+    ///
+    /// # Errors
+    /// [`Error::Deserialization`] if failed to deserialize `input`.
+    pub fn deserialize(input: &[u8]) -> Result<Self> {
+        let mut input = input.iter().copied();
+
+        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
+        let pk = deserialize_elem::<CS::Group, _>(&mut input)?;
+
+        Ok(Self { sk, pk })
+    }
+}
+
+impl<CS: CipherSuite> PoprfServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,

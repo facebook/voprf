@@ -19,8 +19,8 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
 use super::{Group, STR_HASH_TO_GROUP};
-use crate::voprf::{self, Mode};
-use crate::{CipherSuite, Error, InternalError, Result};
+use crate::util::Mode;
+use crate::{util, CipherSuite, Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -58,8 +58,8 @@ impl Group for Ristretto255 {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst = GenericArray::from(STR_HASH_TO_GROUP)
-            .concat(voprf::create_context_string::<Self>(mode));
+        let dst =
+            GenericArray::from(STR_HASH_TO_GROUP).concat(util::create_context_string::<Self>(mode));
 
         let mut uniform_bytes = GenericArray::<_, U64>::default();
         ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)

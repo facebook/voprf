@@ -5,7 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! Contains the main VOPRF API
+//! Contains the main POPRF API
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -32,7 +32,7 @@ use crate::{CipherSuite, Error, Group, Result};
 // ====================== //
 ////////////////////////////
 
-/// A client which engages with a [VoprfServer] in verifiable mode, meaning
+/// A client which engages with a [PoprfServer] in verifiable mode, meaning
 /// that the OPRF outputs can be checked against a server public key.
 #[derive_where(Clone, ZeroizeOnDrop)]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
@@ -41,7 +41,7 @@ use crate::{CipherSuite, Error, Group, Result};
     derive(serde::Deserialize, serde::Serialize),
     serde(crate = "serde", bound = "")
 )]
-pub struct VoprfClient<CS: CipherSuite>
+pub struct PoprfClient<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -52,7 +52,7 @@ where
     pub(crate) blinded_element: <CS::Group as Group>::Elem,
 }
 
-/// A server which engages with a [VerifiableClient] in verifiable mode, meaning
+/// A server which engages with a [PoprfClient] in verifiable mode, meaning
 /// that the OPRF outputs can be checked against a server public key.
 #[derive_where(Clone, ZeroizeOnDrop)]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
@@ -61,7 +61,7 @@ where
     derive(serde::Deserialize, serde::Serialize),
     serde(crate = "serde", bound = "")
 )]
-pub struct VoprfServer<CS: CipherSuite>
+pub struct PoprfServer<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -77,7 +77,7 @@ where
 // =================== //
 /////////////////////////
 
-impl<CS: CipherSuite> VoprfClient<CS>
+impl<CS: CipherSuite> PoprfClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -90,9 +90,9 @@ where
     pub fn blind<R: RngCore + CryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<VoprfClientBlindResult<CS>> {
-        let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Voprf)?;
-        Ok(VoprfClientBlindResult {
+    ) -> Result<PoprfClientBlindResult<CS>> {
+        let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Poprf)?;
+        Ok(PoprfClientBlindResult {
             state: Self {
                 blind,
                 blinded_element,
@@ -116,9 +116,9 @@ where
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
-    ) -> Result<VoprfClientBlindResult<CS>> {
-        let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, Mode::Voprf)?;
-        Ok(VoprfClientBlindResult {
+    ) -> Result<PoprfClientBlindResult<CS>> {
+        let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, Mode::Poprf)?;
+        Ok(PoprfClientBlindResult {
             state: Self {
                 blind,
                 blinded_element,
@@ -151,7 +151,7 @@ where
         batch_result.next().unwrap()
     }
 
-    /// Allows for batching of the finalization of multiple [VerifiableClient]
+    /// Allows for batching of the finalization of multiple [PoprfClient]
     /// and [EvaluationElement] pairs
     ///
     /// # Errors
@@ -169,13 +169,13 @@ where
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
         metadata: Option<&'a [u8]>,
-    ) -> Result<VoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
+    ) -> Result<PoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
     where
         CS: 'a,
         I: AsRef<[u8]>,
         &'a II: 'a + IntoIterator<Item = I>,
         <&'a II as IntoIterator>::IntoIter: ExactSizeIterator,
-        &'a IC: 'a + IntoIterator<Item = &'a VoprfClient<CS>>,
+        &'a IC: 'a + IntoIterator<Item = &'a PoprfClient<CS>>,
         <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
         &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
         <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
@@ -211,12 +211,12 @@ where
     }
 }
 
-impl<CS: CipherSuite> VoprfServer<CS>
+impl<CS: CipherSuite> PoprfServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    /// Produces a new instance of a [VoprfServer] using a supplied RNG
+    /// Produces a new instance of a [PoprfServer] using a supplied RNG
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut seed = Output::<CS::Hash>::default();
         rng.fill_bytes(&mut seed);
@@ -224,7 +224,7 @@ where
         Self::new_from_seed(&seed, &[]).unwrap()
     }
 
-    /// Produces a new instance of a [VoprfServer] using a supplied set of
+    /// Produces a new instance of a [PoprfServer] using a supplied set of
     /// bytes to represent the server's private key
     ///
     /// # Errors
@@ -236,7 +236,7 @@ where
         Ok(Self { sk, pk })
     }
 
-    /// Produces a new instance of a [VoprfServer] using a supplied set of
+    /// Produces a new instance of a [PoprfServer] using a supplied set of
     /// bytes which are used as a seed to derive the server's private key.
     ///
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
@@ -244,7 +244,7 @@ where
     /// # Errors
     /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
     pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
-        let (sk, pk) = derive_keypair::<CS>(seed, info, Mode::Voprf).map_err(|_| Error::Seed)?;
+        let (sk, pk) = derive_keypair::<CS>(seed, info, Mode::Poprf).map_err(|_| Error::Seed)?;
         Ok(Self { sk, pk })
     }
 
@@ -266,9 +266,9 @@ where
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
         metadata: Option<&[u8]>,
-    ) -> Result<VoprfServerEvaluateResult<CS>> {
+    ) -> Result<PoprfServerEvaluateResult<CS>> {
         let batch_evaluate_result = self.batch_evaluate(rng, std::vec![blinded_element.clone()])?;
-        Ok(VoprfServerEvaluateResult {
+        Ok(PoprfServerEvaluateResult {
             message: batch_evaluate_result
                 .messages
                 .iter()
@@ -280,7 +280,7 @@ where
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
-    /// messages from a [VerifiableClient]
+    /// messages from a [PoprfClient]
     ///
     /// # Errors
     /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
@@ -289,16 +289,13 @@ where
         &self,
         rng: &mut R,
         blinded_elements: Vec<BlindedElement<CS>>,
-    ) -> Result<VoprfServerBatchEvaluateResult<CS>> {
-        let evaluation_elements: Vec<_> = blinded_elements
+    ) -> Result<PoprfServerBatchEvaluateResult<CS>> {
+        let evaluation_elements: Vec<EvaluationElement<CS>> = blinded_elements
             .iter()
-            .map(|blinded_element| blinded_element.0 * &self.sk)
+            .map(|blinded_element| EvaluationElement(blinded_element.0 * &self.sk))
             .collect();
 
-        let messages = evaluation_elements
-            .into_iter()
-            .map(|element| EvaluationElement(element))
-            .collect();
+        let messages = evaluation_elements.clone();
 
         let g = CS::Group::base_elem();
         let proof = generate_proof(
@@ -306,13 +303,13 @@ where
             self.sk,
             g,
             self.pk,
-            blinded_elements
+            blinded_elements.into_iter().map(|element| element.0),
+            evaluation_elements
                 .into_iter()
-                .map(|element| element.0.clone()),
-            evaluation_elements.into_iter(),
+                .map(|element: EvaluationElement<CS>| element.0.clone()),
         )?;
 
-        Ok(VoprfServerBatchEvaluateResult { messages, proof })
+        Ok(PoprfServerBatchEvaluateResult { messages, proof })
     }
 
     /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
@@ -327,10 +324,10 @@ where
         &self,
         blinded_elements: I,
         metadata: Option<&[u8]>,
-    ) -> Result<VoprfServerBatchEvaluatePrepareResult<'a, CS, I>> {
+    ) -> Result<PoprfServerBatchEvaluatePrepareResult<'a, CS, I>> {
         // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
 
-        let context_string = create_context_string::<CS>(Mode::Voprf);
+        let context_string = create_context_string::<CS>(Mode::Poprf);
         let metadata = metadata.unwrap_or_default();
 
         // context = "Context-" || contextString || I2OSP(len(info), 2) || info
@@ -340,7 +337,7 @@ where
         let context = [&context, metadata];
 
         let m =
-            CS::Group::hash_to_scalar::<CS>(&context, Mode::Voprf).map_err(|_| Error::Metadata)?;
+            CS::Group::hash_to_scalar::<CS>(&context, Mode::Poprf).map_err(|_| Error::Metadata)?;
         let t = self.sk + &m;
 
         // if t == 0:
@@ -357,7 +354,7 @@ where
                 PreparedEvaluationElement(EvaluationElement(x.0 * &t))
             }));
 
-        Ok(VoprfServerBatchEvaluatePrepareResult {
+        Ok(PoprfServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements: evaluation_elements,
             t: PreparedTscalar(t),
         })
@@ -422,28 +419,28 @@ where
 
 /// Contains the fields that are returned by a verifiable client blind
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
-pub struct VoprfClientBlindResult<CS: CipherSuite>
+pub struct PoprfClientBlindResult<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// The state to be persisted on the client
-    pub state: VoprfClient<CS>,
+    pub state: PoprfClient<CS>,
     /// The message to send to the server
     pub message: BlindedElement<CS>,
 }
 
-/// Concrete return type for [`VoprfClient::batch_finalize`].
-pub type VoprfClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnblindResult<
+/// Concrete return type for [`PoprfClient::batch_finalize`].
+pub type PoprfClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnblindResult<
     'a,
     C,
     I,
-    Zip<<&'a II as IntoIterator>::IntoIter, VoprfUnblindResult<'a, C, IC, IM>>,
+    Zip<<&'a II as IntoIterator>::IntoIter, VerifiableUnblindResult<'a, C, IC, IM>>,
 >;
 
 /// Contains the fields that are returned by a verifiable server evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
-pub struct VoprfServerEvaluateResult<CS: CipherSuite>
+pub struct PoprfServerEvaluateResult<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -485,8 +482,8 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
 
 /// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluatePrepareResult`].
-pub type VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
+/// [`PoprfServerBatchEvaluatePrepareResult`].
+pub type PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
     Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
     fn(
         (
@@ -499,7 +496,7 @@ pub type VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
 /// Contains the fields that are returned by a verifiable server batch evaluate
 /// preparation.
 #[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluatePrepareResult<
+pub struct PoprfServerBatchEvaluatePrepareResult<
     'a,
     CS: 'a + CipherSuite,
     I: Iterator<Item = &'a BlindedElement<CS>>,
@@ -508,14 +505,14 @@ pub struct VoprfServerBatchEvaluatePrepareResult<
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Prepared [`EvaluationElement`]s that will become messages.
-    pub prepared_evaluation_elements: VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I>,
+    pub prepared_evaluation_elements: PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I>,
     /// Prepared `t` needed to finish the verifiable server batch evaluation.
     pub t: PreparedTscalar<CS>,
 }
 
 /// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluateWithoutAllocMessages`].
-pub type VoprfServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
+/// [`PoprfServerBatchEvaluateWithoutAllocMessages`].
+pub type PoprfServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
     Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
     fn(
         (
@@ -527,34 +524,34 @@ pub type VoprfServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
 
 /// Contains the fields that are returned by a verifiable server batch evaluate.
 #[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluateWithoutAllocResult<'a, CS: 'a + CipherSuite, I>
+pub struct PoprfServerBatchEvaluateWithoutAllocResult<'a, CS: 'a + CipherSuite, I>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     I: IntoIterator<Item = &'a BlindedElement<CS>>,
 {
     /// The [`EvaluationElement`]s to send to the client
-    pub messages: VoprfServerBatchEvaluateWithoutAllocMessages<CS, I>,
+    pub messages: PoprfServerBatchEvaluateWithoutAllocMessages<CS, I>,
     /// The proof for the client to verify
     pub proof: Proof<CS>,
 }
 
 /// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluateFinishResult`].
-pub type VoprfServerBatchEvaluateFinishedMessages<'a, CS, I> =
+/// [`PoprfServerBatchEvaluateFinishResult`].
+pub type PoprfServerBatchEvaluateFinishedMessages<'a, CS, I> =
     Map<<&'a I as IntoIterator>::IntoIter, fn(&BlindedElement<CS>) -> EvaluationElement<CS>>;
 
 /// Contains the fields that are returned by a verifiable server batch evaluate
 /// finish.
 #[derive_where(Debug; <&'a I as core::iter::IntoIterator>::IntoIter, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
+pub struct PoprfServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
 {
     /// The [`EvaluationElement`]s to send to the client
-    pub messages: VoprfServerBatchEvaluateFinishedMessages<'a, CS, I>,
+    pub messages: PoprfServerBatchEvaluateFinishedMessages<'a, CS, I>,
     /// The proof for the client to verify
     pub proof: Proof<CS>,
 }
@@ -562,7 +559,7 @@ where
 /// Contains the fields that are returned by a verifiable server batch evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
 #[cfg(feature = "alloc")]
-pub struct VoprfServerBatchEvaluateResult<CS: CipherSuite>
+pub struct PoprfServerBatchEvaluateResult<CS: CipherSuite>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -659,11 +656,11 @@ where
     Ok(hashed_point * blind)
 }
 
-type VoprfUnblindResult<'a, CS, IC, IM> = Map<
+type VerifiableUnblindResult<'a, CS, IC, IM> = Map<
     Zip<
         Map<
             <&'a IC as IntoIterator>::IntoIter,
-            fn(&VoprfClient<CS>) -> <<CS as CipherSuite>::Group as Group>::Scalar,
+            fn(&PoprfClient<CS>) -> <<CS as CipherSuite>::Group as Group>::Scalar,
         >,
         <&'a IM as IntoIterator>::IntoIter,
     >,
@@ -683,18 +680,18 @@ fn verifiable_unblind<'a, CS: 'a + CipherSuite, IC, IM>(
     pk: <CS::Group as Group>::Elem,
     proof: &Proof<CS>,
     info: &[u8],
-) -> Result<VoprfUnblindResult<'a, CS, IC, IM>>
+) -> Result<VerifiableUnblindResult<'a, CS, IC, IM>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a IC: 'a + IntoIterator<Item = &'a VoprfClient<CS>>,
+    &'a IC: 'a + IntoIterator<Item = &'a PoprfClient<CS>>,
     <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
     &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
     <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
 
-    let context_string = create_context_string::<CS>(Mode::Voprf);
+    let context_string = create_context_string::<CS>(Mode::Poprf);
 
     // context = "Context-" || contextString || I2OSP(len(info), 2) || info
     let context = GenericArray::from(STR_CONTEXT)
@@ -703,7 +700,7 @@ where
     let context = [&context, info];
 
     // The `input` used here is the metadata.
-    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Voprf).map_err(|_| Error::Metadata)?;
+    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Poprf).map_err(|_| Error::Metadata)?;
 
     let g = CS::Group::base_elem();
     let t = g * &m;
@@ -712,7 +709,7 @@ where
     let blinds = clients
         .into_iter()
         // Convert to `fn` pointer to make a return type possible.
-        .map(<fn(&VoprfClient<CS>) -> _>::from(|x| x.blind));
+        .map(<fn(&PoprfClient<CS>) -> _>::from(|x| x.blind));
     let evaluation_elements = messages.into_iter().map(|element| element.0);
     let blinded_elements = clients.into_iter().map(|client| client.blinded_element);
 
@@ -820,8 +817,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = PoprfServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -835,7 +832,7 @@ mod tests {
                 Some(info),
             )
             .unwrap();
-        let res2 = prf::<CS>(input, server.get_private_key(), info, Mode::Voprf);
+        let res2 = prf::<CS>(input, server.get_private_key(), info, Mode::Poprf);
         assert_eq!(client_finalize_result, res2);
     }
 
@@ -847,8 +844,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = PoprfServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -875,7 +872,7 @@ mod tests {
     {
         let input = b"input";
         let mut rng = OsRng;
-        let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
         unsafe { ptr::drop_in_place(&mut state) };
@@ -898,8 +895,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
-        let server = VoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = PoprfServer::<CS>::new(&mut rng);
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();

@@ -19,9 +19,9 @@ use json::JsonValue;
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::{
-    BlindedElement, CipherSuite, EvaluationElement, Group, NonVerifiableClient,
-    NonVerifiableServer, Proof, Result, VerifiableClient, VerifiableServer,
-    VerifiableServerBatchEvaluateResult,
+    BlindedElement, CipherSuite, EvaluationElement, Group, OprfClient, OprfServer, PoprfClient,
+    PoprfServer, PoprfServerBatchEvaluateResult, Proof, Result, VoprfClient, VoprfServer,
+    VoprfServerBatchEvaluateResult,
 };
 
 #[derive(Debug)]
@@ -95,29 +95,38 @@ fn test_vectors() -> Result<()> {
     {
         use crate::Ristretto255;
 
-        let ristretto_base_tvs = json_to_test_vectors!(
+        let ristretto_oprf_tvs = json_to_test_vectors!(
             rfc,
             String::from("ristretto255, SHA-512"),
             String::from("OPRF")
         );
-        assert_ne!(ristretto_base_tvs.len(), 0);
+        assert_ne!(ristretto_oprf_tvs.len(), 0);
+        test_oprf_seed_to_key::<Ristretto255>(&ristretto_oprf_tvs)?;
+        test_oprf_blind::<Ristretto255>(&ristretto_oprf_tvs)?;
+        test_oprf_evaluate::<Ristretto255>(&ristretto_oprf_tvs)?;
+        test_oprf_finalize::<Ristretto255>(&ristretto_oprf_tvs)?;
 
-        let ristretto_verifiable_tvs = json_to_test_vectors!(
+        let ristretto_voprf_tvs = json_to_test_vectors!(
             rfc,
             String::from("ristretto255, SHA-512"),
             String::from("VOPRF")
         );
-        assert_ne!(ristretto_verifiable_tvs.len(), 0);
+        assert_ne!(ristretto_voprf_tvs.len(), 0);
+        test_voprf_seed_to_key::<Ristretto255>(&ristretto_voprf_tvs)?;
+        test_voprf_blind::<Ristretto255>(&ristretto_voprf_tvs)?;
+        test_voprf_evaluate::<Ristretto255>(&ristretto_voprf_tvs)?;
+        test_voprf_finalize::<Ristretto255>(&ristretto_voprf_tvs)?;
 
-        test_base_seed_to_key::<Ristretto255>(&ristretto_base_tvs)?;
-        test_base_blind::<Ristretto255>(&ristretto_base_tvs)?;
-        test_base_evaluate::<Ristretto255>(&ristretto_base_tvs)?;
-        test_base_finalize::<Ristretto255>(&ristretto_base_tvs)?;
-
-        test_verifiable_seed_to_key::<Ristretto255>(&ristretto_verifiable_tvs)?;
-        test_verifiable_blind::<Ristretto255>(&ristretto_verifiable_tvs)?;
-        test_verifiable_evaluate::<Ristretto255>(&ristretto_verifiable_tvs)?;
-        test_verifiable_finalize::<Ristretto255>(&ristretto_verifiable_tvs)?;
+        let ristretto_poprf_tvs = json_to_test_vectors!(
+            rfc,
+            String::from("ristretto255, SHA-512"),
+            String::from("POPRF")
+        );
+        assert_ne!(ristretto_voprf_tvs.len(), 0);
+        test_poprf_seed_to_key::<Ristretto255>(&ristretto_poprf_tvs)?;
+        test_poprf_blind::<Ristretto255>(&ristretto_poprf_tvs)?;
+        test_poprf_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
+        test_poprf_finalize::<Ristretto255>(&ristretto_poprf_tvs)?;
     }
 
     let p256base_tvs =
@@ -128,26 +137,26 @@ fn test_vectors() -> Result<()> {
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("VOPRF"));
     assert_ne!(p256verifiable_tvs.len(), 0);
 
-    test_base_seed_to_key::<NistP256>(&p256base_tvs)?;
-    test_base_blind::<NistP256>(&p256base_tvs)?;
-    test_base_evaluate::<NistP256>(&p256base_tvs)?;
-    test_base_finalize::<NistP256>(&p256base_tvs)?;
+    test_oprf_seed_to_key::<NistP256>(&p256base_tvs)?;
+    test_oprf_blind::<NistP256>(&p256base_tvs)?;
+    test_oprf_evaluate::<NistP256>(&p256base_tvs)?;
+    test_oprf_finalize::<NistP256>(&p256base_tvs)?;
 
-    test_verifiable_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
-    test_verifiable_blind::<NistP256>(&p256verifiable_tvs)?;
-    test_verifiable_evaluate::<NistP256>(&p256verifiable_tvs)?;
-    test_verifiable_finalize::<NistP256>(&p256verifiable_tvs)?;
+    test_voprf_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
+    test_voprf_blind::<NistP256>(&p256verifiable_tvs)?;
+    test_voprf_evaluate::<NistP256>(&p256verifiable_tvs)?;
+    test_voprf_finalize::<NistP256>(&p256verifiable_tvs)?;
 
     Ok(())
 }
 
-fn test_base_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_oprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = NonVerifiableServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+        let server = OprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -157,13 +166,33 @@ where
     Ok(())
 }
 
-fn test_verifiable_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_voprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = VerifiableServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+        let server = VoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+
+        assert_eq!(
+            &parameters.sksm,
+            &CS::Group::serialize_scalar(server.get_private_key()).to_vec()
+        );
+        assert_eq!(
+            &parameters.pksm,
+            CS::Group::serialize_elem(server.get_public_key()).as_slice()
+        );
+    }
+    Ok(())
+}
+
+fn test_poprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        let server = PoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -178,7 +207,7 @@ where
 }
 
 // Tests input -> blind, blinded_element
-fn test_base_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_oprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -186,10 +215,8 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
-            let client_result = NonVerifiableClient::<CS>::deterministic_blind_unchecked(
-                &parameters.input[i],
-                blind,
-            )?;
+            let client_result =
+                OprfClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
 
             assert_eq!(
                 &parameters.blind[i],
@@ -205,7 +232,7 @@ where
 }
 
 // Tests input -> blind, blinded_element
-fn test_verifiable_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_voprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -214,7 +241,32 @@ where
         for i in 0..parameters.input.len() {
             let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
             let client_blind_result =
-                VerifiableClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
+                VoprfClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
+
+            assert_eq!(
+                &parameters.blind[i],
+                &CS::Group::serialize_scalar(client_blind_result.state.get_blind()).to_vec()
+            );
+            assert_eq!(
+                parameters.blinded_element[i].as_slice(),
+                client_blind_result.message.serialize().as_slice(),
+            );
+        }
+    }
+    Ok(())
+}
+
+// Tests input -> blind, blinded_element
+fn test_poprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        for i in 0..parameters.input.len() {
+            let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
+            let client_blind_result =
+                PoprfClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
 
             assert_eq!(
                 &parameters.blind[i],
@@ -230,14 +282,14 @@ where
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_base_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_oprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let server = NonVerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
+            let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
             let message = server.evaluate(&BlindedElement::deserialize(
                 &parameters.blinded_element[i],
             )?)?;
@@ -251,7 +303,7 @@ where
     Ok(())
 }
 
-fn test_verifiable_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_voprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -260,14 +312,42 @@ where
 {
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
-        let server = VerifiableServer::<CS>::new_with_key(&parameters.sksm)?;
+        let server = VoprfServer::<CS>::new_with_key(&parameters.sksm)?;
 
         let mut blinded_elements = vec![];
         for blinded_element_bytes in &parameters.blinded_element {
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let VerifiableServerBatchEvaluateResult { messages, proof } =
+        let VoprfServerBatchEvaluateResult { messages, proof } =
+            server.batch_evaluate(&mut rng, blinded_elements)?;
+
+        for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
+            assert_eq!(&parameter, &message.serialize().as_slice());
+        }
+
+        assert_eq!(&parameters.proof, &proof.serialize().as_slice());
+    }
+    Ok(())
+}
+
+fn test_poprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
+    Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
+{
+    for parameters in tvs {
+        let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
+        let server = PoprfServer::<CS>::new_with_key(&parameters.sksm)?;
+
+        let mut blinded_elements = vec![];
+        for blinded_element_bytes in &parameters.blinded_element {
+            blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
+        }
+
+        let PoprfServerBatchEvaluateResult { messages, proof } =
             server.batch_evaluate(&mut rng, blinded_elements)?;
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
@@ -280,16 +360,15 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_base_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_oprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
-            let client = NonVerifiableClient::<CS>::from_blind(CS::Group::deserialize_scalar(
-                &parameters.blind[i],
-            )?);
+            let client =
+                OprfClient::<CS>::from_blind(CS::Group::deserialize_scalar(&parameters.blind[i])?);
 
             let client_finalize_result = client.finalize(
                 &parameters.input[i],
@@ -303,7 +382,7 @@ where
     Ok(())
 }
 
-fn test_verifiable_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_voprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -311,7 +390,7 @@ where
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = VerifiableClient::<CS>::from_blind_and_element(
+            let client = VoprfClient::<CS>::from_blind_and_element(
                 CS::Group::deserialize_scalar(&parameters.blind[i])?,
                 CS::Group::deserialize_elem(&parameters.blinded_element[i])?,
             );
@@ -324,7 +403,47 @@ where
             .map(|x| EvaluationElement::deserialize(x).unwrap())
             .collect();
 
-        let batch_result = VerifiableClient::batch_finalize(
+        let batch_result = VoprfClient::batch_finalize(
+            &parameters.input,
+            &clients,
+            &messages,
+            &Proof::deserialize(&parameters.proof)?,
+            CS::Group::deserialize_elem(&parameters.pksm)?,
+            Some(&parameters.info),
+        )?;
+
+        assert_eq!(
+            parameters.output,
+            batch_result
+                .map(|arr| arr.map(|message| message.to_vec()))
+                .collect::<Result<Vec<_>>>()?
+        );
+    }
+    Ok(())
+}
+
+fn test_poprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        let mut clients = vec![];
+        for i in 0..parameters.input.len() {
+            let client = PoprfClient::<CS>::from_blind_and_element(
+                CS::Group::deserialize_scalar(&parameters.blind[i])?,
+                CS::Group::deserialize_elem(&parameters.blinded_element[i])?,
+            );
+            clients.push(client.clone());
+        }
+
+        let messages: Vec<_> = parameters
+            .evaluation_element
+            .iter()
+            .map(|x| EvaluationElement::deserialize(x).unwrap())
+            .collect();
+
+        let batch_result = PoprfClient::batch_finalize(
             &parameters.input,
             &clients,
             &messages,

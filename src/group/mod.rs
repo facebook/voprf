@@ -24,7 +24,7 @@ pub use ristretto::Ristretto255;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
-use crate::voprf::Mode;
+use crate::util::Mode;
 use crate::{CipherSuite, InternalError, Result};
 
 pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
@@ -80,7 +80,7 @@ pub trait Group {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst = GenericArray::from(STR_HASH_TO_SCALAR)
-            .concat(crate::voprf::create_context_string::<CS>(mode));
+            .concat(crate::util::create_context_string::<CS>(mode));
 
         Self::hash_to_scalar_with_dst::<CS>(input, &dst)
     }

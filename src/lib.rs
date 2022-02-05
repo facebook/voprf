@@ -498,6 +498,8 @@ extern crate serde_ as serde;
 mod ciphersuite;
 mod error;
 mod group;
+mod oprf;
+mod poprf;
 mod serialization;
 mod util;
 mod voprf;
@@ -512,17 +514,18 @@ pub use crate::error::{Error, InternalError, Result};
 pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
 pub use crate::group::Ristretto255;
+pub use crate::oprf::{OprfClient, OprfClientBlindResult, OprfServer};
+pub use crate::poprf::{PoprfClient, PoprfServer, PoprfServerBatchEvaluateResult};
 pub use crate::serialization::{
     BlindedElementLen, EvaluationElementLen, NonVerifiableClientLen, NonVerifiableServerLen,
     ProofLen, VerifiableClientLen, VerifiableServerLen,
 };
+pub use crate::util::{BlindedElement, EvaluationElement, Mode, Proof};
 #[cfg(feature = "alloc")]
-pub use crate::voprf::VerifiableServerBatchEvaluateResult;
+pub use crate::voprf::VoprfServerBatchEvaluateResult;
 pub use crate::voprf::{
-    BlindedElement, EvaluationElement, Mode, NonVerifiableClient, NonVerifiableClientBlindResult,
-    NonVerifiableServer, PreparedEvaluationElement, PreparedTscalar, Proof, VerifiableClient,
-    VerifiableClientBatchFinalizeResult, VerifiableClientBlindResult, VerifiableServer,
-    VerifiableServerBatchEvaluateFinishResult, VerifiableServerBatchEvaluateFinishedMessages,
-    VerifiableServerBatchEvaluatePrepareResult,
-    VerifiableServerBatchEvaluatePreparedEvaluationElements, VerifiableServerEvaluateResult,
+    PreparedEvaluationElement, PreparedTscalar, VoprfClient, VoprfClientBatchFinalizeResult,
+    VoprfClientBlindResult, VoprfServer, VoprfServerBatchEvaluateFinishResult,
+    VoprfServerBatchEvaluateFinishedMessages, VoprfServerBatchEvaluatePrepareResult,
+    VoprfServerBatchEvaluatePreparedEvaluationElements, VoprfServerEvaluateResult,
 };

@@ -20,8 +20,8 @@ use rand_core::{CryptoRng, RngCore};
 
 use super::Group;
 use crate::group::STR_HASH_TO_GROUP;
-use crate::voprf::{self, Mode};
-use crate::{CipherSuite, Error, InternalError, Result};
+use crate::util::Mode;
+use crate::{util, CipherSuite, Error, InternalError, Result};
 
 impl<C> Group for C
 where
@@ -50,7 +50,7 @@ where
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst =
-            GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::create_context_string::<CS>(mode));
+            GenericArray::from(STR_HASH_TO_GROUP).concat(util::create_context_string::<CS>(mode));
 
         Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(input, &dst)
             .map_err(|_| InternalError::Input)
