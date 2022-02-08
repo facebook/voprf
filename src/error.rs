@@ -17,8 +17,8 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 pub enum Error {
     /// Size of input is empty or longer then [`u16::MAX`].
     Input,
-    /// Size of metadata is longer then `u16::MAX - 21`.
-    Metadata,
+    /// Size of info is longer then `u16::MAX - 21`.
+    Info,
     /// Failure to deserialize bytes
     Deserialization,
     /// Batched items are more then [`u16::MAX`] or length don't match.

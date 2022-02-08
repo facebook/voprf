@@ -14,7 +14,6 @@ use core::iter::{self, Map, Repeat, Zip};
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
-use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256, U8};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
@@ -22,8 +21,8 @@ use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
 use crate::util::{
-    create_context_string, generate_proof, i2osp_1, i2osp_2, verify_proof, BlindedElement,
-    EvaluationElement, Mode, Proof, STR_CONTEXT, STR_DERIVE_KEYPAIR, STR_FINALIZE,
+    derive_keypair, generate_proof, i2osp_2, verify_proof, BlindedElement, EvaluationElement, Mode,
+    Proof, ProofElement, STR_FINALIZE,
 };
 use crate::{CipherSuite, Error, Group, Result};
 
@@ -52,7 +51,7 @@ where
     pub(crate) blinded_element: <CS::Group as Group>::Elem,
 }
 
-/// A server which engages with a [VerifiableClient] in verifiable mode, meaning
+/// A server which engages with a [VoprfClient] in verifiable mode, meaning
 /// that the OPRF outputs can be checked against a server public key.
 #[derive_where(Clone, ZeroizeOnDrop)]
 #[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
@@ -91,14 +90,8 @@ where
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<VoprfClientBlindResult<CS>> {
-        let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Voprf)?;
-        Ok(VoprfClientBlindResult {
-            state: Self {
-                blind,
-                blinded_element,
-            },
-            message: BlindedElement(blinded_element),
-        })
+        let blind = CS::Group::random_scalar(blinding_factor_rng);
+        Self::deterministic_blind_unchecked_inner(input, blind)
     }
 
     #[cfg(any(feature = "danger", test))]
@@ -117,7 +110,19 @@ where
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
     ) -> Result<VoprfClientBlindResult<CS>> {
-        let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, Mode::Voprf)?;
+        Self::deterministic_blind_unchecked_inner(input, blind)
+    }
+
+    /// Inner function for computing blind output
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    fn deterministic_blind_unchecked_inner(
+        input: &[u8],
+        blind: <CS::Group as Group>::Scalar,
+    ) -> Result<VoprfClientBlindResult<CS>> {
+        let blinded_element =
+            crate::util::deterministic_blind_unchecked::<CS>(input, &blind, Mode::Voprf)?;
         Ok(VoprfClientBlindResult {
             state: Self {
                 blind,
@@ -132,7 +137,6 @@ where
     ///
     /// # Errors
     /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
     pub fn finalize(
         &self,
@@ -140,22 +144,19 @@ where
         evaluation_element: &EvaluationElement<CS>,
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
-        metadata: Option<&[u8]>,
     ) -> Result<Output<CS::Hash>> {
         let inputs = core::array::from_ref(&input);
         let clients = core::array::from_ref(self);
         let messages = core::array::from_ref(evaluation_element);
 
-        let mut batch_result =
-            Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;
+        let mut batch_result = Self::batch_finalize(inputs, clients, messages, proof, pk)?;
         batch_result.next().unwrap()
     }
 
-    /// Allows for batching of the finalization of multiple [VerifiableClient]
+    /// Allows for batching of the finalization of multiple [VoprfClient]
     /// and [EvaluationElement] pairs
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::Batch`] if the number of `clients` and `messages` don't match
     ///   or is longer then [`u16::MAX`].
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
@@ -168,7 +169,6 @@ where
         messages: &'a IM,
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
-        metadata: Option<&'a [u8]>,
     ) -> Result<VoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
     where
         CS: 'a,
@@ -180,15 +180,10 @@ where
         &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
         <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
     {
-        let metadata = metadata.unwrap_or_default();
-
-        let unblinded_elements = verifiable_unblind(clients, messages, pk, proof, metadata)?;
-
+        let unblinded_elements = verifiable_unblind(clients, messages, pk, proof)?;
         let inputs_and_unblinded_elements = inputs.into_iter().zip(unblinded_elements);
-
         Ok(finalize_after_unblind::<CS, _, _>(
             inputs_and_unblinded_elements,
-            metadata,
         ))
     }
 
@@ -259,31 +254,23 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
-        metadata: Option<&[u8]>,
     ) -> Result<VoprfServerEvaluateResult<CS>> {
         let batch_evaluate_result = self.batch_evaluate(rng, std::vec![blinded_element.clone()])?;
         Ok(VoprfServerEvaluateResult {
-            message: batch_evaluate_result
-                .messages
-                .iter()
-                .next()
-                .unwrap()
-                .clone(),
+            message: batch_evaluate_result.messages.get(0).unwrap().clone(),
             proof: batch_evaluate_result.proof,
         })
     }
 
     /// Allows for batching of the evaluation of multiple [BlindedElement]
-    /// messages from a [VerifiableClient]
+    /// messages from a [VoprfClient]
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn batch_evaluate<R: RngCore + CryptoRng>(
         &self,
@@ -296,8 +283,8 @@ where
             .collect();
 
         let messages = evaluation_elements
-            .into_iter()
-            .map(|element| EvaluationElement(element))
+            .iter()
+            .map(|element| EvaluationElement(*element))
             .collect();
 
         let g = CS::Group::base_elem();
@@ -308,110 +295,19 @@ where
             self.pk,
             blinded_elements
                 .into_iter()
-                .map(|element| element.0.clone()),
-            evaluation_elements.into_iter(),
+                .map(|element| ProofElement(element.0)),
+            evaluation_elements
+                .into_iter()
+                .map(|element| ProofElement(element)),
+            Mode::Voprf,
         )?;
 
         Ok(VoprfServerBatchEvaluateResult { messages, proof })
     }
 
-    /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
-    /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
-    /// [`collect`](Iterator::collect)ed and passed into
-    /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
-    ///
-    /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
-    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
-        &self,
-        blinded_elements: I,
-        metadata: Option<&[u8]>,
-    ) -> Result<VoprfServerBatchEvaluatePrepareResult<'a, CS, I>> {
-        // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
-
-        let context_string = create_context_string::<CS>(Mode::Voprf);
-        let metadata = metadata.unwrap_or_default();
-
-        // context = "Context-" || contextString || I2OSP(len(info), 2) || info
-        let context = GenericArray::from(STR_CONTEXT)
-            .concat(context_string)
-            .concat(i2osp_2(metadata.len()).map_err(|_| Error::Metadata)?);
-        let context = [&context, metadata];
-
-        let m =
-            CS::Group::hash_to_scalar::<CS>(&context, Mode::Voprf).map_err(|_| Error::Metadata)?;
-        let t = self.sk + &m;
-
-        // if t == 0:
-        if bool::from(CS::Group::is_zero_scalar(t)) {
-            // raise InverseError
-            return Err(Error::Protocol);
-        }
-
-        let evaluation_elements = blinded_elements
-            // To make a return type possible, we have to convert to a `fn` pointer, which isn't
-            // possible if we `move` from context.
-            .zip(iter::repeat(CS::Group::invert_scalar(t)))
-            .map(<fn((&BlindedElement<CS>, _)) -> _>::from(|(x, t)| {
-                PreparedEvaluationElement(EvaluationElement(x.0 * &t))
-            }));
-
-        Ok(VoprfServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements: evaluation_elements,
-            t: PreparedTscalar(t),
-        })
-    }
-
     /// Retrieves the server's public key
     pub fn get_public_key(&self) -> <CS::Group as Group>::Elem {
         self.pk
-    }
-}
-
-impl<CS: CipherSuite> BlindedElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates a [BlindedElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
-    }
-}
-
-impl<CS: CipherSuite> EvaluationElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates an [EvaluationElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
     }
 }
 
@@ -454,111 +350,6 @@ where
     pub proof: Proof<CS>,
 }
 
-/// Contains prepared [`EvaluationElement`]s by a verifiable server batch
-/// evaluate preparation.
-#[derive_where(Clone, ZeroizeOnDrop)]
-#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Elem)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
-)]
-pub struct PreparedEvaluationElement<CS: CipherSuite>(EvaluationElement<CS>)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Contains the prepared `t` by a verifiable server batch evaluate preparation.
-#[derive_where(Clone, ZeroizeOnDrop)]
-#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
-)]
-pub struct PreparedTscalar<CS: CipherSuite>(
-    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
-    <CS::Group as Group>::Scalar,
-)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluatePrepareResult`].
-pub type VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
-    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
-    fn(
-        (
-            &BlindedElement<CS>,
-            <<CS as CipherSuite>::Group as Group>::Scalar,
-        ),
-    ) -> PreparedEvaluationElement<CS>,
->;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// preparation.
-#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluatePrepareResult<
-    'a,
-    CS: 'a + CipherSuite,
-    I: Iterator<Item = &'a BlindedElement<CS>>,
-> where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// Prepared [`EvaluationElement`]s that will become messages.
-    pub prepared_evaluation_elements: VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I>,
-    /// Prepared `t` needed to finish the verifiable server batch evaluation.
-    pub t: PreparedTscalar<CS>,
-}
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluateWithoutAllocMessages`].
-pub type VoprfServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
-    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
-    fn(
-        (
-            &BlindedElement<CS>,
-            <<CS as CipherSuite>::Group as Group>::Scalar,
-        ),
-    ) -> EvaluationElement<CS>,
->;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate.
-#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluateWithoutAllocResult<'a, CS: 'a + CipherSuite, I>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    I: IntoIterator<Item = &'a BlindedElement<CS>>,
-{
-    /// The [`EvaluationElement`]s to send to the client
-    pub messages: VoprfServerBatchEvaluateWithoutAllocMessages<CS, I>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`VoprfServerBatchEvaluateFinishResult`].
-pub type VoprfServerBatchEvaluateFinishedMessages<'a, CS, I> =
-    Map<<&'a I as IntoIterator>::IntoIter, fn(&BlindedElement<CS>) -> EvaluationElement<CS>>;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// finish.
-#[derive_where(Debug; <&'a I as core::iter::IntoIterator>::IntoIter, <CS::Group as Group>::Scalar)]
-pub struct VoprfServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
-{
-    /// The [`EvaluationElement`]s to send to the client
-    pub messages: VoprfServerBatchEvaluateFinishedMessages<'a, CS, I>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
 /// Contains the fields that are returned by a verifiable server batch evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
 #[cfg(feature = "alloc")]
@@ -578,87 +369,6 @@ where
 // =============== //
 /////////////////////
 
-#[allow(clippy::type_complexity)]
-pub(crate) fn derive_keypair<CS: CipherSuite>(
-    seed: &[u8],
-    info: &[u8],
-    mode: Mode,
-) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem), Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    let context_string = create_context_string::<CS>(mode);
-    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
-
-    // deriveInput = seed || I2OSP(len(info), 2) || info
-    let info_len = i2osp_2(info.len()).map_err(|_| Error::Metadata)?;
-
-    let mut counter: usize = 0;
-
-    loop {
-        if counter > 255 {
-            break Err(Error::DeriveKeyPair);
-        }
-
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
-        let counter_i2osp = i2osp_1(counter).map_err(|_| Error::DeriveKeyPair)?;
-        let sk_s = <CS::Group as Group>::hash_to_scalar_with_dst::<CS>(
-            &[seed, info_len.as_slice(), info, counter_i2osp.as_slice()],
-            &dst,
-        )
-        .map_err(|_| Error::DeriveKeyPair)?;
-
-        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
-            let pk_s = CS::Group::base_elem() * &sk_s;
-            break Ok((sk_s, pk_s));
-        }
-        counter += 1;
-    }
-}
-
-type BlindResult<C> = (
-    <<C as CipherSuite>::Group as Group>::Scalar,
-    <<C as CipherSuite>::Group as Group>::Elem,
-);
-
-// Inner function for blind. Returns the blind scalar and the blinded element
-//
-// Can only fail with [`Error::Input`].
-fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
-    input: &[u8],
-    blinding_factor_rng: &mut R,
-    mode: Mode,
-) -> Result<BlindResult<CS>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    // Choose a random scalar that must be non-zero
-    let blind = CS::Group::random_scalar(blinding_factor_rng);
-    let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, mode)?;
-    Ok((blind, blinded_element))
-}
-
-// Inner function for blind that assumes that the blinding factor has already
-// been chosen, and therefore takes it as input. Does not check if the blinding
-// factor is non-zero.
-//
-// Can only fail with [`Error::Input`].
-fn deterministic_blind_unchecked<CS: CipherSuite>(
-    input: &[u8],
-    blind: &<CS::Group as Group>::Scalar,
-    mode: Mode,
-) -> Result<<CS::Group as Group>::Elem>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode).map_err(|_| Error::Input)?;
-    Ok(hashed_point * blind)
-}
-
 type VoprfUnblindResult<'a, CS, IC, IM> = Map<
     Zip<
         Map<
@@ -675,14 +385,13 @@ type VoprfUnblindResult<'a, CS, IC, IM> = Map<
     ) -> <<CS as CipherSuite>::Group as Group>::Elem,
 >;
 
-// Can only fail with [`Error::Metadata`], [`Error::Batch] or
+// Can only fail with [`Error::Info`], [`Error::Batch] or
 // [`Error::ProofVerification`].
 fn verifiable_unblind<'a, CS: 'a + CipherSuite, IC, IM>(
     clients: &'a IC,
     messages: &'a IM,
     pk: <CS::Group as Group>::Elem,
     proof: &Proof<CS>,
-    info: &[u8],
 ) -> Result<VoprfUnblindResult<'a, CS, IC, IM>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -692,31 +401,25 @@ where
     &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
     <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
-
-    let context_string = create_context_string::<CS>(Mode::Voprf);
-
-    // context = "Context-" || contextString || I2OSP(len(info), 2) || info
-    let context = GenericArray::from(STR_CONTEXT)
-        .concat(context_string)
-        .concat(i2osp_2(info.len()).map_err(|_| Error::Metadata)?);
-    let context = [&context, info];
-
-    // The `input` used here is the metadata.
-    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Voprf).map_err(|_| Error::Metadata)?;
-
     let g = CS::Group::base_elem();
-    let t = g * &m;
-    let u = t + &pk;
 
     let blinds = clients
         .into_iter()
         // Convert to `fn` pointer to make a return type possible.
         .map(<fn(&VoprfClient<CS>) -> _>::from(|x| x.blind));
-    let evaluation_elements = messages.into_iter().map(|element| element.0);
-    let blinded_elements = clients.into_iter().map(|client| client.blinded_element);
+    let evaluation_elements = messages.into_iter().map(|element| ProofElement(element.0));
+    let blinded_elements = clients
+        .into_iter()
+        .map(|client| ProofElement(client.blinded_element));
 
-    verify_proof(g, pk, blinded_elements, evaluation_elements, proof)?;
+    verify_proof(
+        g,
+        pk,
+        blinded_elements,
+        evaluation_elements,
+        proof,
+        Mode::Voprf,
+    )?;
 
     Ok(blinds
         .zip(messages.into_iter())
@@ -733,7 +436,7 @@ type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
     ) -> Result<Output<<C as CipherSuite>::Hash>>,
 >;
 
-// Returned values can only fail with [`Error::Input`] or [`Error::Metadata`].
+// Returned values can only fail with [`Error::Input`] or [`Error::Info`].
 fn finalize_after_unblind<
     'a,
     CS: CipherSuite,
@@ -741,15 +444,11 @@ fn finalize_after_unblind<
     IE: 'a + Iterator<Item = (I, <CS::Group as Group>::Elem)>,
 >(
     inputs_and_unblinded_elements: IE,
-    _info: &'a [u8],
-) -> FinalizeAfterUnblindResult<CS, I, IE>
+) -> FinalizeAfterUnblindResult<'a, CS, I, IE>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.3.2-2
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
-
     let finalize_dst = GenericArray::from(STR_FINALIZE);
 
     inputs_and_unblinded_elements
@@ -795,7 +494,6 @@ mod tests {
     fn prf<CS: CipherSuite>(
         input: &[u8],
         key: <CS::Group as Group>::Scalar,
-        info: &[u8],
         mode: Mode,
     ) -> Output<CS::Hash>
     where
@@ -806,7 +504,7 @@ mod tests {
 
         let res = point * &key;
 
-        finalize_after_unblind::<CS, _, _>(iter::once((input, res)), info)
+        finalize_after_unblind::<CS, _, _>(iter::once((input, res)))
             .next()
             .unwrap()
             .unwrap()
@@ -818,12 +516,11 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let input = b"input";
-        let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng);
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message)
             .unwrap();
         let client_finalize_result = client_blind_result
             .state
@@ -832,11 +529,79 @@ mod tests {
                 &server_result.message,
                 &server_result.proof,
                 server.get_public_key(),
-                Some(info),
             )
             .unwrap();
-        let res2 = prf::<CS>(input, server.get_private_key(), info, Mode::Voprf);
+        let res2 = prf::<CS>(input, server.get_private_key(), Mode::Voprf);
         assert_eq!(client_finalize_result, res2);
+    }
+
+    fn verifiable_batch_retrieval<CS: CipherSuite>()
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let mut rng = OsRng;
+        let mut inputs = vec![];
+        let mut client_states = vec![];
+        let mut client_messages = vec![];
+        let num_iterations = 10;
+        for _ in 0..num_iterations {
+            let mut input = [0u8; 32];
+            rng.fill_bytes(&mut input);
+            let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
+            inputs.push(input);
+            client_states.push(client_blind_result.state);
+            client_messages.push(client_blind_result.message);
+        }
+        let server = VoprfServer::<CS>::new(&mut rng);
+        let VoprfServerBatchEvaluateResult { messages, proof } =
+            server.batch_evaluate(&mut rng, client_messages).unwrap();
+        let client_finalize_result = VoprfClient::batch_finalize(
+            &inputs,
+            &client_states,
+            &messages,
+            &proof,
+            server.get_public_key(),
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+        let mut res2 = vec![];
+        for input in inputs.iter().take(num_iterations) {
+            let output = prf::<CS>(input, server.get_private_key(), Mode::Voprf);
+            res2.push(output);
+        }
+        assert_eq!(client_finalize_result, res2);
+    }
+
+    fn verifiable_batch_bad_public_key<CS: CipherSuite>()
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let mut rng = OsRng;
+        let mut inputs = vec![];
+        let mut client_states = vec![];
+        let mut client_messages = vec![];
+        let num_iterations = 10;
+        for _ in 0..num_iterations {
+            let mut input = [0u8; 32];
+            rng.fill_bytes(&mut input);
+            let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
+            inputs.push(input);
+            client_states.push(client_blind_result.state);
+            client_messages.push(client_blind_result.message);
+        }
+        let server = VoprfServer::<CS>::new(&mut rng);
+        let VoprfServerBatchEvaluateResult { messages, proof } =
+            server.batch_evaluate(&mut rng, client_messages).unwrap();
+        let wrong_pk = {
+            // Choose a group element that is unlikely to be the right public key
+            CS::Group::hash_to_curve::<CS>(&[b"msg"], Mode::Voprf).unwrap()
+        };
+        let client_finalize_result =
+            VoprfClient::batch_finalize(&inputs, &client_states, &messages, &proof, wrong_pk);
+        assert!(client_finalize_result.is_err());
     }
 
     fn verifiable_bad_public_key<CS: CipherSuite>()
@@ -845,12 +610,11 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let input = b"input";
-        let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng);
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message)
             .unwrap();
         let wrong_pk = {
             // Choose a group element that is unlikely to be the right public key
@@ -861,12 +625,11 @@ mod tests {
             &server_result.message,
             &server_result.proof,
             wrong_pk,
-            Some(info),
         );
         assert!(client_finalize_result.is_err());
     }
 
-    fn zeroize_verifiable_client<CS: CipherSuite>()
+    fn zeroize_voprf_client<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -886,7 +649,7 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_verifiable_server<CS: CipherSuite>()
+    fn zeroize_voprf_server<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -896,12 +659,11 @@ mod tests {
         Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
     {
         let input = b"input";
-        let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng);
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .evaluate(&mut rng, &client_blind_result.message)
             .unwrap();
 
         let mut state = server;
@@ -926,17 +688,21 @@ mod tests {
             use crate::Ristretto255;
 
             verifiable_retrieval::<Ristretto255>();
+            verifiable_batch_retrieval::<Ristretto255>();
             verifiable_bad_public_key::<Ristretto255>();
+            verifiable_batch_bad_public_key::<Ristretto255>();
 
-            zeroize_verifiable_client::<Ristretto255>();
-            zeroize_verifiable_server::<Ristretto255>();
+            zeroize_voprf_client::<Ristretto255>();
+            zeroize_voprf_server::<Ristretto255>();
         }
 
         verifiable_retrieval::<NistP256>();
+        verifiable_batch_retrieval::<NistP256>();
         verifiable_bad_public_key::<NistP256>();
+        verifiable_batch_bad_public_key::<NistP256>();
 
-        zeroize_verifiable_client::<NistP256>();
-        zeroize_verifiable_server::<NistP256>();
+        zeroize_voprf_client::<NistP256>();
+        zeroize_voprf_server::<NistP256>();
 
         Ok(())
     }

@@ -31,6 +31,7 @@ struct VOPRFTestVectorParameters {
     pksm: Vec<u8>,
     input: Vec<Vec<u8>>,
     info: Vec<u8>,
+    key_info: Vec<u8>,
     blind: Vec<Vec<u8>>,
     blinded_element: Vec<Vec<u8>>,
     evaluation_element: Vec<Vec<u8>>,
@@ -45,7 +46,8 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
         sksm: decode(values, "skSm"),
         pksm: decode(values, "pkSm"),
         input: decode_vec(values, "Input"),
-        info: decode(values, "KeyInfo"),
+        info: decode(values, "Info"),
+        key_info: decode(values, "KeyInfo"),
         blind: decode_vec(values, "Blind"),
         blinded_element: decode_vec(values, "BlindedElement"),
         evaluation_element: decode_vec(values, "EvaluationElement"),
@@ -88,7 +90,7 @@ macro_rules! json_to_test_vectors {
 fn test_vectors() -> Result<()> {
     use p256::NistP256;
 
-    let rfc = json::parse(rfc_to_json(super::voprf_vectors::VECTORS).as_str())
+    let rfc = json::parse(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
     #[cfg(feature = "ristretto255")]
@@ -122,7 +124,7 @@ fn test_vectors() -> Result<()> {
             String::from("ristretto255, SHA-512"),
             String::from("POPRF")
         );
-        assert_ne!(ristretto_voprf_tvs.len(), 0);
+        assert_ne!(ristretto_poprf_tvs.len(), 0);
         test_poprf_seed_to_key::<Ristretto255>(&ristretto_poprf_tvs)?;
         test_poprf_blind::<Ristretto255>(&ristretto_poprf_tvs)?;
         test_poprf_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
@@ -156,7 +158,7 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = OprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+        let server = OprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -172,7 +174,7 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = VoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+        let server = VoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -192,7 +194,7 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     for parameters in tvs {
-        let server = PoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.info)?;
+        let server = PoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
         assert_eq!(
             &parameters.sksm,
@@ -348,7 +350,7 @@ where
         }
 
         let PoprfServerBatchEvaluateResult { messages, proof } =
-            server.batch_evaluate(&mut rng, blinded_elements)?;
+            server.batch_evaluate(&mut rng, blinded_elements, Some(&parameters.info))?;
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
             assert_eq!(&parameter, &message.serialize().as_slice());
@@ -373,7 +375,6 @@ where
             let client_finalize_result = client.finalize(
                 &parameters.input[i],
                 &EvaluationElement::deserialize(&parameters.evaluation_element[i])?,
-                Some(&parameters.info),
             )?;
 
             assert_eq!(&parameters.output[i], &client_finalize_result.to_vec());
@@ -409,7 +410,6 @@ where
             &messages,
             &Proof::deserialize(&parameters.proof)?,
             CS::Group::deserialize_elem(&parameters.pksm)?,
-            Some(&parameters.info),
         )?;
 
         assert_eq!(
@@ -430,10 +430,10 @@ where
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
-            let client = PoprfClient::<CS>::from_blind_and_element(
-                CS::Group::deserialize_scalar(&parameters.blind[i])?,
-                CS::Group::deserialize_elem(&parameters.blinded_element[i])?,
-            );
+            let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
+            let client_blind_result =
+                PoprfClient::<CS>::deterministic_blind_unchecked(&parameters.input[i], blind)?;
+            let client = client_blind_result.state;
             clients.push(client.clone());
         }
 
@@ -444,7 +444,12 @@ where
             .collect();
 
         let batch_result = PoprfClient::batch_finalize(
-            &parameters.input,
+            parameters
+                .input
+                .iter()
+                .map(|input| input.as_slice())
+                .collect::<Vec<&[u8]>>()
+                .as_slice(),
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
@@ -452,12 +457,9 @@ where
             Some(&parameters.info),
         )?;
 
-        assert_eq!(
-            parameters.output,
-            batch_result
-                .map(|arr| arr.map(|message| message.to_vec()))
-                .collect::<Result<Vec<_>>>()?
-        );
+        let result: Vec<Vec<u8>> = batch_result.iter().map(|arr| arr.to_vec()).collect();
+
+        assert_eq!(parameters.output, result);
     }
     Ok(())
 }

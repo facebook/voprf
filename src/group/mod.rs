@@ -34,7 +34,8 @@ pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 /// subgroup is noted additively — as in the draft RFC — in this trait.
 pub trait Group {
     /// The type of group elements
-    type Elem: Copy
+    type Elem: ConstantTimeEq
+        + Copy
         + Zeroize
         + for<'a> Add<&'a Self::Elem, Output = Self::Elem>
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
@@ -104,6 +105,11 @@ pub trait Group {
 
     /// Returns the identity group element
     fn identity_elem() -> Self::Elem;
+
+    /// Returns `true` if the element is equal to the identity element
+    fn is_identity_elem(elem: Self::Elem) -> Choice {
+        Self::identity_elem().ct_eq(&elem)
+    }
 
     /// Serializes the `self` group element
     fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;

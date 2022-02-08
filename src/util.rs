@@ -30,9 +30,9 @@ use crate::{CipherSuite, Error, Group, InternalError, Result};
 pub(crate) const STR_FINALIZE: [u8; 8] = *b"Finalize";
 pub(crate) const STR_SEED: [u8; 5] = *b"Seed-";
 pub(crate) const STR_DERIVE_KEYPAIR: [u8; 13] = *b"DeriveKeyPair";
-pub(crate) const STR_CONTEXT: [u8; 8] = *b"Context-";
 pub(crate) const STR_COMPOSITE: [u8; 9] = *b"Composite";
 pub(crate) const STR_CHALLENGE: [u8; 9] = *b"Challenge";
+pub(crate) const STR_INFO: [u8; 4] = *b"Info";
 pub(crate) const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
@@ -122,6 +122,22 @@ where
 // =============== //
 /////////////////////
 
+/// A wrapper around group elements used to generate and verify proofs
+#[derive_where(Clone, ZeroizeOnDrop)]
+#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Elem)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(crate = "serde", bound = "")
+)]
+pub(crate) struct ProofElement<CS: CipherSuite>(
+    #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
+    pub(crate)  <CS::Group as Group>::Elem,
+)
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+
 // Can only fail with [`Error::Batch`].
 #[allow(clippy::many_single_char_names)]
 pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
@@ -129,8 +145,9 @@ pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
+    ds: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
+    mode: Mode,
 ) -> Result<Proof<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -138,10 +155,7 @@ where
 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.2-1
 
-    let (m, z): (
-        <CS::Group as Group>::Elem,
-        <<CS as CipherSuite>::Group as Group>::Elem,
-    ) = compute_composites(Some(k), b, cs, ds)?;
+    let (m, z) = compute_composites(Some(k), b, cs, ds, mode)?;
 
     let r = CS::Group::random_scalar(rng);
     let t2 = a * &r;
@@ -181,7 +195,7 @@ where
     ];
 
     // This can't fail, the size of the `input` is known.
-    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Poprf).unwrap();
+    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, mode).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -192,16 +206,17 @@ where
 pub(crate) fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
+    ds: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
     proof: &Proof<CS>,
+    mode: Mode,
 ) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.1-2
-    let (m, z) = compute_composites(None, b, cs, ds)?;
+    let (m, z) = compute_composites(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
 
@@ -239,7 +254,7 @@ where
     ];
 
     // This can't fail, the size of the `input` is known.
-    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Poprf).unwrap();
+    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, mode).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -256,8 +271,9 @@ pub(crate) type ComputeCompositesResult<CS> = (
 fn compute_composites<CS: CipherSuite>(
     k_option: Option<<CS::Group as Group>::Scalar>,
     b: <CS::Group as Group>::Elem,
-    c_slice: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    d_slice: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    c_slice: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
+    d_slice: impl Iterator<Item = ProofElement<CS>> + ExactSizeIterator,
+    mode: Mode,
 ) -> Result<ComputeCompositesResult<CS>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
@@ -274,7 +290,7 @@ where
     let len = u16::try_from(c_slice.len()).map_err(|_| Error::Batch)?;
 
     // seedDST = "Seed-" || contextString
-    let seed_dst = GenericArray::from(STR_SEED).concat(create_context_string::<CS>(Mode::Poprf));
+    let seed_dst = GenericArray::from(STR_SEED).concat(create_context_string::<CS>(mode));
 
     // h1Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(seedDST), 2) || seedDST
@@ -292,9 +308,9 @@ where
 
     for (i, (c, d)) in (0..len).zip(c_slice.zip(d_slice)) {
         // Ci = GG.SerializeElement(Cs[i])
-        let ci = CS::Group::serialize_elem(c);
+        let ci = CS::Group::serialize_elem(c.0);
         // Di = GG.SerializeElement(Ds[i])
-        let di = CS::Group::serialize_elem(d);
+        let di = CS::Group::serialize_elem(d.0);
         // h2Input = I2OSP(len(seed), 2) || seed || I2OSP(i, 2) ||
         //           I2OSP(len(Ci), 2) || Ci ||
         //           I2OSP(len(Di), 2) || Di ||
@@ -311,11 +327,11 @@ where
         ];
 
         // This can't fail, the size of the `input` is known.
-        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, Mode::Poprf).unwrap();
-        m = c * &di + &m;
+        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, mode).unwrap();
+        m = c.0 * &di + &m;
         z = match k_option {
             Some(_) => z,
-            None => d * &di + &z,
+            None => d.0 * &di + &z,
         };
     }
 
@@ -327,10 +343,68 @@ where
     Ok((m, z))
 }
 
-///////////////////////
-// Utility Functions //
-// ================= //
-///////////////////////
+/////////////////////
+// Inner Functions //
+// =============== //
+/////////////////////
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn derive_keypair<CS: CipherSuite>(
+    seed: &[u8],
+    info: &[u8],
+    mode: Mode,
+) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem), Error>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let context_string = create_context_string::<CS>(mode);
+    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
+
+    // deriveInput = seed || I2OSP(len(info), 2) || info
+    let info_len = i2osp_2(info.len()).map_err(|_| Error::Info)?;
+
+    let mut counter: usize = 0;
+
+    loop {
+        if counter > 255 {
+            break Err(Error::DeriveKeyPair);
+        }
+
+        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
+        // || contextString)
+        let counter_i2osp = i2osp_1(counter).map_err(|_| Error::DeriveKeyPair)?;
+        let sk_s = <CS::Group as Group>::hash_to_scalar_with_dst::<CS>(
+            &[seed, info_len.as_slice(), info, counter_i2osp.as_slice()],
+            &dst,
+        )
+        .map_err(|_| Error::DeriveKeyPair)?;
+
+        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
+            let pk_s = CS::Group::base_elem() * &sk_s;
+            break Ok((sk_s, pk_s));
+        }
+        counter += 1;
+    }
+}
+
+// Inner function for blind that assumes that the blinding factor has already
+// been chosen, and therefore takes it as input. Does not check if the blinding
+// factor is non-zero.
+//
+// Can only fail with [`Error::Input`].
+pub(crate) fn deterministic_blind_unchecked<CS: CipherSuite>(
+    input: &[u8],
+    blind: &<CS::Group as Group>::Scalar,
+    mode: Mode,
+) -> Result<<CS::Group as Group>::Elem>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode).map_err(|_| Error::Input)?;
+    Ok(hashed_point * blind)
+}
 
 /// Generates the contextString parameter as defined in
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
@@ -344,7 +418,12 @@ where
         .concat(CS::ID.to_be_bytes().into())
 }
 
-pub(crate) fn i2osp_1(input: usize) -> Result<GenericArray<u8, U1>, InternalError> {
+///////////////////////
+// Utility Functions //
+// ================= //
+///////////////////////
+
+fn i2osp_1(input: usize) -> Result<GenericArray<u8, U1>, InternalError> {
     u8::try_from(input)
         .map(|input| input.to_be_bytes().into())
         .map_err(|_| InternalError::I2osp)
@@ -368,7 +447,8 @@ mod unit_tests {
     use proptest::prelude::*;
 
     use crate::{
-        BlindedElement, EvaluationElement, OprfClient, OprfServer, Proof, VoprfClient, VoprfServer,
+        BlindedElement, EvaluationElement, OprfClient, OprfServer, PoprfClient, PoprfServer, Proof,
+        VoprfClient, VoprfServer,
     };
 
     macro_rules! test_deserialize {
@@ -384,24 +464,35 @@ mod unit_tests {
 
     proptest! {
         #[test]
-        fn test_nocrash_nonverifiable_client(bytes in vec(any::<u8>(), 0..200)) {
+        fn test_nocrash_oprf_client(bytes in vec(any::<u8>(), 0..200)) {
             test_deserialize!(OprfClient, bytes);
         }
 
         #[test]
-        fn test_nocrash_verifiable_client(bytes in vec(any::<u8>(), 0..200)) {
+        fn test_nocrash_voprf_client(bytes in vec(any::<u8>(), 0..200)) {
             test_deserialize!(VoprfClient, bytes);
         }
 
         #[test]
-        fn test_nocrash_nonverifiable_server(bytes in vec(any::<u8>(), 0..200)) {
+        fn test_nocrash_poprf_client(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(PoprfClient, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_oprf_server(bytes in vec(any::<u8>(), 0..200)) {
             test_deserialize!(OprfServer, bytes);
         }
 
         #[test]
-        fn test_nocrash_verifiable_server(bytes in vec(any::<u8>(), 0..200)) {
+        fn test_nocrash_voprf_server(bytes in vec(any::<u8>(), 0..200)) {
             test_deserialize!(VoprfServer, bytes);
         }
+
+        #[test]
+        fn test_nocrash_poprf_server(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(PoprfServer, bytes);
+        }
+
 
         #[test]
         fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {

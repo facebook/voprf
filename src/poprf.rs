@@ -9,21 +9,19 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::iter::{self, Map, Repeat, Zip};
 
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
-use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256, U8};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
 use crate::util::{
-    create_context_string, generate_proof, i2osp_1, i2osp_2, verify_proof, BlindedElement,
-    EvaluationElement, Mode, Proof, STR_CONTEXT, STR_DERIVE_KEYPAIR, STR_FINALIZE,
+    derive_keypair, generate_proof, i2osp_2, verify_proof, BlindedElement, EvaluationElement, Mode,
+    Proof, ProofElement, STR_FINALIZE, STR_INFO,
 };
 use crate::{CipherSuite, Error, Group, Result};
 
@@ -86,19 +84,13 @@ where
     /// DH-OPRF.
     ///
     /// # Errors
-    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
     pub fn blind<R: RngCore + CryptoRng>(
-        input: &[u8],
         blinding_factor_rng: &mut R,
+        input: &[u8],
     ) -> Result<PoprfClientBlindResult<CS>> {
-        let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Poprf)?;
-        Ok(PoprfClientBlindResult {
-            state: Self {
-                blind,
-                blinded_element,
-            },
-            message: BlindedElement(blinded_element),
-        })
+        let blind = CS::Group::random_scalar(blinding_factor_rng);
+        Self::deterministic_blind_unchecked_inner(input, blind)
     }
 
     #[cfg(any(feature = "danger", test))]
@@ -112,12 +104,24 @@ where
     /// on the validity of the blinding factor!
     ///
     /// # Errors
-    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
     pub fn deterministic_blind_unchecked(
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
     ) -> Result<PoprfClientBlindResult<CS>> {
-        let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, Mode::Poprf)?;
+        Self::deterministic_blind_unchecked_inner(input, blind)
+    }
+
+    /// Inner function for computing blind output
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
+    fn deterministic_blind_unchecked_inner(
+        input: &[u8],
+        blind: <CS::Group as Group>::Scalar,
+    ) -> Result<PoprfClientBlindResult<CS>> {
+        let blinded_element =
+            crate::util::deterministic_blind_unchecked::<CS>(input, &blind, Mode::Poprf)?;
         Ok(PoprfClientBlindResult {
             state: Self {
                 blind,
@@ -131,8 +135,8 @@ where
     /// DH-OPRF, in which the client unblinds the server's message.
     ///
     /// # Errors
-    /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
+    /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
     pub fn finalize(
         &self,
@@ -140,68 +144,43 @@ where
         evaluation_element: &EvaluationElement<CS>,
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
-        metadata: Option<&[u8]>,
+        info: Option<&[u8]>,
     ) -> Result<Output<CS::Hash>> {
         let inputs = core::array::from_ref(&input);
         let clients = core::array::from_ref(self);
         let messages = core::array::from_ref(evaluation_element);
 
-        let mut batch_result =
-            Self::batch_finalize(inputs, clients, messages, proof, pk, metadata)?;
-        batch_result.next().unwrap()
+        let batch_result = Self::batch_finalize(inputs, clients, messages, proof, pk, info)?;
+        Ok(batch_result.first().unwrap().clone())
     }
 
     /// Allows for batching of the finalization of multiple [PoprfClient]
     /// and [EvaluationElement] pairs
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Batch`] if the number of `clients` and `messages` don't match
-    ///   or is longer then [`u16::MAX`].
+    ///   or is longer than [`u16::MAX`].
     /// - [`Error::ProofVerification`] if the `proof` failed to verify.
     ///
     /// The resulting messages can each fail individually with [`Error::Input`]
-    /// if the `input` is empty or longer then [`u16::MAX`].
-    pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
-        inputs: &'a II,
-        clients: &'a IC,
-        messages: &'a IM,
+    /// if the `input` is empty or longer than [`u16::MAX`].
+    pub fn batch_finalize(
+        inputs: &[&[u8]],
+        clients: &[PoprfClient<CS>],
+        messages: &[EvaluationElement<CS>],
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
-        metadata: Option<&'a [u8]>,
-    ) -> Result<PoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
-    where
-        CS: 'a,
-        I: AsRef<[u8]>,
-        &'a II: 'a + IntoIterator<Item = I>,
-        <&'a II as IntoIterator>::IntoIter: ExactSizeIterator,
-        &'a IC: 'a + IntoIterator<Item = &'a PoprfClient<CS>>,
-        <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
-        &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
-        <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
-    {
-        let metadata = metadata.unwrap_or_default();
+        info: Option<&[u8]>,
+    ) -> Result<Vec<Output<<CS as CipherSuite>::Hash>>> {
+        let unblinded_elements = poprf_unblind(clients, messages, pk, proof, info)?;
 
-        let unblinded_elements = verifiable_unblind(clients, messages, pk, proof, metadata)?;
-
-        let inputs_and_unblinded_elements = inputs.into_iter().zip(unblinded_elements);
-
-        Ok(finalize_after_unblind::<CS, _, _>(
-            inputs_and_unblinded_elements,
-            metadata,
-        ))
-    }
-
-    #[cfg(test)]
-    /// Only used for test functions
-    pub fn from_blind_and_element(
-        blind: <CS::Group as Group>::Scalar,
-        blinded_element: <CS::Group as Group>::Elem,
-    ) -> Self {
-        Self {
-            blind,
-            blinded_element,
+        let mut inputs_and_unblinded_elements = alloc::vec![];
+        for (input, unblinded_element) in inputs.iter().cloned().zip(unblinded_elements) {
+            inputs_and_unblinded_elements.push((input, unblinded_element));
         }
+
+        finalize_after_unblind::<CS>(&inputs_and_unblinded_elements, info)
     }
 
     #[cfg(test)]
@@ -242,7 +221,7 @@ where
     /// Corresponds to DeriveKeyPair() function from the VOPRF specification.
     ///
     /// # Errors
-    /// [`Error::Seed`] if the `seed` is empty or longer then [`u16::MAX`].
+    /// [`Error::Seed`] if the `seed` is empty or longer than [`u16::MAX`].
     pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
         let (sk, pk) = derive_keypair::<CS>(seed, info, Mode::Poprf).map_err(|_| Error::Seed)?;
         Ok(Self { sk, pk })
@@ -259,22 +238,18 @@ where
     /// to the client.
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
-        metadata: Option<&[u8]>,
+        info: Option<&[u8]>,
     ) -> Result<PoprfServerEvaluateResult<CS>> {
-        let batch_evaluate_result = self.batch_evaluate(rng, std::vec![blinded_element.clone()])?;
+        let batch_evaluate_result =
+            self.batch_evaluate(rng, std::vec![blinded_element.clone()], info)?;
         Ok(PoprfServerEvaluateResult {
-            message: batch_evaluate_result
-                .messages
-                .iter()
-                .next()
-                .unwrap()
-                .clone(),
+            message: batch_evaluate_result.messages.get(0).unwrap().clone(),
             proof: batch_evaluate_result.proof,
         })
     }
@@ -283,81 +258,43 @@ where
     /// messages from a [PoprfClient]
     ///
     /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
+    /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn batch_evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
         blinded_elements: Vec<BlindedElement<CS>>,
+        info: Option<&[u8]>,
     ) -> Result<PoprfServerBatchEvaluateResult<CS>> {
+        let g = CS::Group::base_elem();
+        let tweak = compute_tweak::<CS>(self.sk, info)?;
+        let tweaked_key = g * &tweak;
+
+        // evaluatedElement = G.ScalarInverse(t) * blindedElement
         let evaluation_elements: Vec<EvaluationElement<CS>> = blinded_elements
             .iter()
-            .map(|blinded_element| EvaluationElement(blinded_element.0 * &self.sk))
+            .map(|blinded_element| {
+                EvaluationElement(blinded_element.0 * &CS::Group::invert_scalar(tweak))
+            })
             .collect();
 
         let messages = evaluation_elements.clone();
 
-        let g = CS::Group::base_elem();
         let proof = generate_proof(
             rng,
-            self.sk,
+            tweak,
             g,
-            self.pk,
-            blinded_elements.into_iter().map(|element| element.0),
+            tweaked_key,
             evaluation_elements
                 .into_iter()
-                .map(|element: EvaluationElement<CS>| element.0.clone()),
+                .map(|element: EvaluationElement<CS>| ProofElement(element.0)),
+            blinded_elements
+                .into_iter()
+                .map(|element| ProofElement(element.0)),
+            Mode::Poprf,
         )?;
 
         Ok(PoprfServerBatchEvaluateResult { messages, proof })
-    }
-
-    /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
-    /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
-    /// [`collect`](Iterator::collect)ed and passed into
-    /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
-    ///
-    /// # Errors
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
-    /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
-        &self,
-        blinded_elements: I,
-        metadata: Option<&[u8]>,
-    ) -> Result<PoprfServerBatchEvaluatePrepareResult<'a, CS, I>> {
-        // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.1-1
-
-        let context_string = create_context_string::<CS>(Mode::Poprf);
-        let metadata = metadata.unwrap_or_default();
-
-        // context = "Context-" || contextString || I2OSP(len(info), 2) || info
-        let context = GenericArray::from(STR_CONTEXT)
-            .concat(context_string)
-            .concat(i2osp_2(metadata.len()).map_err(|_| Error::Metadata)?);
-        let context = [&context, metadata];
-
-        let m =
-            CS::Group::hash_to_scalar::<CS>(&context, Mode::Poprf).map_err(|_| Error::Metadata)?;
-        let t = self.sk + &m;
-
-        // if t == 0:
-        if bool::from(CS::Group::is_zero_scalar(t)) {
-            // raise InverseError
-            return Err(Error::Protocol);
-        }
-
-        let evaluation_elements = blinded_elements
-            // To make a return type possible, we have to convert to a `fn` pointer, which isn't
-            // possible if we `move` from context.
-            .zip(iter::repeat(CS::Group::invert_scalar(t)))
-            .map(<fn((&BlindedElement<CS>, _)) -> _>::from(|(x, t)| {
-                PreparedEvaluationElement(EvaluationElement(x.0 * &t))
-            }));
-
-        Ok(PoprfServerBatchEvaluatePrepareResult {
-            prepared_evaluation_elements: evaluation_elements,
-            t: PreparedTscalar(t),
-        })
     }
 
     /// Retrieves the server's public key
@@ -430,14 +367,6 @@ where
     pub message: BlindedElement<CS>,
 }
 
-/// Concrete return type for [`PoprfClient::batch_finalize`].
-pub type PoprfClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnblindResult<
-    'a,
-    C,
-    I,
-    Zip<<&'a II as IntoIterator>::IntoIter, VerifiableUnblindResult<'a, C, IC, IM>>,
->;
-
 /// Contains the fields that are returned by a verifiable server evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
 pub struct PoprfServerEvaluateResult<CS: CipherSuite>
@@ -447,111 +376,6 @@ where
 {
     /// The message to send to the client
     pub message: EvaluationElement<CS>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-/// Contains prepared [`EvaluationElement`]s by a verifiable server batch
-/// evaluate preparation.
-#[derive_where(Clone, ZeroizeOnDrop)]
-#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Elem)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
-)]
-pub struct PreparedEvaluationElement<CS: CipherSuite>(EvaluationElement<CS>)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Contains the prepared `t` by a verifiable server batch evaluate preparation.
-#[derive_where(Clone, ZeroizeOnDrop)]
-#[derive_where(Debug, Eq, Hash, Ord, PartialEq, PartialOrd; <CS::Group as Group>::Scalar)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
-)]
-pub struct PreparedTscalar<CS: CipherSuite>(
-    #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
-    <CS::Group as Group>::Scalar,
-)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`PoprfServerBatchEvaluatePrepareResult`].
-pub type PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
-    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
-    fn(
-        (
-            &BlindedElement<CS>,
-            <<CS as CipherSuite>::Group as Group>::Scalar,
-        ),
-    ) -> PreparedEvaluationElement<CS>,
->;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// preparation.
-#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct PoprfServerBatchEvaluatePrepareResult<
-    'a,
-    CS: 'a + CipherSuite,
-    I: Iterator<Item = &'a BlindedElement<CS>>,
-> where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    /// Prepared [`EvaluationElement`]s that will become messages.
-    pub prepared_evaluation_elements: PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I>,
-    /// Prepared `t` needed to finish the verifiable server batch evaluation.
-    pub t: PreparedTscalar<CS>,
-}
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`PoprfServerBatchEvaluateWithoutAllocMessages`].
-pub type PoprfServerBatchEvaluateWithoutAllocMessages<CS, I> = Map<
-    Zip<I, Repeat<<<CS as CipherSuite>::Group as Group>::Scalar>>,
-    fn(
-        (
-            &BlindedElement<CS>,
-            <<CS as CipherSuite>::Group as Group>::Scalar,
-        ),
-    ) -> EvaluationElement<CS>,
->;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate.
-#[derive_where(Debug; I, <CS::Group as Group>::Scalar)]
-pub struct PoprfServerBatchEvaluateWithoutAllocResult<'a, CS: 'a + CipherSuite, I>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    I: IntoIterator<Item = &'a BlindedElement<CS>>,
-{
-    /// The [`EvaluationElement`]s to send to the client
-    pub messages: PoprfServerBatchEvaluateWithoutAllocMessages<CS, I>,
-    /// The proof for the client to verify
-    pub proof: Proof<CS>,
-}
-
-/// Concrete type of [`EvaluationElement`]s in
-/// [`PoprfServerBatchEvaluateFinishResult`].
-pub type PoprfServerBatchEvaluateFinishedMessages<'a, CS, I> =
-    Map<<&'a I as IntoIterator>::IntoIter, fn(&BlindedElement<CS>) -> EvaluationElement<CS>>;
-
-/// Contains the fields that are returned by a verifiable server batch evaluate
-/// finish.
-#[derive_where(Debug; <&'a I as core::iter::IntoIterator>::IntoIter, <CS::Group as Group>::Scalar)]
-pub struct PoprfServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
-{
-    /// The [`EvaluationElement`]s to send to the client
-    pub messages: PoprfServerBatchEvaluateFinishedMessages<'a, CS, I>,
     /// The proof for the client to verify
     pub proof: Proof<CS>,
 }
@@ -575,199 +399,150 @@ where
 // =============== //
 /////////////////////
 
-#[allow(clippy::type_complexity)]
-pub(crate) fn derive_keypair<CS: CipherSuite>(
-    seed: &[u8],
-    info: &[u8],
-    mode: Mode,
-) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem), Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    let context_string = create_context_string::<CS>(mode);
-    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
-
-    // deriveInput = seed || I2OSP(len(info), 2) || info
-    let info_len = i2osp_2(info.len()).map_err(|_| Error::Metadata)?;
-
-    let mut counter: usize = 0;
-
-    loop {
-        if counter > 255 {
-            break Err(Error::DeriveKeyPair);
-        }
-
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
-        let counter_i2osp = i2osp_1(counter).map_err(|_| Error::DeriveKeyPair)?;
-        let sk_s = <CS::Group as Group>::hash_to_scalar_with_dst::<CS>(
-            &[seed, info_len.as_slice(), info, counter_i2osp.as_slice()],
-            &dst,
-        )
-        .map_err(|_| Error::DeriveKeyPair)?;
-
-        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
-            let pk_s = CS::Group::base_elem() * &sk_s;
-            break Ok((sk_s, pk_s));
-        }
-        counter += 1;
-    }
-}
-
-type BlindResult<C> = (
-    <<C as CipherSuite>::Group as Group>::Scalar,
-    <<C as CipherSuite>::Group as Group>::Elem,
-);
-
-// Inner function for blind. Returns the blind scalar and the blinded element
-//
-// Can only fail with [`Error::Input`].
-fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
-    input: &[u8],
-    blinding_factor_rng: &mut R,
-    mode: Mode,
-) -> Result<BlindResult<CS>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    // Choose a random scalar that must be non-zero
-    let blind = CS::Group::random_scalar(blinding_factor_rng);
-    let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, mode)?;
-    Ok((blind, blinded_element))
-}
-
-// Inner function for blind that assumes that the blinding factor has already
-// been chosen, and therefore takes it as input. Does not check if the blinding
-// factor is non-zero.
-//
-// Can only fail with [`Error::Input`].
-fn deterministic_blind_unchecked<CS: CipherSuite>(
-    input: &[u8],
-    blind: &<CS::Group as Group>::Scalar,
-    mode: Mode,
+// Inner function for POPRF blind. Computes the tweaked key from the server
+// public key and info.
+fn compute_tweaked_key<CS: CipherSuite>(
+    pk: <CS::Group as Group>::Elem,
+    info: Option<&[u8]>,
 ) -> Result<<CS::Group as Group>::Elem>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode).map_err(|_| Error::Input)?;
-    Ok(hashed_point * blind)
+    // None for info is treated the same as empty bytes
+    let info = info.unwrap_or_default();
+
+    // framedInfo = "Info" || I2OSP(len(info), 2) || info
+    // m = G.HashToScalar(framedInfo)
+    // T = G.ScalarBaseMult(m)
+    // tweakedKey = T + pkS
+    // if tweakedKey == G.Identity():
+    //   raise InvalidInputError
+    let info_len = i2osp_2(info.len()).map_err(|_| Error::Input)?;
+    let framed_info = [&STR_INFO, info_len.as_slice(), info];
+
+    // This can't fail, the size of the `input` is known.
+    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, Mode::Poprf).unwrap();
+
+    let t = CS::Group::base_elem() * &m;
+    let tweaked_key = t + &pk;
+
+    // Check if resulting element
+    match bool::from(CS::Group::is_identity_elem(tweaked_key)) {
+        true => Err(Error::Input),
+        false => Ok(tweaked_key),
+    }
 }
 
-type VerifiableUnblindResult<'a, CS, IC, IM> = Map<
-    Zip<
-        Map<
-            <&'a IC as IntoIterator>::IntoIter,
-            fn(&PoprfClient<CS>) -> <<CS as CipherSuite>::Group as Group>::Scalar,
-        >,
-        <&'a IM as IntoIterator>::IntoIter,
-    >,
-    fn(
-        (
-            <<CS as CipherSuite>::Group as Group>::Scalar,
-            &EvaluationElement<CS>,
-        ),
-    ) -> <<CS as CipherSuite>::Group as Group>::Elem,
->;
+// Inner function for POPRF evaluate. Computes the tweak from the server
+// private key and info.
+fn compute_tweak<CS: CipherSuite>(
+    sk: <CS::Group as Group>::Scalar,
+    info: Option<&[u8]>,
+) -> Result<<CS::Group as Group>::Scalar>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    // None for info is treated the same as empty bytes
+    let info = info.unwrap_or_default();
 
-// Can only fail with [`Error::Metadata`], [`Error::Batch] or
+    // framedInfo = "Info" || I2OSP(len(info), 2) || info
+    // m = G.HashToScalar(framedInfo)
+    // t = skS + m
+    // if t == 0:
+    //   raise InverseError
+    let info_len = i2osp_2(info.len()).map_err(|_| Error::Input)?;
+    let framed_info = [&STR_INFO, info_len.as_slice(), info];
+
+    // This can't fail, the size of the `input` is known.
+    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, Mode::Poprf).unwrap();
+
+    let t = sk + &m;
+
+    // Check if resulting element is equal to zero
+    match bool::from(CS::Group::is_zero_scalar(t)) {
+        true => Err(Error::Input),
+        false => Ok(t),
+    }
+}
+
+// Can only fail with [`Error::Info`], [`Error::Batch] or
 // [`Error::ProofVerification`].
-fn verifiable_unblind<'a, CS: 'a + CipherSuite, IC, IM>(
-    clients: &'a IC,
-    messages: &'a IM,
+fn poprf_unblind<CS: CipherSuite>(
+    clients: &[PoprfClient<CS>],
+    messages: &[EvaluationElement<CS>],
     pk: <CS::Group as Group>::Elem,
     proof: &Proof<CS>,
-    info: &[u8],
-) -> Result<VerifiableUnblindResult<'a, CS, IC, IM>>
+    info: Option<&[u8]>,
+) -> Result<Vec<<CS::Group as Group>::Elem>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    &'a IC: 'a + IntoIterator<Item = &'a PoprfClient<CS>>,
-    <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
-    &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
-    <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.2-2
-
-    let context_string = create_context_string::<CS>(Mode::Poprf);
-
-    // context = "Context-" || contextString || I2OSP(len(info), 2) || info
-    let context = GenericArray::from(STR_CONTEXT)
-        .concat(context_string)
-        .concat(i2osp_2(info.len()).map_err(|_| Error::Metadata)?);
-    let context = [&context, info];
-
-    // The `input` used here is the metadata.
-    let m = CS::Group::hash_to_scalar::<CS>(&context, Mode::Poprf).map_err(|_| Error::Metadata)?;
+    let info = info.unwrap_or_default();
+    let tweaked_key = compute_tweaked_key::<CS>(pk, Some(info))?;
 
     let g = CS::Group::base_elem();
-    let t = g * &m;
-    let u = t + &pk;
 
     let blinds = clients
-        .into_iter()
+        .iter()
         // Convert to `fn` pointer to make a return type possible.
         .map(<fn(&PoprfClient<CS>) -> _>::from(|x| x.blind));
-    let evaluation_elements = messages.into_iter().map(|element| element.0);
-    let blinded_elements = clients.into_iter().map(|client| client.blinded_element);
+    let evaluation_elements = messages.iter().map(|element| ProofElement(element.0));
+    let blinded_elements = clients
+        .iter()
+        .map(|client| ProofElement(client.blinded_element));
 
-    verify_proof(g, pk, blinded_elements, evaluation_elements, proof)?;
+    verify_proof(
+        g,
+        tweaked_key,
+        evaluation_elements,
+        blinded_elements,
+        proof,
+        Mode::Poprf,
+    )?;
 
     Ok(blinds
-        .zip(messages.into_iter())
-        .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind)))
+        .zip(messages.iter())
+        .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind))
+        .collect())
 }
 
-type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
-    Zip<IE, Repeat<GenericArray<u8, U8>>>,
-    fn(
-        (
-            (I, <<C as CipherSuite>::Group as Group>::Elem),
-            GenericArray<u8, U8>,
-        ),
-    ) -> Result<Output<<C as CipherSuite>::Hash>>,
->;
-
-// Returned values can only fail with [`Error::Input`] or [`Error::Metadata`].
-fn finalize_after_unblind<
-    'a,
-    CS: CipherSuite,
-    I: AsRef<[u8]>,
-    IE: 'a + Iterator<Item = (I, <CS::Group as Group>::Elem)>,
->(
-    inputs_and_unblinded_elements: IE,
-    _info: &'a [u8],
-) -> FinalizeAfterUnblindResult<CS, I, IE>
+// Returned values can only fail with [`Error::Input`] or [`Error::Info`].
+fn finalize_after_unblind<CS: CipherSuite>(
+    inputs_and_unblinded_elements: &[(&[u8], <CS::Group as Group>::Elem)],
+    info: Option<&[u8]>,
+) -> Result<Vec<Output<<CS as CipherSuite>::Hash>>>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.3.2-2
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
+    let mut outputs = alloc::vec![];
 
+    let info = info.unwrap_or_default();
+    let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
     let finalize_dst = GenericArray::from(STR_FINALIZE);
 
-    inputs_and_unblinded_elements
-        // To make a return type possible, we have to convert to a `fn` pointer,
-        // which isn't possible if we `move` from context.
-        .zip(iter::repeat(finalize_dst))
-        .map(|((input, unblinded_element), finalize_dst)| {
-            let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
+    for (input, unblinded_element) in inputs_and_unblinded_elements.iter().cloned() {
+        // hashInput = I2OSP(len(input), 2) || input ||
+        //             I2OSP(len(info), 2) || info ||
+        //             I2OSP(len(unblindedElement), 2) || unblindedElement ||
+        //             "Finalize"
+        // return Hash(hashInput)
+        let output = CS::Hash::new()
+            .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
+            .chain_update(input.as_ref())
+            .chain_update(i2osp_2(info.as_ref().len()).map_err(|_| Error::Input)?)
+            .chain_update(info.as_ref())
+            .chain_update(elem_len)
+            .chain_update(CS::Group::serialize_elem(unblinded_element))
+            .chain_update(finalize_dst)
+            .finalize();
+        outputs.push(output);
+    }
 
-            // hashInput = I2OSP(len(input), 2) || input ||
-            //             I2OSP(len(unblindedElement), 2) || unblindedElement ||
-            //             "Finalize"
-            // return Hash(hashInput)
-            Ok(CS::Hash::new()
-                .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
-                .chain_update(input.as_ref())
-                .chain_update(elem_len)
-                .chain_update(CS::Group::serialize_elem(unblinded_element))
-                .chain_update(finalize_dst)
-                .finalize())
-        })
+    Ok(outputs)
 }
 
 ///////////
@@ -780,8 +555,6 @@ mod tests {
     use core::ops::Add;
     use core::ptr;
 
-    use ::alloc::vec;
-    use ::alloc::vec::Vec;
     use generic_array::typenum::Sum;
     use generic_array::ArrayLength;
     use rand::rngs::OsRng;
@@ -799,14 +572,18 @@ mod tests {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
+        let t = compute_tweak::<CS>(key, Some(info)).unwrap();
+
         let point = CS::Group::hash_to_curve::<CS>(&[input], mode).unwrap();
 
-        let res = point * &key;
+        // evaluatedElement = G.ScalarInverse(t) * blindedElement
+        let res = point * &CS::Group::invert_scalar(t);
 
-        finalize_after_unblind::<CS, _, _>(iter::once((input, res)), info)
-            .next()
+        finalize_after_unblind::<CS>(&[(input, res)], Some(info))
             .unwrap()
+            .first()
             .unwrap()
+            .clone()
     }
 
     fn verifiable_retrieval<CS: CipherSuite>()
@@ -817,8 +594,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = PoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -844,8 +621,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = PoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
@@ -872,7 +649,7 @@ mod tests {
     {
         let input = b"input";
         let mut rng = OsRng;
-        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
 
         let mut state = client_blind_result.state;
         unsafe { ptr::drop_in_place(&mut state) };
@@ -895,8 +672,8 @@ mod tests {
         let input = b"input";
         let info = b"info";
         let mut rng = OsRng;
-        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = PoprfServer::<CS>::new(&mut rng);
+        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
         let server_result = server
             .evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();

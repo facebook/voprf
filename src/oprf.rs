@@ -7,24 +7,18 @@
 
 //! Contains the main OPRF API
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use core::iter::{self, Map, Repeat, Zip};
 
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
-use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U256, U8};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256, U8};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 #[cfg(feature = "serde")]
 use crate::serialization::serde::Scalar;
-use crate::util::{
-    i2osp_1, i2osp_2, BlindedElement, EvaluationElement, Mode, STR_DERIVE_KEYPAIR, STR_FINALIZE,
-    STR_VOPRF,
-};
+use crate::util::{derive_keypair, i2osp_2, BlindedElement, EvaluationElement, Mode, STR_FINALIZE};
 use crate::{CipherSuite, Error, Group, Result};
 
 ///////////////
@@ -92,11 +86,8 @@ where
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<OprfClientBlindResult<CS>> {
-        let (blind, blinded_element) = blind::<CS, _>(input, blinding_factor_rng, Mode::Oprf)?;
-        Ok(OprfClientBlindResult {
-            state: Self { blind },
-            message: BlindedElement(blinded_element),
-        })
+        let blind = CS::Group::random_scalar(blinding_factor_rng);
+        Self::deterministic_blind_unchecked_inner(input, blind)
     }
 
     #[cfg(any(feature = "danger", test))]
@@ -115,7 +106,19 @@ where
         input: &[u8],
         blind: <CS::Group as Group>::Scalar,
     ) -> Result<OprfClientBlindResult<CS>> {
-        let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, Mode::Oprf)?;
+        Self::deterministic_blind_unchecked_inner(input, blind)
+    }
+
+    /// Inner function for computing blind output
+    ///
+    /// # Errors
+    /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
+    fn deterministic_blind_unchecked_inner(
+        input: &[u8],
+        blind: <CS::Group as Group>::Scalar,
+    ) -> Result<OprfClientBlindResult<CS>> {
+        let blinded_element =
+            crate::util::deterministic_blind_unchecked::<CS>(input, &blind, Mode::Oprf)?;
         Ok(OprfClientBlindResult {
             state: Self { blind },
             message: BlindedElement(blinded_element),
@@ -127,17 +130,15 @@ where
     ///
     /// # Errors
     /// - [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    /// - [`Error::Metadata`] if the `metadata` is longer then `u16::MAX - 21`.
     pub fn finalize(
         &self,
         input: &[u8],
         evaluation_element: &EvaluationElement<CS>,
-        metadata: Option<&[u8]>, // FIXME: not used
     ) -> Result<Output<CS::Hash>> {
         let unblinded_element = evaluation_element.0 * &CS::Group::invert_scalar(self.blind);
         let mut outputs = finalize_after_unblind::<CS, _, _>(
             iter::once((input, unblinded_element)),
-            metadata.unwrap_or_default(),
+            &[],
         );
         outputs.next().unwrap()
     }
@@ -208,52 +209,6 @@ where
     }
 }
 
-impl<CS: CipherSuite> BlindedElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates a [BlindedElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
-    }
-}
-
-impl<CS: CipherSuite> EvaluationElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    #[cfg(feature = "danger")]
-    /// Creates an [EvaluationElement] from a raw group element.
-    ///
-    /// # Caution
-    ///
-    /// This should be used with caution, since it does not perform any checks
-    /// on the validity of the value itself!
-    pub fn from_value_unchecked(value: <CS::Group as Group>::Elem) -> Self {
-        Self(value)
-    }
-
-    #[cfg(feature = "danger")]
-    /// Exposes the internal value
-    pub fn value(&self) -> <CS::Group as Group>::Elem {
-        self.0
-    }
-}
-
 /////////////////////////
 // Convenience Structs //
 //==================== //
@@ -277,87 +232,6 @@ where
 // =============== //
 /////////////////////
 
-#[allow(clippy::type_complexity)]
-pub(crate) fn derive_keypair<CS: CipherSuite>(
-    seed: &[u8],
-    info: &[u8],
-    mode: Mode,
-) -> Result<(<CS::Group as Group>::Scalar, <CS::Group as Group>::Elem), Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    let context_string = create_context_string::<CS>(mode);
-    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
-
-    // deriveInput = seed || I2OSP(len(info), 2) || info
-    let info_len = i2osp_2(info.len()).map_err(|_| Error::Metadata)?;
-
-    let mut counter: usize = 0;
-
-    loop {
-        if counter > 255 {
-            break Err(Error::DeriveKeyPair);
-        }
-
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
-        let counter_i2osp = i2osp_1(counter).map_err(|_| Error::DeriveKeyPair)?;
-        let sk_s = <CS::Group as Group>::hash_to_scalar_with_dst::<CS>(
-            &[seed, info_len.as_slice(), info, counter_i2osp.as_slice()],
-            &dst,
-        )
-        .map_err(|_| Error::DeriveKeyPair)?;
-
-        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
-            let pk_s = CS::Group::base_elem() * &sk_s;
-            break Ok((sk_s, pk_s));
-        }
-        counter += 1;
-    }
-}
-
-type BlindResult<C> = (
-    <<C as CipherSuite>::Group as Group>::Scalar,
-    <<C as CipherSuite>::Group as Group>::Elem,
-);
-
-// Inner function for blind. Returns the blind scalar and the blinded element
-//
-// Can only fail with [`Error::Input`].
-fn blind<CS: CipherSuite, R: RngCore + CryptoRng>(
-    input: &[u8],
-    blinding_factor_rng: &mut R,
-    mode: Mode,
-) -> Result<BlindResult<CS>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    // Choose a random scalar that must be non-zero
-    let blind = CS::Group::random_scalar(blinding_factor_rng);
-    let blinded_element = deterministic_blind_unchecked::<CS>(input, &blind, mode)?;
-    Ok((blind, blinded_element))
-}
-
-// Inner function for blind that assumes that the blinding factor has already
-// been chosen, and therefore takes it as input. Does not check if the blinding
-// factor is non-zero.
-//
-// Can only fail with [`Error::Input`].
-fn deterministic_blind_unchecked<CS: CipherSuite>(
-    input: &[u8],
-    blind: &<CS::Group as Group>::Scalar,
-    mode: Mode,
-) -> Result<<CS::Group as Group>::Elem>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], mode).map_err(|_| Error::Input)?;
-    Ok(hashed_point * blind)
-}
-
 type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
     Zip<IE, Repeat<GenericArray<u8, U8>>>,
     fn(
@@ -368,7 +242,6 @@ type FinalizeAfterUnblindResult<'a, C, I, IE> = Map<
     ) -> Result<Output<<C as CipherSuite>::Hash>>,
 >;
 
-// Returned values can only fail with [`Error::Input`] or [`Error::Metadata`].
 fn finalize_after_unblind<
     'a,
     CS: CipherSuite,
@@ -376,15 +249,12 @@ fn finalize_after_unblind<
     IE: 'a + Iterator<Item = (I, <CS::Group as Group>::Elem)>,
 >(
     inputs_and_unblinded_elements: IE,
-    _info: &'a [u8],
+    _unused: &'a [u8],
 ) -> FinalizeAfterUnblindResult<CS, I, IE>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.3.2-2
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.3-1
-
     let finalize_dst = GenericArray::from(STR_FINALIZE);
 
     inputs_and_unblinded_elements
@@ -408,18 +278,6 @@ where
         })
 }
 
-/// Generates the contextString parameter as defined in
-/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
-pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
-    GenericArray::from(STR_VOPRF)
-        .concat([mode.to_u8()].into())
-        .concat(CS::ID.to_be_bytes().into())
-}
-
 ///////////
 // Tests //
 // ===== //
@@ -427,17 +285,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::ops::Add;
     use core::ptr;
 
-    use ::alloc::vec;
-    use ::alloc::vec::Vec;
-    use generic_array::typenum::Sum;
-    use generic_array::ArrayLength;
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::serde::{Deserialize, Serialize};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -466,16 +318,15 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let input = b"input";
-        let info = b"info";
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng);
         let message = server.evaluate(&client_blind_result.message).unwrap();
         let client_finalize_result = client_blind_result
             .state
-            .finalize(input, &message, Some(info))
+            .finalize(input, &message)
             .unwrap();
-        let res2 = prf::<CS>(input, server.get_private_key(), info, Mode::Oprf);
+        let res2 = prf::<CS>(input, server.get_private_key(), &[], Mode::Oprf);
         assert_eq!(client_finalize_result, res2);
     }
 
@@ -487,19 +338,17 @@ mod tests {
         let mut rng = OsRng;
         let mut input = [0u8; 64];
         rng.fill_bytes(&mut input);
-        let info = b"info";
         let client_blind_result = OprfClient::<CS>::blind(&input, &mut rng).unwrap();
         let client_finalize_result = client_blind_result
             .state
             .finalize(
                 &input,
                 &EvaluationElement(client_blind_result.message.0),
-                Some(info),
             )
             .unwrap();
 
         let point = CS::Group::hash_to_curve::<CS>(&[&input], Mode::Oprf).unwrap();
-        let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), info)
+        let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), &[])
             .next()
             .unwrap()
             .unwrap();
@@ -507,7 +356,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn zeroize_base_client<CS: CipherSuite>()
+    fn zeroize_oprf_client<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -525,7 +374,7 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_base_server<CS: CipherSuite>()
+    fn zeroize_oprf_server<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -555,15 +404,15 @@ mod tests {
             base_retrieval::<Ristretto255>();
             base_inversion_unsalted::<Ristretto255>();
 
-            zeroize_base_client::<Ristretto255>();
-            zeroize_base_server::<Ristretto255>();
+            zeroize_oprf_client::<Ristretto255>();
+            zeroize_oprf_server::<Ristretto255>();
         }
 
         base_retrieval::<NistP256>();
         base_inversion_unsalted::<NistP256>();
 
-        zeroize_base_client::<NistP256>();
-        zeroize_base_server::<NistP256>();
+        zeroize_oprf_client::<NistP256>();
+        zeroize_oprf_server::<NistP256>();
 
         Ok(())
     }

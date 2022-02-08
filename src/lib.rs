@@ -40,13 +40,13 @@
 //!
 //! ## Base Mode
 //!
-//! In base mode, a [NonVerifiableClient] interacts with a [NonVerifiableServer]
+//! In base mode, a [OprfClient] interacts with a [OprfServer]
 //! to compute the output of the VOPRF.
 //!
 //! ### Server Setup
 //!
 //! The protocol begins with a setup phase, in which the server must run
-//! [NonVerifiableServer::new()] to produce an instance of itself. This instance
+//! [OprfServer::new()] to produce an instance of itself. This instance
 //! must be persisted on the server and used for online client evaluations.
 //!
 //! ```
@@ -56,18 +56,18 @@
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
-//! use voprf::NonVerifiableServer;
+//! use voprf::OprfServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! let server = OprfServer::<CipherSuite>::new(&mut server_rng);
 //! ```
 //!
 //! ### Client Blinding
 //!
 //! In the first step, the client chooses an input, and runs
-//! [NonVerifiableClient::blind] to produce a [NonVerifiableClientBlindResult],
+//! [OprfClient::blind] to produce a [OprfClientBlindResult],
 //! which consists of a [BlindedElement] to be sent to the server and a
-//! [NonVerifiableClient] which must be persisted on the client for the final
+//! [OprfClient] which must be persisted on the client for the final
 //! step of the VOPRF protocol.
 //!
 //! ```
@@ -77,18 +77,18 @@
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
-//! use voprf::NonVerifiableClient;
+//! use voprf::OprfClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
+//! let client_blind_result = OprfClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
 //!
 //! In the second step, the server takes as input the message from
-//! [NonVerifiableClient::blind] (a [BlindedElement]), and runs
-//! [NonVerifiableServer::evaluate] to produce [EvaluationElement] to be sent to
+//! [OprfClient::blind] (a [BlindedElement]), and runs
+//! [OprfServer::evaluate] to produce [EvaluationElement] to be sent to
 //! the client.
 //!
 //! ```
@@ -96,44 +96,44 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::NonVerifiableClient;
+//! # use voprf::OprfClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(
+//! # let client_blind_result = OprfClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
-//! # use voprf::NonVerifiableServer;
+//! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng);
 //! let server_evaluate_result = server
-//!     .evaluate(&client_blind_result.message, None)
+//!     .evaluate(&client_blind_result.message)
 //!     .expect("Unable to perform server evaluate");
 //! ```
 //!
 //! ### Client Finalization
 //!
 //! In the final step, the client takes as input the message from
-//! [NonVerifiableServer::evaluate] (an [EvaluationElement]), and runs
-//! [NonVerifiableClient::finalize] to produce an output for the protocol.
+//! [OprfServer::evaluate] (an [EvaluationElement]), and runs
+//! [OprfClient::finalize] to produce an output for the protocol.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::NonVerifiableClient;
+//! # use voprf::OprfClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = NonVerifiableClient::<CipherSuite>::blind(
+//! # let client_blind_result = OprfClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
-//! # use voprf::NonVerifiableServer;
+//! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = NonVerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng);
 //! # let message = server.evaluate(
 //! #     &client_blind_result.message,
 //! #     None,
@@ -148,7 +148,7 @@
 //!
 //! ## Verifiable Mode
 //!
-//! In verifiable mode, a [VerifiableClient] interacts with a [VerifiableServer]
+//! In verifiable mode, a [VoprfClient] interacts with a [VoprfServer]
 //! to compute the output of the VOPRF. In order to verify the server's
 //! computation, the client checks a server-generated proof against the server's
 //! public key. If the proof fails to verify, then the client does not receive
@@ -161,7 +161,7 @@
 //! ### Server Setup
 //!
 //! The protocol begins with a setup phase, in which the server must run
-//! [VerifiableServer::new()] to produce an instance of itself. This instance
+//! [VoprfServer::new()] to produce an instance of itself. This instance
 //! must be persisted on the server and used for online client evaluations.
 //!
 //! ```
@@ -171,10 +171,10 @@
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
-//! use voprf::VerifiableServer;
+//! use voprf::VoprfServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
 //!
 //! // To be sent to the client
 //! println!("Server public key: {:?}", server.get_public_key());
@@ -187,9 +187,9 @@
 //! ### Client Blinding
 //!
 //! In the first step, the client chooses an input, and runs
-//! [VerifiableClient::blind] to produce a [VerifiableClientBlindResult], which
+//! [VoprfClient::blind] to produce a [VoprfClientBlindResult], which
 //! consists of a [BlindedElement] to be sent to the server and a
-//! [VerifiableClient] which must be persisted on the client for the final step
+//! [VoprfClient] which must be persisted on the client for the final step
 //! of the VOPRF protocol.
 //!
 //! ```
@@ -199,18 +199,18 @@
 //! # type CipherSuite = p256::NistP256;
 //! use rand::rngs::OsRng;
 //! use rand::RngCore;
-//! use voprf::VerifiableClient;
+//! use voprf::VoprfClient;
 //!
 //! let mut client_rng = OsRng;
-//! let client_blind_result = VerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
+//! let client_blind_result = VoprfClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!     .expect("Unable to construct client");
 //! ```
 //!
 //! ### Server Evaluation
 //!
 //! In the second step, the server takes as input the message from
-//! [VerifiableClient::blind] (a [BlindedElement]), and runs
-//! [VerifiableServer::evaluate] to produce a [VerifiableServerEvaluateResult],
+//! [VoprfClient::blind] (a [BlindedElement]), and runs
+//! [VoprfServer::evaluate] to produce a [VoprfServerEvaluateResult],
 //! which consists of an [EvaluationElement] to be sent to the client along with
 //! a proof.
 //!
@@ -219,17 +219,17 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::VerifiableClient;
+//! # use voprf::VoprfClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<CipherSuite>::blind(
+//! # let client_blind_result = VoprfClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
-//! # use voprf::VerifiableServer;
+//! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
 //! let server_evaluate_result = server
 //!     .evaluate(&mut server_rng, &client_blind_result.message, None)
 //!     .expect("Unable to perform server evaluate");
@@ -238,8 +238,8 @@
 //! ### Client Finalization
 //!
 //! In the final step, the client takes as input the message from
-//! [VerifiableServer::evaluate] (an [EvaluationElement]), the proof, and the
-//! server's public key, and runs [VerifiableClient::finalize] to produce an
+//! [VoprfServer::evaluate] (an [EvaluationElement]), the proof, and the
+//! server's public key, and runs [VoprfClient::finalize] to produce an
 //! output for the protocol.
 //!
 //! ```
@@ -247,17 +247,17 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::VerifiableClient;
+//! # use voprf::VoprfClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
-//! # let client_blind_result = VerifiableClient::<CipherSuite>::blind(
+//! # let client_blind_result = VoprfClient::<CipherSuite>::blind(
 //! #     b"input",
 //! #     &mut client_rng,
 //! # ).expect("Unable to construct client");
-//! # use voprf::VerifiableServer;
+//! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
 //! #     &client_blind_result.message,
@@ -287,7 +287,7 @@
 //!
 //! It is sometimes desirable to generate only a single, constant-size proof for
 //! an unbounded number of VOPRF evaluations (on arbitrary inputs).
-//! [VerifiableClient] and [VerifiableServer] support a batch API for handling
+//! [VoprfClient] and [VoprfServer] support a batch API for handling
 //! this case. In the following example, we show how to use the batch API to
 //! produce a single proof for 10 parallel VOPRF evaluations.
 //!
@@ -299,22 +299,22 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::VerifiableClient;
+//! # use voprf::VoprfClient;
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! let mut client_rng = OsRng;
 //! let mut client_states = vec![];
 //! let mut client_messages = vec![];
 //! for _ in 0..10 {
-//!     let client_blind_result = VerifiableClient::<CipherSuite>::blind(b"input", &mut client_rng)
+//!     let client_blind_result = VoprfClient::<CipherSuite>::blind(b"input", &mut client_rng)
 //!         .expect("Unable to construct client");
 //!     client_states.push(client_blind_result.state);
 //!     client_messages.push(client_blind_result.message);
 //! }
 //! ```
 //!
-//! Next, the server calls the [VerifiableServer::batch_evaluate_prepare] and
-//! [VerifiableServer::batch_evaluate_finish] function on a set of client
+//! Next, the server calls the [VoprfServer::batch_evaluate_prepare] and
+//! [VoprfServer::batch_evaluate_finish] function on a set of client
 //! messages, to produce a corresponding set of messages to be returned to the
 //! client (returned in the same order), along with a single proof:
 //!
@@ -323,36 +323,36 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::{VerifiableServerBatchEvaluatePrepareResult, VerifiableServerBatchEvaluateFinishResult, VerifiableClient};
+//! # use voprf::{VoprfServerBatchEvaluatePrepareResult, VoprfServerBatchEvaluateFinishResult, VoprfClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
+//! #     let client_blind_result = VoprfClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::VerifiableServer;
+//! # use voprf::VoprfServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
-//! let VerifiableServerBatchEvaluatePrepareResult {
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! let VoprfServerBatchEvaluatePrepareResult {
 //!     prepared_evaluation_elements,
 //!     t,
 //! } = server
 //!     .batch_evaluate_prepare(client_messages.iter(), None)
 //!     .expect("Unable to perform server batch evaluate");
 //! let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-//! let VerifiableServerBatchEvaluateFinishResult { messages, proof } = VerifiableServer::batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements, &t)
+//! let VoprfServerBatchEvaluateFinishResult { messages, proof } = VoprfServer::batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements, &t)
 //!     .expect("Unable to perform server batch evaluate");
 //! let messages: Vec<_> = messages.collect();
 //! ```
 //!
-//! If [`alloc`] is available, [VerifiableServer::batch_evaluate] can be called
+//! If [`alloc`] is available, [VoprfServer::batch_evaluate] can be called
 //! to avoid having to collect output manually:
 //!
 //! ```
@@ -361,30 +361,30 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
+//! # use voprf::{VoprfServerBatchEvaluateResult, VoprfClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
+//! #     let client_blind_result = VoprfClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::VerifiableServer;
+//! # use voprf::VoprfServer;
 //! let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
-//! let VerifiableServerBatchEvaluateResult { messages, proof } = server
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! let VoprfServerBatchEvaluateResult { messages, proof } = server
 //!     .batch_evaluate(&mut server_rng, &client_messages, None)
 //!     .expect("Unable to perform server batch evaluate");
 //! # }
 //! ```
 //!
-//! Then, the client calls [VerifiableClient::batch_finalize] on the client
+//! Then, the client calls [VoprfClient::batch_finalize] on the client
 //! states saved from the first step, along with the messages returned by the
 //! server, along with the server's proof, in order to produce a vector of
 //! outputs if the proof verifies correctly.
@@ -395,27 +395,27 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::{VerifiableServerBatchEvaluateResult, VerifiableClient};
+//! # use voprf::{VoprfServerBatchEvaluateResult, VoprfClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
 //! # let mut client_states = vec![];
 //! # let mut client_messages = vec![];
 //! # for _ in 0..10 {
-//! #     let client_blind_result = VerifiableClient::<CipherSuite>::blind(
+//! #     let client_blind_result = VoprfClient::<CipherSuite>::blind(
 //! #         b"input",
 //! #        &mut client_rng,
 //! #     ).expect("Unable to construct client");
 //! #     client_states.push(client_blind_result.state);
 //! #     client_messages.push(client_blind_result.message);
 //! # }
-//! # use voprf::VerifiableServer;
+//! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VerifiableServer::<CipherSuite>::new(&mut server_rng);
-//! # let VerifiableServerBatchEvaluateResult { messages, proof } = server
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! # let VoprfServerBatchEvaluateResult { messages, proof } = server
 //! #     .batch_evaluate(&mut server_rng, &client_messages, None)
 //! #     .expect("Unable to perform server batch evaluate");
-//! let client_batch_finalize_result = VerifiableClient::batch_finalize(
+//! let client_batch_finalize_result = VoprfClient::batch_finalize(
 //!     &[b"input"; 10],
 //!     &client_states,
 //!     &messages,
@@ -517,15 +517,13 @@ pub use crate::group::Ristretto255;
 pub use crate::oprf::{OprfClient, OprfClientBlindResult, OprfServer};
 pub use crate::poprf::{PoprfClient, PoprfServer, PoprfServerBatchEvaluateResult};
 pub use crate::serialization::{
-    BlindedElementLen, EvaluationElementLen, NonVerifiableClientLen, NonVerifiableServerLen,
-    ProofLen, VerifiableClientLen, VerifiableServerLen,
+    BlindedElementLen, EvaluationElementLen, OprfClientLen, OprfServerLen, ProofLen,
+    VoprfClientLen, VoprfServerLen,
 };
 pub use crate::util::{BlindedElement, EvaluationElement, Mode, Proof};
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VoprfServerBatchEvaluateResult;
 pub use crate::voprf::{
-    PreparedEvaluationElement, PreparedTscalar, VoprfClient, VoprfClientBatchFinalizeResult,
-    VoprfClientBlindResult, VoprfServer, VoprfServerBatchEvaluateFinishResult,
-    VoprfServerBatchEvaluateFinishedMessages, VoprfServerBatchEvaluatePrepareResult,
-    VoprfServerBatchEvaluatePreparedEvaluationElements, VoprfServerEvaluateResult,
+    VoprfClient, VoprfClientBatchFinalizeResult, VoprfClientBlindResult, VoprfServer,
+    VoprfServerEvaluateResult,
 };
