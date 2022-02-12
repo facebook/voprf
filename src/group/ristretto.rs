@@ -12,15 +12,13 @@ use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
-use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use super::{Group, STR_HASH_TO_GROUP};
-use crate::util::Mode;
-use crate::{util, CipherSuite, Error, InternalError, Result};
+use super::Group;
+use crate::{CipherSuite, Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -52,17 +50,14 @@ impl Group for Ristretto255 {
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
     fn hash_to_curve<CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst =
-            GenericArray::from(STR_HASH_TO_GROUP).concat(util::create_context_string::<Self>(mode));
-
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<CS::Hash>::expand_message(input, &dst, 64)
+        ExpandMsgXmd::<CS::Hash>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
@@ -71,7 +66,7 @@ impl Group for Ristretto255 {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar_with_dst<'a, CS: CipherSuite>(
+    fn hash_to_scalar<CS: CipherSuite>(
         input: &[&[u8]],
         dst: &[u8],
     ) -> Result<Self::Scalar, InternalError>

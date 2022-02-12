@@ -20,8 +20,8 @@ use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
 use crate::{
     BlindedElement, CipherSuite, EvaluationElement, Group, OprfClient, OprfServer, PoprfClient,
-    PoprfServer, PoprfServerBatchEvaluateResult, Proof, Result, VoprfClient, VoprfServer,
-    VoprfServerBatchEvaluateResult,
+    PoprfServer, PoprfServerBatchEvaluateFinishResult, PoprfServerBatchEvaluatePrepareResult,
+    Proof, Result, VoprfClient, VoprfServer, VoprfServerBatchEvaluateFinishResult,
 };
 
 #[derive(Debug)]
@@ -294,7 +294,7 @@ where
             let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
             let message = server.evaluate(&BlindedElement::deserialize(
                 &parameters.blinded_element[i],
-            )?)?;
+            )?);
 
             assert_eq!(
                 &parameters.evaluation_element[i],
@@ -321,8 +321,11 @@ where
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let VoprfServerBatchEvaluateResult { messages, proof } =
-            server.batch_evaluate(&mut rng, blinded_elements)?;
+        let prepared_evaluation_elements = server.batch_evaluate_prepare(blinded_elements.iter());
+        let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
+        let VoprfServerBatchEvaluateFinishResult { messages, proof } =
+            server.batch_evaluate_finish(&mut rng, blinded_elements.iter(), &prepared_elements)?;
+        let messages: Vec<_> = messages.collect();
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
             assert_eq!(&parameter, &message.serialize().as_slice());
@@ -349,8 +352,21 @@ where
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let PoprfServerBatchEvaluateResult { messages, proof } =
-            server.batch_evaluate(&mut rng, blinded_elements, Some(&parameters.info))?;
+        let PoprfServerBatchEvaluatePrepareResult {
+            prepared_evaluation_elements,
+            prepared_tweak,
+        } = server.batch_evaluate_prepare(blinded_elements.iter(), Some(&parameters.info))?;
+        let prepared_evaluation_elements: Vec<_> = prepared_evaluation_elements.collect();
+        let PoprfServerBatchEvaluateFinishResult { messages, proof } =
+            PoprfServer::batch_evaluate_finish::<_, _, Vec<_>>(
+                &mut rng,
+                blinded_elements.iter(),
+                &prepared_evaluation_elements,
+                &prepared_tweak,
+            )
+            .unwrap();
+
+        let messages: Vec<_> = messages.collect();
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
             assert_eq!(&parameter, &message.serialize().as_slice());
@@ -444,12 +460,7 @@ where
             .collect();
 
         let batch_result = PoprfClient::batch_finalize(
-            parameters
-                .input
-                .iter()
-                .map(|input| input.as_slice())
-                .collect::<Vec<&[u8]>>()
-                .as_slice(),
+            parameters.input.iter().map(|input| input.as_slice()),
             &clients,
             &messages,
             &Proof::deserialize(&parameters.proof)?,
@@ -457,7 +468,7 @@ where
             Some(&parameters.info),
         )?;
 
-        let result: Vec<Vec<u8>> = batch_result.iter().map(|arr| arr.to_vec()).collect();
+        let result: Vec<Vec<u8>> = batch_result.map(|arr| arr.unwrap().to_vec()).collect();
 
         assert_eq!(parameters.output, result);
     }

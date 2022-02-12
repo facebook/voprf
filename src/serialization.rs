@@ -52,7 +52,7 @@ where
     }
 }
 
-/// Length of [`VerifiableClient`] in bytes for serialization.
+/// Length of [`VoprfClient`] in bytes for serialization.
 pub type VoprfClientLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ScalarLen,
     <<CS as CipherSuite>::Group as Group>::ElemLen,
@@ -90,16 +90,22 @@ where
     }
 }
 
+/// Length of [`PoprfClient`] in bytes for serialization.
+pub type PoprfClientLen<CS> = Sum<
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+    <<CS as CipherSuite>::Group as Group>::ElemLen,
+>;
+
 impl<CS: CipherSuite> PoprfClient<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfClientLen<CS>>
+    pub fn serialize(&self) -> GenericArray<u8, PoprfClientLen<CS>>
     where
         <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        VoprfClientLen<CS>: ArrayLength<u8>,
+        PoprfClientLen<CS>: ArrayLength<u8>,
     {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
@@ -148,7 +154,7 @@ where
     }
 }
 
-/// Length of [`VerifiableServer`] in bytes for serialization.
+/// Length of [`VoprfServer`] in bytes for serialization.
 pub type VoprfServerLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ScalarLen,
     <<CS as CipherSuite>::Group as Group>::ElemLen,
@@ -182,16 +188,22 @@ where
     }
 }
 
+/// Length of [`PoprfServer`] in bytes for serialization.
+pub type PoprfServerLen<CS> = Sum<
+    <<CS as CipherSuite>::Group as Group>::ScalarLen,
+    <<CS as CipherSuite>::Group as Group>::ElemLen,
+>;
+
 impl<CS: CipherSuite> PoprfServer<CS>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfServerLen<CS>>
+    pub fn serialize(&self) -> GenericArray<u8, PoprfServerLen<CS>>
     where
         <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        VoprfServerLen<CS>: ArrayLength<u8>,
+        PoprfServerLen<CS>: ArrayLength<u8>,
     {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
