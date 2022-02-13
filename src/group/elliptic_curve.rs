@@ -13,14 +13,11 @@ use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
     AffinePoint, Field, FieldSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
-use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use super::Group;
-use crate::group::{STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
-use crate::voprf::{self, Mode};
 use crate::{CipherSuite, Error, InternalError, Result};
 
 impl<C> Group for C
@@ -43,32 +40,26 @@ where
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
     fn hash_to_curve<CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst =
-            GenericArray::from(STR_HASH_TO_GROUP).concat(voprf::get_context_string::<CS>(mode));
-
-        Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(input, &dst)
+        Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(input, dst)
             .map_err(|_| InternalError::Input)
     }
 
     // Implements the `HashToScalar()` function
     fn hash_to_scalar<CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst =
-            GenericArray::from(STR_HASH_TO_SCALAR).concat(voprf::get_context_string::<CS>(mode));
-
-        <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<CS::Hash>>(input, &dst)
+        <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<CS::Hash>>(input, dst)
             .map_err(|_| InternalError::Input)
     }
 

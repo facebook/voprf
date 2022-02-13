@@ -5,7 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
+mod cfrg_vectors;
 mod mock_rng;
 mod parser;
-mod voprf_test_vectors;
-mod voprf_vectors;
+mod test_cfrg_vectors;

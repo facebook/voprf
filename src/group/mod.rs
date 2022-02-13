@@ -23,7 +23,6 @@ pub use ristretto::Ristretto255;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
-use crate::voprf::Mode;
 use crate::{CipherSuite, InternalError, Result};
 
 pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
@@ -33,7 +32,8 @@ pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 /// subgroup is noted additively — as in the draft RFC — in this trait.
 pub trait Group {
     /// The type of group elements
-    type Elem: Copy
+    type Elem: ConstantTimeEq
+        + Copy
         + Zeroize
         + for<'a> Add<&'a Self::Elem, Output = Self::Elem>
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
@@ -59,7 +59,7 @@ pub trait Group {
     /// then [`u16::MAX`].
     fn hash_to_curve<CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Elem, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
@@ -72,7 +72,7 @@ pub trait Group {
     /// then [`u16::MAX`].
     fn hash_to_scalar<CS: CipherSuite>(
         input: &[&[u8]],
-        mode: Mode,
+        dst: &[u8],
     ) -> Result<Self::Scalar, InternalError>
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
@@ -83,6 +83,11 @@ pub trait Group {
 
     /// Returns the identity group element
     fn identity_elem() -> Self::Elem;
+
+    /// Returns `true` if the element is equal to the identity element
+    fn is_identity_elem(elem: Self::Elem) -> Choice {
+        Self::identity_elem().ct_eq(&elem)
+    }
 
     /// Serializes the `self` group element
     fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;

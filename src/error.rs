@@ -15,18 +15,18 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 /// Represents an error in the manipulation of internal cryptographic data
 #[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Error {
+    /// Size of info is longer then [`u16::MAX`].
+    Info,
     /// Size of input is empty or longer then [`u16::MAX`].
     Input,
-    /// Size of metadata is longer then `u16::MAX - 21`.
-    Metadata,
+    /// Size of info and seed together are longer then `u16::MAX - 3`.
+    DeriveKeyPair,
     /// Failure to deserialize bytes
     Deserialization,
     /// Batched items are more then [`u16::MAX`] or length don't match.
     Batch,
     /// In verifiable mode, occurs when the proof failed to verify
     ProofVerification,
-    /// Size of seed is longer then [`u16::MAX`].
-    Seed,
     /// The protocol has failed and can't be completed.
     Protocol,
 }
