@@ -106,10 +106,8 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng);
-//! let server_evaluate_result = server
-//!     .evaluate(&client_blind_result.message)
-//!     .expect("Unable to perform server evaluate");
+//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! let server_evaluate_result = server.evaluate(&client_blind_result.message);
 //! ```
 //!
 //! ### Client Finalization
@@ -133,14 +131,11 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng);
-//! # let message = server.evaluate(
-//! #     &client_blind_result.message,
-//! #     None,
-//! # ).expect("Unable to perform server evaluate");
+//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! # let message = server.evaluate(&client_blind_result.message);
 //! let client_finalize_result = client_blind_result
 //!     .state
-//!     .finalize(b"input", &message, None)
+//!     .finalize(b"input", &message)
 //!     .expect("Unable to perform client finalization");
 //!
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
@@ -174,7 +169,7 @@
 //! use voprf::VoprfServer;
 //!
 //! let mut server_rng = OsRng;
-//! let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //!
 //! // To be sent to the client
 //! println!("Server public key: {:?}", server.get_public_key());
@@ -219,7 +214,7 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::VoprfClient;
+//! # use voprf::{VoprfServerEvaluateResult, VoprfClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
@@ -229,10 +224,9 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
-//! let server_evaluate_result = server
-//!     .evaluate(&mut server_rng, &client_blind_result.message, None)
-//!     .expect("Unable to perform server evaluate");
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! let VoprfServerEvaluateResult { message, proof } =
+//!     server.evaluate(&mut server_rng, &client_blind_result.message);
 //! ```
 //!
 //! ### Client Finalization
@@ -257,12 +251,11 @@
 //! # ).expect("Unable to construct client");
 //! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! # let server_evaluate_result = server.evaluate(
 //! #     &mut server_rng,
 //! #     &client_blind_result.message,
-//! #     None,
-//! # ).expect("Unable to perform server evaluate");
+//! # );
 //! let client_finalize_result = client_blind_result
 //!     .state
 //!     .finalize(
@@ -270,7 +263,6 @@
 //!         &server_evaluate_result.message,
 //!         &server_evaluate_result.proof,
 //!         server.get_public_key(),
-//!         None,
 //!     )
 //!     .expect("Unable to perform client finalization");
 //!
@@ -323,7 +315,7 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! # use voprf::{VoprfServerBatchEvaluatePrepareResult, VoprfServerBatchEvaluateFinishResult, VoprfClient};
+//! # use voprf::{VoprfServerBatchEvaluateFinishResult, VoprfClient};
 //! # use rand::{rngs::OsRng, RngCore};
 //! #
 //! # let mut client_rng = OsRng;
@@ -339,15 +331,11 @@
 //! # }
 //! # use voprf::VoprfServer;
 //! let mut server_rng = OsRng;
-//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
-//! let VoprfServerBatchEvaluatePrepareResult {
-//!     prepared_evaluation_elements,
-//!     t,
-//! } = server
-//!     .batch_evaluate_prepare(client_messages.iter(), None)
-//!     .expect("Unable to perform server batch evaluate");
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! let prepared_evaluation_elements = server.batch_evaluate_prepare(client_messages.iter());
 //! let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-//! let VoprfServerBatchEvaluateFinishResult { messages, proof } = VoprfServer::batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements, &t)
+//! let VoprfServerBatchEvaluateFinishResult { messages, proof } = server
+//!     .batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements)
 //!     .expect("Unable to perform server batch evaluate");
 //! let messages: Vec<_> = messages.collect();
 //! ```
@@ -377,9 +365,9 @@
 //! # }
 //! # use voprf::VoprfServer;
 //! let mut server_rng = OsRng;
-//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! let VoprfServerBatchEvaluateResult { messages, proof } = server
-//!     .batch_evaluate(&mut server_rng, &client_messages, None)
+//!     .batch_evaluate(&mut server_rng, &client_messages)
 //!     .expect("Unable to perform server batch evaluate");
 //! # }
 //! ```
@@ -411,9 +399,9 @@
 //! # }
 //! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
-//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng);
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! # let VoprfServerBatchEvaluateResult { messages, proof } = server
-//! #     .batch_evaluate(&mut server_rng, &client_messages, None)
+//! #     .batch_evaluate(&mut server_rng, &client_messages)
 //! #     .expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VoprfClient::batch_finalize(
 //!     &[b"input"; 10],
@@ -421,7 +409,6 @@
 //!     &messages,
 //!     &proof,
 //!     server.get_public_key(),
-//!     None,
 //! )
 //! .expect("Unable to perform client batch finalization")
 //! .collect::<Vec<_>>();
@@ -515,15 +502,22 @@ pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
 pub use crate::group::Ristretto255;
 pub use crate::oprf::{OprfClient, OprfClientBlindResult, OprfServer};
-pub use crate::poprf::{PoprfClient, PoprfServer, PoprfServerBatchEvaluateResult};
-pub use crate::serialization::{
-    BlindedElementLen, EvaluationElementLen, OprfClientLen, OprfServerLen, ProofLen,
-    VoprfClientLen, VoprfServerLen,
+#[cfg(feature = "alloc")]
+pub use crate::poprf::PoprfServerBatchEvaluateResult;
+pub use crate::poprf::{
+    PoprfClient, PoprfClientBatchFinalizeResult, PoprfPreparedTweak, PoprfServer,
+    PoprfServerBatchEvaluateFinishResult, PoprfServerBatchEvaluateFinishedMessages,
+    PoprfServerBatchEvaluatePrepareResult, PoprfServerBatchEvaluatePreparedEvaluationElements,
 };
-pub use crate::util::{BlindedElement, EvaluationElement, Mode, Proof};
+pub use crate::serialization::{
+    BlindedElementLen, EvaluationElementLen, OprfClientLen, OprfServerLen, PoprfClientLen,
+    PoprfServerLen, ProofLen, VoprfClientLen, VoprfServerLen,
+};
+pub use crate::util::{BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof};
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VoprfServerBatchEvaluateResult;
 pub use crate::voprf::{
     VoprfClient, VoprfClientBatchFinalizeResult, VoprfClientBlindResult, VoprfServer,
-    VoprfServerEvaluateResult,
+    VoprfServerBatchEvaluateFinishResult, VoprfServerBatchEvaluateFinishedMessages,
+    VoprfServerBatchEvaluatePreparedEvaluationElements, VoprfServerEvaluateResult,
 };
