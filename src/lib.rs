@@ -340,7 +340,7 @@
 //! let messages: Vec<_> = messages.collect();
 //! ```
 //!
-//! If [`alloc`] is available, [VoprfServer::batch_evaluate] can be called
+//! If `alloc` is available, [VoprfServer::batch_evaluate] can be called
 //! to avoid having to collect output manually:
 //!
 //! ```
@@ -432,7 +432,7 @@
 //!
 //! # Features
 //!
-//! - The `alloc` feature requires Rusts [`alloc`] crate and enables batching
+//! - The `alloc` feature requires Rust's `alloc` crate and enables batching
 //!   VOPRF evaluations.
 //!
 //! - The `serde` feature, enabled by default, provides convenience functions

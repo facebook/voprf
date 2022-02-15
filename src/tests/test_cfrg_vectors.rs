@@ -131,23 +131,29 @@ fn test_vectors() -> Result<()> {
         test_poprf_finalize::<Ristretto255>(&ristretto_poprf_tvs)?;
     }
 
-    let p256base_tvs =
+    let p256_oprf_tvs =
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("OPRF"));
-    assert_ne!(p256base_tvs.len(), 0);
+    assert_ne!(p256_oprf_tvs.len(), 0);
+    test_oprf_seed_to_key::<NistP256>(&p256_oprf_tvs)?;
+    test_oprf_blind::<NistP256>(&p256_oprf_tvs)?;
+    test_oprf_evaluate::<NistP256>(&p256_oprf_tvs)?;
+    test_oprf_finalize::<NistP256>(&p256_oprf_tvs)?;
 
-    let p256verifiable_tvs =
+    let p256_voprf_tvs =
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("VOPRF"));
-    assert_ne!(p256verifiable_tvs.len(), 0);
+    assert_ne!(p256_voprf_tvs.len(), 0);
+    test_voprf_seed_to_key::<NistP256>(&p256_voprf_tvs)?;
+    test_voprf_blind::<NistP256>(&p256_voprf_tvs)?;
+    test_voprf_evaluate::<NistP256>(&p256_voprf_tvs)?;
+    test_voprf_finalize::<NistP256>(&p256_voprf_tvs)?;
 
-    test_oprf_seed_to_key::<NistP256>(&p256base_tvs)?;
-    test_oprf_blind::<NistP256>(&p256base_tvs)?;
-    test_oprf_evaluate::<NistP256>(&p256base_tvs)?;
-    test_oprf_finalize::<NistP256>(&p256base_tvs)?;
-
-    test_voprf_seed_to_key::<NistP256>(&p256verifiable_tvs)?;
-    test_voprf_blind::<NistP256>(&p256verifiable_tvs)?;
-    test_voprf_evaluate::<NistP256>(&p256verifiable_tvs)?;
-    test_voprf_finalize::<NistP256>(&p256verifiable_tvs)?;
+    let p256_poprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("POPRF"));
+    assert_ne!(p256_poprf_tvs.len(), 0);
+    test_poprf_seed_to_key::<NistP256>(&p256_poprf_tvs)?;
+    test_poprf_blind::<NistP256>(&p256_poprf_tvs)?;
+    test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
+    test_poprf_finalize::<NistP256>(&p256_poprf_tvs)?;
 
     Ok(())
 }
