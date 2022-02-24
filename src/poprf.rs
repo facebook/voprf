@@ -596,7 +596,7 @@ where
     let dst =
         GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
 
     let t = CS::Group::base_elem() * &m;
     let tweaked_key = t + &pk;
@@ -634,7 +634,7 @@ where
     let dst =
         GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
 
     let t = sk + &m;
 
@@ -788,7 +788,7 @@ mod tests {
         let t = compute_tweak::<CS>(key, Some(info)).unwrap();
 
         let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS>(&[input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
 
         // evaluatedElement = G.ScalarInverse(t) * blindedElement
         let res = point * &CS::Group::invert_scalar(t);
@@ -844,7 +844,7 @@ mod tests {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
                 .concat(create_context_string::<CS>(Mode::Oprf));
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,

@@ -195,7 +195,7 @@ where
 
     let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
     // This can't fail, the size of the `input` is known.
-    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -255,7 +255,7 @@ where
 
     let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
     // This can't fail, the size of the `input` is known.
-    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -333,7 +333,7 @@ where
 
         let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
         // This can't fail, the size of the `input` is known.
-        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
         m = c * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -378,7 +378,7 @@ where
         // deriveInput = seed || I2OSP(len(info), 2) || info
         // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
         // || contextString)
-        let sk_s = <CS::Group as Group>::hash_to_scalar::<CS>(
+        let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
             &[seed, &info_len, info, &counter.to_be_bytes()],
             &dst,
         )
@@ -408,7 +408,8 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], &dst).map_err(|_| Error::Input)?;
+    let hashed_point =
+        CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).map_err(|_| Error::Input)?;
     Ok(hashed_point * blind)
 }
 

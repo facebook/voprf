@@ -294,7 +294,7 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS>(&[input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
 
         let res = point * &key;
 
@@ -335,7 +335,7 @@ mod tests {
 
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(Mode::Oprf));
-        let point = CS::Group::hash_to_curve::<CS>(&[&input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), &[])
             .next()
             .unwrap()

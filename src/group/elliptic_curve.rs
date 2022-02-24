@@ -6,7 +6,7 @@
 // of this source tree.
 
 use digest::core_api::BlockSizeUser;
-use digest::OutputSizeUser;
+use digest::Digest;
 use elliptic_curve::group::cofactor::CofactorGroup;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, FromOkm, GroupDigest};
 use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
@@ -18,7 +18,7 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use super::Group;
-use crate::{CipherSuite, Error, InternalError, Result};
+use crate::{Error, InternalError, Result};
 
 impl<C> Group for C
 where
@@ -38,28 +38,21 @@ where
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Elem, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
-        Self::hash_from_bytes::<ExpandMsgXmd<CS::Hash>>(input, dst)
-            .map_err(|_| InternalError::Input)
+        Self::hash_from_bytes::<ExpandMsgXmd<H>>(input, dst).map_err(|_| InternalError::Input)
     }
 
     // Implements the `HashToScalar()` function
-    fn hash_to_scalar<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Scalar, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
-        <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<CS::Hash>>(input, dst)
+        <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<H>>(input, dst)
             .map_err(|_| InternalError::Input)
     }
 

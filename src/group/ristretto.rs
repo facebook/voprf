@@ -10,7 +10,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
-use digest::OutputSizeUser;
+use digest::Digest;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
 use generic_array::GenericArray;
@@ -18,7 +18,7 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
 use super::Group;
-use crate::{CipherSuite, Error, InternalError, Result};
+use crate::{Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -48,16 +48,13 @@ impl Group for Ristretto255 {
 
     // Implements the `hash_to_ristretto255()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
-    fn hash_to_curve<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Elem, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<CS::Hash>::expand_message(input, dst, 64)
+        ExpandMsgXmd::<H>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
@@ -66,16 +63,13 @@ impl Group for Ristretto255 {
 
     // Implements the `HashToScalar()` function from
     // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
-    fn hash_to_scalar<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Scalar, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
         let mut uniform_bytes = GenericArray::<_, U64>::default();
-        ExpandMsgXmd::<CS::Hash>::expand_message(input, dst, 64)
+        ExpandMsgXmd::<H>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
