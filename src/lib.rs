@@ -483,12 +483,12 @@ extern crate std;
 extern crate serde_ as serde;
 
 mod ciphersuite;
+mod common;
 mod error;
 mod group;
 mod oprf;
 mod poprf;
 mod serialization;
-mod util;
 mod voprf;
 
 #[cfg(test)]
@@ -497,6 +497,9 @@ mod tests;
 // Exports
 
 pub use crate::ciphersuite::CipherSuite;
+pub use crate::common::{
+    BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof,
+};
 pub use crate::error::{Error, InternalError, Result};
 pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
@@ -513,7 +516,6 @@ pub use crate::serialization::{
     BlindedElementLen, EvaluationElementLen, OprfClientLen, OprfServerLen, PoprfClientLen,
     PoprfServerLen, ProofLen, VoprfClientLen, VoprfServerLen,
 };
-pub use crate::util::{BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof};
 #[cfg(feature = "alloc")]
 pub use crate::voprf::VoprfServerBatchEvaluateResult;
 pub use crate::voprf::{

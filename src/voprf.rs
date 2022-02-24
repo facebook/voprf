@@ -18,12 +18,12 @@ use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-#[cfg(feature = "serde")]
-use crate::serialization::serde::{Element, Scalar};
-use crate::util::{
+use crate::common::{
     derive_keypair, deterministic_blind_unchecked, generate_proof, i2osp_2, verify_proof,
     BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE,
 };
+#[cfg(feature = "serde")]
+use crate::serialization::serde::{Element, Scalar};
 use crate::{CipherSuite, Error, Group, Result};
 
 ////////////////////////////
@@ -576,8 +576,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::group::STR_HASH_TO_GROUP;
-    use crate::util::create_context_string;
+    use crate::common::{create_context_string, STR_HASH_TO_GROUP};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(

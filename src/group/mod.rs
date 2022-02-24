@@ -25,9 +25,6 @@ use zeroize::Zeroize;
 
 use crate::{InternalError, Result};
 
-pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
-pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
-
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
 pub trait Group {

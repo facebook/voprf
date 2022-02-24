@@ -5,7 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! Helper functions
+//! Common functionality between multiple OPRF modes.
 
 use core::convert::TryFrom;
 
@@ -18,7 +18,6 @@ use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::group::{STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
 use crate::{CipherSuite, Error, Group, InternalError, Result};
@@ -35,6 +34,8 @@ pub(crate) const STR_COMPOSITE: [u8; 9] = *b"Composite";
 pub(crate) const STR_CHALLENGE: [u8; 9] = *b"Challenge";
 pub(crate) const STR_INFO: [u8; 4] = *b"Info";
 pub(crate) const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
+pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
+pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
 /// is only used for custom implementations for [`Group`].
@@ -440,74 +441,4 @@ pub(crate) fn i2osp_2_array<L: ArrayLength<u8> + IsLess<U256>>(
     _: &GenericArray<u8, L>,
 ) -> GenericArray<u8, U2> {
     L::U16.to_be_bytes().into()
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use proptest::collection::vec;
-    use proptest::prelude::*;
-
-    use crate::{
-        BlindedElement, EvaluationElement, OprfClient, OprfServer, PoprfClient, PoprfServer, Proof,
-        VoprfClient, VoprfServer,
-    };
-
-    macro_rules! test_deserialize {
-        ($item:ident, $bytes:ident) => {
-            #[cfg(feature = "ristretto255")]
-            {
-                let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
-            }
-
-            let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
-        };
-    }
-
-    proptest! {
-        #[test]
-        fn test_nocrash_oprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(OprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_voprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(VoprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_poprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(PoprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_oprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(OprfServer, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_voprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(VoprfServer, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_poprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(PoprfServer, bytes);
-        }
-
-
-        #[test]
-        fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(BlindedElement, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(EvaluationElement, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(Proof, bytes);
-        }
-    }
 }

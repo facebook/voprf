@@ -372,3 +372,73 @@ pub(crate) mod serde {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+
+    use crate::{
+        BlindedElement, EvaluationElement, OprfClient, OprfServer, PoprfClient, PoprfServer, Proof,
+        VoprfClient, VoprfServer,
+    };
+
+    macro_rules! test_deserialize {
+        ($item:ident, $bytes:ident) => {
+            #[cfg(feature = "ristretto255")]
+            {
+                let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
+            }
+
+            let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
+        };
+    }
+
+    proptest! {
+        #[test]
+        fn test_nocrash_oprf_client(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(OprfClient, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_voprf_client(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(VoprfClient, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_poprf_client(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(PoprfClient, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_oprf_server(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(OprfServer, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_voprf_server(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(VoprfServer, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_poprf_server(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(PoprfServer, bytes);
+        }
+
+
+        #[test]
+        fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(BlindedElement, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(EvaluationElement, bytes);
+        }
+
+        #[test]
+        fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
+            test_deserialize!(Proof, bytes);
+        }
+    }
+}
