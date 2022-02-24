@@ -355,17 +355,12 @@ where
 // =============== //
 /////////////////////
 
-type DeriveKeypairResult<CS> = (
-    <<CS as CipherSuite>::Group as Group>::Scalar,
-    <<CS as CipherSuite>::Group as Group>::Elem,
-);
-
 /// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
-pub(crate) fn derive_keypair<CS: CipherSuite>(
+pub(crate) fn derive_key<CS: CipherSuite>(
     seed: &[u8],
     info: &[u8],
     mode: Mode,
-) -> Result<DeriveKeypairResult<CS>, Error>
+) -> Result<<CS::Group as Group>::Scalar, Error>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -386,12 +381,32 @@ where
         .map_err(|_| Error::DeriveKeyPair)?;
 
         if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
-            let pk_s = CS::Group::base_elem() * &sk_s;
-            return Ok((sk_s, pk_s));
+            return Ok(sk_s);
         }
     }
 
     Err(Error::Protocol)
+}
+
+type DeriveKeypairResult<CS> = (
+    <<CS as CipherSuite>::Group as Group>::Scalar,
+    <<CS as CipherSuite>::Group as Group>::Elem,
+);
+
+/// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
+pub(crate) fn derive_keypair<CS: CipherSuite>(
+    seed: &[u8],
+    info: &[u8],
+    mode: Mode,
+) -> Result<DeriveKeypairResult<CS>, Error>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let sk_s = derive_key::<CS>(seed, info, mode)?;
+    let pk_s = CS::Group::base_elem() * &sk_s;
+
+    Ok((sk_s, pk_s))
 }
 
 /// Inner function for blind that assumes that the blinding factor has already

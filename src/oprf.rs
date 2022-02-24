@@ -17,8 +17,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
-    derive_keypair, deterministic_blind_unchecked, i2osp_2, BlindedElement, EvaluationElement,
-    Mode, STR_FINALIZE,
+    derive_key, deterministic_blind_unchecked, i2osp_2, BlindedElement, EvaluationElement, Mode,
+    STR_FINALIZE,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::Scalar;
@@ -189,7 +189,7 @@ where
     ///   then `u16::MAX - 3`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
-        let (sk, _) = derive_keypair::<CS>(seed, info, Mode::Oprf)?;
+        let sk = derive_key::<CS>(seed, info, Mode::Oprf)?;
         Ok(Self { sk })
     }
 
