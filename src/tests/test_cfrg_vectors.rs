@@ -5,7 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Add;
@@ -60,19 +60,15 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
 fn decode(values: &JsonValue, key: &str) -> Vec<u8> {
     values[key]
         .as_str()
-        .and_then(|s| hex::decode(&s.to_string()).ok())
+        .and_then(|s| hex::decode(&s).ok())
         .unwrap_or_default()
 }
 
 fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
     let s = values[key].as_str().unwrap();
     let res = match s.contains(',') {
-        true => Some(
-            s.split(',')
-                .map(|x| hex::decode(&x.to_string()).unwrap())
-                .collect(),
-        ),
-        false => Some(vec![hex::decode(&s.to_string()).unwrap()]),
+        true => Some(s.split(',').map(|x| hex::decode(&x).unwrap()).collect()),
+        false => Some(vec![hex::decode(&s).unwrap()]),
     };
     res.unwrap()
 }
