@@ -90,6 +90,10 @@ impl Group for Ristretto255 {
     }
 
     fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem> {
+        if element_bits.len() != 32 {
+            return Err(Error::Deserialization);
+        }
+
         CompressedRistretto::from_slice(element_bits)
             .decompress()
             .filter(|point| point != &RistrettoPoint::identity())
