@@ -43,10 +43,8 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let blind = deserialize_scalar::<CS::Group>(&mut input)?;
 
         Ok(Self { blind })
     }
@@ -77,11 +75,9 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
-        let blinded_element = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let blind = deserialize_scalar::<CS::Group>(&mut input)?;
+        let blinded_element = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self {
             blind,
@@ -115,11 +111,9 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let blind = deserialize_scalar::<CS::Group, _>(&mut input)?;
-        let blinded_element = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let blind = deserialize_scalar::<CS::Group>(&mut input)?;
+        let blinded_element = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self {
             blind,
@@ -145,10 +139,8 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let sk = deserialize_scalar::<CS::Group>(&mut input)?;
 
         Ok(Self { sk })
     }
@@ -178,11 +170,9 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
-        let pk = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let sk = deserialize_scalar::<CS::Group>(&mut input)?;
+        let pk = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self { sk, pk })
     }
@@ -212,11 +202,9 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let sk = deserialize_scalar::<CS::Group, _>(&mut input)?;
-        let pk = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let sk = deserialize_scalar::<CS::Group>(&mut input)?;
+        let pk = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self { sk, pk })
     }
@@ -247,11 +235,9 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let c_scalar = deserialize_scalar::<CS::Group, _>(&mut input)?;
-        let s_scalar = deserialize_scalar::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let c_scalar = deserialize_scalar::<CS::Group>(&mut input)?;
+        let s_scalar = deserialize_scalar::<CS::Group>(&mut input)?;
 
         Ok(Proof { c_scalar, s_scalar })
     }
@@ -274,10 +260,8 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let value = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let value = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self(value))
     }
@@ -300,27 +284,41 @@ where
     ///
     /// # Errors
     /// [`Error::Deserialization`] if failed to deserialize `input`.
-    pub fn deserialize(input: &[u8]) -> Result<Self> {
-        let mut input = input.iter().copied();
-
-        let value = deserialize_elem::<CS::Group, _>(&mut input)?;
+    pub fn deserialize(mut input: &[u8]) -> Result<Self> {
+        let value = deserialize_elem::<CS::Group>(&mut input)?;
 
         Ok(Self(value))
     }
 }
 
-fn deserialize_elem<G: Group, I: Iterator<Item = u8>>(input: &mut I) -> Result<G::Elem> {
-    let input = input.by_ref().take(G::ElemLen::USIZE);
-    GenericArray::<_, G::ElemLen>::from_exact_iter(input)
-        .ok_or(Error::Deserialization)
-        .and_then(|bytes| G::deserialize_elem(&bytes))
+fn deserialize_elem<G: Group>(input: &mut &[u8]) -> Result<G::Elem> {
+    let input = input
+        .take_ext(G::ElemLen::USIZE)
+        .ok_or(Error::Deserialization)?;
+    G::deserialize_elem(input)
 }
 
-fn deserialize_scalar<G: Group, I: Iterator<Item = u8>>(input: &mut I) -> Result<G::Scalar> {
-    let input = input.by_ref().take(G::ScalarLen::USIZE);
-    GenericArray::<_, G::ScalarLen>::from_exact_iter(input)
-        .ok_or(Error::Deserialization)
-        .and_then(|bytes| G::deserialize_scalar(&bytes))
+fn deserialize_scalar<G: Group>(input: &mut &[u8]) -> Result<G::Scalar> {
+    let input = input
+        .take_ext(G::ScalarLen::USIZE)
+        .ok_or(Error::Deserialization)?;
+    G::deserialize_scalar(input)
+}
+
+trait SliceExt {
+    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self>;
+}
+
+impl<T> SliceExt for [T] {
+    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self> {
+        if take > self.len() {
+            return None;
+        }
+
+        let (front, back) = self.split_at(take);
+        *self = back;
+        Some(front)
+    }
 }
 
 #[cfg(feature = "serde")]
