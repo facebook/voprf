@@ -26,7 +26,7 @@ serde = ["generic-array/serde", "serde_"]
 std = ["alloc"]
 
 [dependencies]
-curve25519-dalek = { version = "=4.0.0-pre.1", default-features = false, optional = true }
+curve25519-dalek = { version = "=4.0.0-pre.2", default-features = false, optional = true }
 derive-where = { version = "=1.0.0-rc.3", features = ["zeroize-on-drop"] }
 digest = "0.10"
 displaydoc = { version = "0.2", default-features = false }
