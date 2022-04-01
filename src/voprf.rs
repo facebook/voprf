@@ -18,12 +18,12 @@ use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-#[cfg(feature = "serde")]
-use crate::serialization::serde::{Element, Scalar};
-use crate::util::{
+use crate::common::{
     derive_keypair, deterministic_blind_unchecked, generate_proof, i2osp_2, verify_proof,
     BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE,
 };
+#[cfg(feature = "serde")]
+use crate::serialization::serde::{Element, Scalar};
 use crate::{CipherSuite, Error, Group, Result};
 
 ////////////////////////////
@@ -576,8 +576,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::group::STR_HASH_TO_GROUP;
-    use crate::util::create_context_string;
+    use crate::common::{create_context_string, STR_HASH_TO_GROUP};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -590,7 +589,7 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS>(&[input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
 
         let res = point * &key;
 
@@ -705,7 +704,7 @@ mod tests {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
                 .concat(create_context_string::<CS>(Mode::Oprf));
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
         };
         let client_finalize_result =
             VoprfClient::batch_finalize(&inputs, &client_states, &messages, &proof, wrong_pk);
@@ -726,7 +725,7 @@ mod tests {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
                 .concat(create_context_string::<CS>(Mode::Oprf));
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,

@@ -5,7 +5,7 @@
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 // of this source tree.
 
-//! Helper functions
+//! Common functionality between multiple OPRF modes.
 
 use core::convert::TryFrom;
 
@@ -18,7 +18,6 @@ use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
-use crate::group::{STR_HASH_TO_GROUP, STR_HASH_TO_SCALAR};
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
 use crate::{CipherSuite, Error, Group, InternalError, Result};
@@ -35,6 +34,8 @@ pub(crate) const STR_COMPOSITE: [u8; 9] = *b"Composite";
 pub(crate) const STR_CHALLENGE: [u8; 9] = *b"Challenge";
 pub(crate) const STR_INFO: [u8; 4] = *b"Info";
 pub(crate) const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
+pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
+pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 
 /// Determines the mode of operation (either base mode or verifiable mode). This
 /// is only used for custom implementations for [`Group`].
@@ -195,7 +196,7 @@ where
 
     let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
     // This can't fail, the size of the `input` is known.
-    let c_scalar = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -255,7 +256,7 @@ where
 
     let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
     // This can't fail, the size of the `input` is known.
-    let c = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -333,7 +334,7 @@ where
 
         let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
         // This can't fail, the size of the `input` is known.
-        let di = CS::Group::hash_to_scalar::<CS>(&h2_input, &dst).unwrap();
+        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
         m = c * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -354,6 +355,39 @@ where
 // =============== //
 /////////////////////
 
+/// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
+pub(crate) fn derive_key<CS: CipherSuite>(
+    seed: &[u8],
+    info: &[u8],
+    mode: Mode,
+) -> Result<<CS::Group as Group>::Scalar, Error>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let context_string = create_context_string::<CS>(mode);
+    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
+
+    let info_len = i2osp_2(info.len()).map_err(|_| Error::DeriveKeyPair)?;
+
+    for counter in 0_u8..=u8::MAX {
+        // deriveInput = seed || I2OSP(len(info), 2) || info
+        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
+        // || contextString)
+        let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
+            &[seed, &info_len, info, &counter.to_be_bytes()],
+            &dst,
+        )
+        .map_err(|_| Error::DeriveKeyPair)?;
+
+        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
+            return Ok(sk_s);
+        }
+    }
+
+    Err(Error::Protocol)
+}
+
 type DeriveKeypairResult<CS> = (
     <<CS as CipherSuite>::Group as Group>::Scalar,
     <<CS as CipherSuite>::Group as Group>::Elem,
@@ -369,28 +403,10 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let context_string = create_context_string::<CS>(mode);
-    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
+    let sk_s = derive_key::<CS>(seed, info, mode)?;
+    let pk_s = CS::Group::base_elem() * &sk_s;
 
-    let info_len = i2osp_2(info.len()).map_err(|_| Error::DeriveKeyPair)?;
-
-    for counter in 0_u8..=u8::MAX {
-        // deriveInput = seed || I2OSP(len(info), 2) || info
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
-        let sk_s = <CS::Group as Group>::hash_to_scalar::<CS>(
-            &[seed, &info_len, info, &counter.to_be_bytes()],
-            &dst,
-        )
-        .map_err(|_| Error::DeriveKeyPair)?;
-
-        if !bool::from(CS::Group::is_zero_scalar(sk_s)) {
-            let pk_s = CS::Group::base_elem() * &sk_s;
-            return Ok((sk_s, pk_s));
-        }
-    }
-
-    Err(Error::Protocol)
+    Ok((sk_s, pk_s))
 }
 
 /// Inner function for blind that assumes that the blinding factor has already
@@ -408,7 +424,8 @@ where
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
     let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-    let hashed_point = CS::Group::hash_to_curve::<CS>(&[input], &dst).map_err(|_| Error::Input)?;
+    let hashed_point =
+        CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).map_err(|_| Error::Input)?;
     Ok(hashed_point * blind)
 }
 
@@ -439,74 +456,4 @@ pub(crate) fn i2osp_2_array<L: ArrayLength<u8> + IsLess<U256>>(
     _: &GenericArray<u8, L>,
 ) -> GenericArray<u8, U2> {
     L::U16.to_be_bytes().into()
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use proptest::collection::vec;
-    use proptest::prelude::*;
-
-    use crate::{
-        BlindedElement, EvaluationElement, OprfClient, OprfServer, PoprfClient, PoprfServer, Proof,
-        VoprfClient, VoprfServer,
-    };
-
-    macro_rules! test_deserialize {
-        ($item:ident, $bytes:ident) => {
-            #[cfg(feature = "ristretto255")]
-            {
-                let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
-            }
-
-            let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
-        };
-    }
-
-    proptest! {
-        #[test]
-        fn test_nocrash_oprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(OprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_voprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(VoprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_poprf_client(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(PoprfClient, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_oprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(OprfServer, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_voprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(VoprfServer, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_poprf_server(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(PoprfServer, bytes);
-        }
-
-
-        #[test]
-        fn test_nocrash_blinded_element(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(BlindedElement, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_evaluation_element(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(EvaluationElement, bytes);
-        }
-
-        #[test]
-        fn test_nocrash_proof(bytes in vec(any::<u8>(), 0..200)) {
-            test_deserialize!(Proof, bytes);
-        }
-    }
 }

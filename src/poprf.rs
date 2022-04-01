@@ -19,14 +19,13 @@ use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::STR_HASH_TO_SCALAR;
-#[cfg(feature = "serde")]
-use crate::serialization::serde::{Element, Scalar};
-use crate::util::{
+use crate::common::{
     create_context_string, derive_keypair, deterministic_blind_unchecked, generate_proof, i2osp_2,
     verify_proof, BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof,
-    STR_FINALIZE, STR_INFO,
+    STR_FINALIZE, STR_HASH_TO_SCALAR, STR_INFO,
 };
+#[cfg(feature = "serde")]
+use crate::serialization::serde::{Element, Scalar};
 use crate::{CipherSuite, Error, Group, Result};
 
 ////////////////////////////
@@ -596,7 +595,7 @@ where
     let dst =
         GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
 
     let t = CS::Group::base_elem() * &m;
     let tweaked_key = t + &pk;
@@ -634,7 +633,7 @@ where
     let dst =
         GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
 
     let t = sk + &m;
 
@@ -772,7 +771,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::group::STR_HASH_TO_GROUP;
+    use crate::common::STR_HASH_TO_GROUP;
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -788,7 +787,7 @@ mod tests {
         let t = compute_tweak::<CS>(key, Some(info)).unwrap();
 
         let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS>(&[input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
 
         // evaluatedElement = G.ScalarInverse(t) * blindedElement
         let res = point * &CS::Group::invert_scalar(t);
@@ -844,7 +843,7 @@ mod tests {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
                 .concat(create_context_string::<CS>(Mode::Oprf));
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,

@@ -16,12 +16,12 @@ use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::common::{
+    derive_key, deterministic_blind_unchecked, i2osp_2, BlindedElement, EvaluationElement, Mode,
+    STR_FINALIZE,
+};
 #[cfg(feature = "serde")]
 use crate::serialization::serde::Scalar;
-use crate::util::{
-    derive_keypair, deterministic_blind_unchecked, i2osp_2, BlindedElement, EvaluationElement,
-    Mode, STR_FINALIZE,
-};
 use crate::{CipherSuite, Error, Group, Result};
 
 ///////////////
@@ -189,7 +189,7 @@ where
     ///   then `u16::MAX - 3`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn new_from_seed(seed: &[u8], info: &[u8]) -> Result<Self> {
-        let (sk, _) = derive_keypair::<CS>(seed, info, Mode::Oprf)?;
+        let sk = derive_key::<CS>(seed, info, Mode::Oprf)?;
         Ok(Self { sk })
     }
 
@@ -279,8 +279,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::group::STR_HASH_TO_GROUP;
-    use crate::util::create_context_string;
+    use crate::common::{create_context_string, STR_HASH_TO_GROUP};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -294,7 +293,7 @@ mod tests {
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
         let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS>(&[input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
 
         let res = point * &key;
 
@@ -335,7 +334,7 @@ mod tests {
 
         let dst =
             GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(Mode::Oprf));
-        let point = CS::Group::hash_to_curve::<CS>(&[&input], &dst).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), &[])
             .next()
             .unwrap()

@@ -14,7 +14,7 @@ mod ristretto;
 use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
-use digest::OutputSizeUser;
+use digest::Digest;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
@@ -23,10 +23,7 @@ pub use ristretto::Ristretto255;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
-use crate::{CipherSuite, InternalError, Result};
-
-pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
-pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
+use crate::{InternalError, Result};
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the draft RFC — in this trait.
@@ -57,26 +54,20 @@ pub trait Group {
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_curve<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Elem, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
     ///
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_scalar<CS: CipherSuite>(
-        input: &[&[u8]],
-        dst: &[u8],
-    ) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Scalar, InternalError>
     where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+        H: Digest + BlockSizeUser,
+        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;
