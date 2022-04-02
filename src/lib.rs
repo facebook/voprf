@@ -8,20 +8,17 @@
 //! An implementation of a verifiable oblivious pseudorandom function (VOPRF)
 //!
 //! Note: This implementation is in sync with
-//! [draft-irtf-cfrg-voprf-08](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html),
+//! [draft-irtf-cfrg-voprf-09](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html),
 //! but this specification is subject to change, until the final version
 //! published by the IETF.
 //!
 //! # Overview
 //!
 //! A verifiable oblivious pseudorandom function is a protocol that is evaluated
-//! between a client and a server. They must first agree on a collection of
-//! primitives to be kept consistent throughout protocol execution. These
-//! include:
-//! - a finite cyclic group along with a point representation, and
-//! - a hashing function.
+//! between a client and a server. They must first agree on a finite cyclic
+//! group along with a point representation.
 //!
-//! We will use the following choices in this example:
+//! We will use the following choice in this example:
 //!
 //! ```ignore
 //! type CipherSuite = voprf::Ristretto255;
@@ -29,19 +26,22 @@
 //!
 //! ## Modes of Operation
 //!
-//! VOPRF can be used in two modes:
+//! VOPRF can be used in three modes:
 //! - [Base Mode](#base-mode), which corresponds to a normal OPRF evaluation
 //!   with no support for the verification of the OPRF outputs
 //! - [Verifiable Mode](#verifiable-mode), which corresponds to an OPRF
 //!   evaluation where the outputs can be verified against a server public key
+//!   (VOPRF)
+//! - [Partially Oblivious Verifiable Mode](#metadata), which corresponds to a
+//!   VOPRF, where a public input can be supplied to the PRF computation
 //!
-//! In either mode, the protocol begins with a client blinding, followed by a
-//! server evaluation, and finishes with a client finalization.
+//! In all of these modes, the protocol begins with a client blinding, followed
+//! by a server evaluation, and finishes with a client finalization.
 //!
 //! ## Base Mode
 //!
-//! In base mode, a [OprfClient] interacts with a [OprfServer]
-//! to compute the output of the VOPRF.
+//! In base mode, an [OprfClient] interacts with an [OprfServer]
+//! to compute the output of the OPRF.
 //!
 //! ### Server Setup
 //!
@@ -65,8 +65,8 @@
 //! ### Client Blinding
 //!
 //! In the first step, the client chooses an input, and runs
-//! [OprfClient::blind] to produce a [OprfClientBlindResult],
-//! which consists of a [BlindedElement] to be sent to the server and a
+//! [OprfClient::blind] to produce an [OprfClientBlindResult],
+//! which consists of a [BlindedElement] to be sent to the server and an
 //! [OprfClient] which must be persisted on the client for the final
 //! step of the VOPRF protocol.
 //!
@@ -340,7 +340,7 @@
 //! let messages: Vec<_> = messages.collect();
 //! ```
 //!
-//! If `alloc` is available, [VoprfServer::batch_evaluate] can be called
+//! If `alloc` is available, `VoprfServer::batch_evaluate` can be called
 //! to avoid having to collect output manually:
 //!
 //! ```
@@ -419,16 +419,19 @@
 //!
 //! ## Metadata
 //!
-//! The optional metadata parameter included in the protocol allows clients and
-//! servers (of either mode) to cryptographically bind additional data to the
+//! The optional metadata parameter included in the POPRF mode allows clients
+//! and servers to cryptographically bind additional data to the
 //! VOPRF output. This metadata is known to both parties at the start of the
 //! protocol, and is inserted under the server's evaluate step and the client's
 //! finalize step. This metadata can be constructed with some type of
 //! higher-level domain separation to avoid cross-protocol attacks or related
 //! issues.
 //!
-//! A custom metadata can be specified, for example, by:
-//! `Some(b"custom metadata")`.
+//! The API for POPRF mode is similar to VOPRF mode, except that a [PoprfServer]
+//! and [PoprfClient] are used, and that each of the functions accept an
+//! additional (and optional) info parameter which represents the public input.
+//! See <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#name-poprf-public-input>
+//! for more detailed information on how this public input should be used.
 //!
 //! # Features
 //!

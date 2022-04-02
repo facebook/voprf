@@ -310,7 +310,7 @@ where
         Ok(VoprfServerBatchEvaluateResult { messages, proof })
     }
 
-    /// Alternative version of [`batch_evaluate`](Self::batch_evaluate) without
+    /// Alternative version of `batch_evaluate` without
     /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
     /// [`collect`](Iterator::collect)ed and passed into
     /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).

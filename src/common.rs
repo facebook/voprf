@@ -153,7 +153,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.2-1
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.1
 
     let (m, z) = compute_composites::<CS, _, _>(Some(k), b, cs, ds, mode)?;
 
@@ -216,7 +216,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.4.1-2
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.2
     let (m, z) = compute_composites::<CS, _, _>(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
@@ -285,7 +285,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-3.3.2.3-2
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.1
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
@@ -430,7 +430,7 @@ where
 }
 
 /// Generates the contextString parameter as defined in
-/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html>
+/// <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
 pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
