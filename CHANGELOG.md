@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0-pre.2 (April 5, 2022)
+* Exposes the derive_key function under the "danger" feature
+
 ## 0.4.0-pre.1 (April 1, 2022)
 * Updated to be in sync with draft-irtf-cfrg-voprf-09, with
   the addition of the POPRF mode
