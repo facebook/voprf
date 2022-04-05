@@ -356,7 +356,7 @@ where
 /////////////////////
 
 /// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
-pub(crate) fn derive_key<CS: CipherSuite>(
+pub(crate) fn derive_key_internal<CS: CipherSuite>(
     seed: &[u8],
     info: &[u8],
     mode: Mode,
@@ -388,6 +388,20 @@ where
     Err(Error::Protocol)
 }
 
+/// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
+#[cfg(feature = "danger")]
+pub fn derive_key<CS: CipherSuite>(
+    seed: &[u8],
+    info: &[u8],
+    mode: Mode,
+) -> Result<<CS::Group as Group>::Scalar, Error>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    derive_key_internal::<CS>(seed, info, mode)
+}
+
 type DeriveKeypairResult<CS> = (
     <<CS as CipherSuite>::Group as Group>::Scalar,
     <<CS as CipherSuite>::Group as Group>::Elem,
@@ -403,7 +417,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let sk_s = derive_key::<CS>(seed, info, mode)?;
+    let sk_s = derive_key_internal::<CS>(seed, info, mode)?;
     let pk_s = CS::Group::base_elem() * &sk_s;
 
     Ok((sk_s, pk_s))

@@ -500,6 +500,8 @@ mod tests;
 // Exports
 
 pub use crate::ciphersuite::CipherSuite;
+#[cfg(feature = "danger")]
+pub use crate::common::derive_key;
 pub use crate::common::{
     BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof,
 };
