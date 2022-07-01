@@ -33,7 +33,7 @@ pub(crate) const STR_DERIVE_KEYPAIR: [u8; 13] = *b"DeriveKeyPair";
 pub(crate) const STR_COMPOSITE: [u8; 9] = *b"Composite";
 pub(crate) const STR_CHALLENGE: [u8; 9] = *b"Challenge";
 pub(crate) const STR_INFO: [u8; 4] = *b"Info";
-pub(crate) const STR_VOPRF: [u8; 8] = *b"VOPRF09-";
+pub(crate) const STR_VOPRF: [u8; 8] = *b"VOPRF10-";
 pub(crate) const STR_HASH_TO_SCALAR: [u8; 13] = *b"HashToScalar-";
 pub(crate) const STR_HASH_TO_GROUP: [u8; 12] = *b"HashToGroup-";
 
@@ -153,7 +153,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.1
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.1
 
     let (m, z) = compute_composites::<CS, _, _>(Some(k), b, cs, ds, mode)?;
 
@@ -216,7 +216,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.2
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.2
     let (m, z) = compute_composites::<CS, _, _>(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
@@ -285,7 +285,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-09.html#section-2.2.1
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.1
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
