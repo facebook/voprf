@@ -350,8 +350,8 @@ where
         })
     }
 
-    /// See [`batch_evaluate_prepare`](Self::batch_evaluate_prepare) for more
-    /// details.
+    /// See [`batch_blind_evaluate_prepare`](Self::batch_blind_evaluate_prepare)
+    /// for more details.
     ///
     /// # Errors
     /// [`Error::Batch`] if the number of `blinded_elements` and
@@ -904,11 +904,13 @@ mod tests {
             )
             .unwrap();
 
-        // We expect the outputs from client and server to be equal given an identical input
+        // We expect the outputs from client and server to be equal given an identical
+        // input
         let server_evaluate = server.evaluate(input, info).unwrap();
         assert_eq!(client_finalize, server_evaluate);
 
-        // We expect the outputs from client and server to be different given different inputs
+        // We expect the outputs from client and server to be different given different
+        // inputs
         let wrong_input = b"wrong input";
         let server_evaluate = server.evaluate(wrong_input, info).unwrap();
         assert!(client_finalize != server_evaluate);

@@ -375,11 +375,13 @@ mod tests {
             .finalize(input, &server_result)
             .unwrap();
 
-        // We expect the outputs from client and server to be equal given an identical input
+        // We expect the outputs from client and server to be equal given an identical
+        // input
         let server_evaluate = server.evaluate(input).unwrap();
         assert_eq!(client_finalize, server_evaluate);
 
-        // We expect the outputs from client and server to be different given different inputs
+        // We expect the outputs from client and server to be different given different
+        // inputs
         let wrong_input = b"wrong input";
         let server_evaluate = server.evaluate(wrong_input).unwrap();
         assert!(client_finalize != server_evaluate);

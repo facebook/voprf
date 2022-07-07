@@ -169,7 +169,9 @@
 //!     .finalize(b"input", &message)
 //!     .expect("Unable to perform client finalization");
 //!
-//! let server_evaluate_result = server.evaluate(b"input").expect("Unable to perform the server evaluation");
+//! let server_evaluate_result = server
+//!     .evaluate(b"input")
+//!     .expect("Unable to perform the server evaluation");
 //!
 //! assert_eq!(client_finalize_result, server_evaluate_result);
 //! ```
@@ -337,7 +339,9 @@
 //!     )
 //!     .expect("Unable to perform client finalization");
 //!
-//! let server_evaluate_result = server.evaluate(b"input").expect("Unable to perform the server evaluation");
+//! let server_evaluate_result = server
+//!     .evaluate(b"input")
+//!     .expect("Unable to perform the server evaluation");
 //!
 //! assert_eq!(client_finalize_result, server_evaluate_result);
 //! ```
@@ -378,7 +382,7 @@
 //! }
 //! ```
 //!
-//! Next, the server calls the [VoprfServer::batch_evaluate_prepare] and
+//! Next, the server calls the [VoprfServer::batch_blind_evaluate_prepare] and
 //! [VoprfServer::batch_blind_evaluate_finish] function on a set of client
 //! messages, to produce a corresponding set of messages to be returned to the
 //! client (returned in the same order), along with a single proof:
