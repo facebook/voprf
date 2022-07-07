@@ -19,8 +19,9 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
-    derive_keypair, deterministic_blind_unchecked, generate_proof, i2osp_2, verify_proof,
-    BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE,
+    derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
+    server_evaluate_hash_input, verify_proof, BlindedElement, EvaluationElement, Mode,
+    PreparedEvaluationElement, Proof, STR_FINALIZE,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
@@ -253,13 +254,13 @@ where
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
-    pub fn evaluate<R: RngCore + CryptoRng>(
+    pub fn blind_evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
     ) -> VoprfServerEvaluateResult<CS> {
         let mut prepared_evaluation_elements =
-            self.batch_evaluate_prepare(iter::once(blinded_element));
+            self.batch_blind_evaluate_prepare(iter::once(blinded_element));
         let prepared_evaluation_element = [prepared_evaluation_elements.next().unwrap()];
 
         // This can't fail because we know the size of the inputs.
@@ -267,7 +268,7 @@ where
             mut messages,
             proof,
         } = self
-            .batch_evaluate_finish(
+            .batch_blind_evaluate_finish(
                 rng,
                 iter::once(blinded_element),
                 &prepared_evaluation_element,
@@ -286,7 +287,7 @@ where
     /// [`Error::Batch`] if the number of `blinded_elements` and
     /// `evaluation_elements` don't match or is longer then [`u16::MAX`]
     #[cfg(feature = "alloc")]
-    pub fn batch_evaluate<'a, R: RngCore + CryptoRng, I>(
+    pub fn batch_blind_evaluate<'a, R: RngCore + CryptoRng, I>(
         &self,
         rng: &mut R,
         blinded_elements: &'a I,
@@ -297,10 +298,10 @@ where
         <&'a I as IntoIterator>::IntoIter: ExactSizeIterator,
     {
         let prepared_evaluation_elements = self
-            .batch_evaluate_prepare(blinded_elements.into_iter())
+            .batch_blind_evaluate_prepare(blinded_elements.into_iter())
             .collect();
         let VoprfServerBatchEvaluateFinishResult { messages, proof } = self
-            .batch_evaluate_finish::<_, _, Vec<_>>(
+            .batch_blind_evaluate_finish::<_, _, Vec<_>>(
                 rng,
                 blinded_elements.into_iter(),
                 &prepared_evaluation_elements,
@@ -310,11 +311,11 @@ where
         Ok(VoprfServerBatchEvaluateResult { messages, proof })
     }
 
-    /// Alternative version of `batch_evaluate` without
+    /// Alternative version of `batch_blind_evaluate` without
     /// memory allocation. Returned [`PreparedEvaluationElement`] have to be
     /// [`collect`](Iterator::collect)ed and passed into
-    /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
-    pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
+    /// [`batch_blind_evaluate_finish`](Self::batch_evaluate_finish).
+    pub fn batch_blind_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
         &self,
         blinded_elements: I,
     ) -> VoprfServerBatchEvaluatePreparedEvaluationElements<CS, I>
@@ -334,7 +335,7 @@ where
     /// # Errors
     /// [`Error::Batch`] if the number of `blinded_elements` and
     /// `evaluation_elements` don't match or is longer then [`u16::MAX`]
-    pub fn batch_evaluate_finish<
+    pub fn batch_blind_evaluate_finish<
         'a,
         'b,
         R: RngCore + CryptoRng,
@@ -369,6 +370,22 @@ where
         ));
 
         Ok(VoprfServerBatchEvaluateFinishResult { messages, proof })
+    }
+
+    /// Computes the output of the POPRF on the server side
+    ///
+    /// # Errors
+    /// [`Error::Input`]  if the `input` is longer then [`u16::MAX`].
+    pub fn evaluate(&self, input: &[u8]) -> Result<Output<<CS as CipherSuite>::Hash>> {
+        let input_element = hash_to_group::<CS>(input, Mode::Voprf)?;
+        if CS::Group::is_identity_elem(input_element).into() {
+            return Err(Error::Input);
+        };
+        let evaluated_element = input_element * &self.sk;
+
+        let issued_element = CS::Group::serialize_elem(evaluated_element);
+
+        server_evaluate_hash_input::<CS>(input, None, issued_element)
     }
 
     /// Retrieves the server's public key
@@ -608,7 +625,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
-        let server_result = server.evaluate(&mut rng, &client_blind_result.message);
+        let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
         let client_finalize_result = client_blind_result
             .state
             .finalize(
@@ -642,10 +659,10 @@ mod tests {
         }
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
         let prepared_evaluation_elements: Vec<_> = server
-            .batch_evaluate_prepare(client_messages.iter())
+            .batch_blind_evaluate_prepare(client_messages.iter())
             .collect();
         let VoprfServerBatchEvaluateFinishResult { messages, proof } = server
-            .batch_evaluate_finish(
+            .batch_blind_evaluate_finish(
                 &mut rng,
                 client_messages.iter(),
                 &prepared_evaluation_elements,
@@ -690,10 +707,10 @@ mod tests {
         }
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
         let prepared_evaluation_elements: Vec<_> = server
-            .batch_evaluate_prepare(client_messages.iter())
+            .batch_blind_evaluate_prepare(client_messages.iter())
             .collect();
         let VoprfServerBatchEvaluateFinishResult { messages, proof } = server
-            .batch_evaluate_finish(
+            .batch_blind_evaluate_finish(
                 &mut rng,
                 client_messages.iter(),
                 &prepared_evaluation_elements,
@@ -720,7 +737,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
-        let server_result = server.evaluate(&mut rng, &client_blind_result.message);
+        let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
         let wrong_pk = {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
                 .concat(create_context_string::<CS>(Mode::Oprf));
@@ -734,6 +751,37 @@ mod tests {
             wrong_pk,
         );
         assert!(client_finalize_result.is_err());
+    }
+
+    fn verifiable_server_evaluate<CS: CipherSuite>()
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let input = b"input";
+        let mut rng = OsRng;
+        let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = VoprfServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
+
+        let client_finalize = client_blind_result
+            .state
+            .finalize(
+                input,
+                &server_result.message,
+                &server_result.proof,
+                server.get_public_key(),
+            )
+            .unwrap();
+
+        // We expect the outputs from client and server to be equal given an identical input
+        let server_evaluate = server.evaluate(input).unwrap();
+        assert_eq!(client_finalize, server_evaluate);
+
+        // We expect the outputs from client and server to be different given different inputs
+        let wrong_input = b"wrong input";
+        let server_evaluate = server.evaluate(wrong_input).unwrap();
+        assert!(client_finalize != server_evaluate);
     }
 
     fn zeroize_voprf_client<CS: CipherSuite>()
@@ -769,7 +817,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
-        let server_result = server.evaluate(&mut rng, &client_blind_result.message);
+        let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
 
         let mut state = server;
         unsafe { ptr::drop_in_place(&mut state) };
@@ -796,6 +844,7 @@ mod tests {
             verifiable_batch_retrieval::<Ristretto255>();
             verifiable_bad_public_key::<Ristretto255>();
             verifiable_batch_bad_public_key::<Ristretto255>();
+            verifiable_server_evaluate::<Ristretto255>();
 
             zeroize_voprf_client::<Ristretto255>();
             zeroize_voprf_server::<Ristretto255>();
@@ -805,6 +854,7 @@ mod tests {
         verifiable_batch_retrieval::<NistP256>();
         verifiable_bad_public_key::<NistP256>();
         verifiable_batch_bad_public_key::<NistP256>();
+        verifiable_server_evaluate::<NistP256>();
 
         zeroize_voprf_client::<NistP256>();
         zeroize_voprf_server::<NistP256>();

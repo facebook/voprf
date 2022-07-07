@@ -17,8 +17,8 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
-    derive_key_internal, deterministic_blind_unchecked, i2osp_2, BlindedElement, EvaluationElement,
-    Mode, STR_FINALIZE,
+    derive_key_internal, deterministic_blind_unchecked, hash_to_group, i2osp_2,
+    server_evaluate_hash_input, BlindedElement, EvaluationElement, Mode, STR_FINALIZE,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::Scalar;
@@ -202,8 +202,24 @@ where
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
-    pub fn evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
+    pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
         EvaluationElement(blinded_element.0 * &self.sk)
+    }
+
+    /// Computes the output of the OPRF on the server side
+    ///
+    /// # Errors
+    /// [`Error::Input`]  if the `input` is longer then [`u16::MAX`].
+    pub fn evaluate(&self, input: &[u8]) -> Result<Output<<CS as CipherSuite>::Hash>> {
+        let input_element = hash_to_group::<CS>(input, Mode::Oprf)?;
+        if CS::Group::is_identity_elem(input_element).into() {
+            return Err(Error::Input);
+        };
+        let evaluated_element = input_element * &self.sk;
+
+        let issued_element = CS::Group::serialize_elem(evaluated_element);
+
+        server_evaluate_hash_input::<CS>(input, None, issued_element)
     }
 }
 
@@ -312,7 +328,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng).unwrap();
-        let message = server.evaluate(&client_blind_result.message);
+        let message = server.blind_evaluate(&client_blind_result.message);
         let client_finalize_result = client_blind_result.state.finalize(input, &message).unwrap();
         let res2 = prf::<CS>(input, server.get_private_key(), &[], Mode::Oprf);
         assert_eq!(client_finalize_result, res2);
@@ -343,6 +359,32 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
+    fn server_evaluate<CS: CipherSuite>()
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let input = b"input";
+        let mut rng = OsRng;
+        let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = OprfServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server.blind_evaluate(&client_blind_result.message);
+
+        let client_finalize = client_blind_result
+            .state
+            .finalize(input, &server_result)
+            .unwrap();
+
+        // We expect the outputs from client and server to be equal given an identical input
+        let server_evaluate = server.evaluate(input).unwrap();
+        assert_eq!(client_finalize, server_evaluate);
+
+        // We expect the outputs from client and server to be different given different inputs
+        let wrong_input = b"wrong input";
+        let server_evaluate = server.evaluate(wrong_input).unwrap();
+        assert!(client_finalize != server_evaluate);
+    }
+
     fn zeroize_oprf_client<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
@@ -370,7 +412,7 @@ mod tests {
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng).unwrap();
-        let mut message = server.evaluate(&client_blind_result.message);
+        let mut message = server.blind_evaluate(&client_blind_result.message);
 
         let mut state = server;
         unsafe { ptr::drop_in_place(&mut state) };
@@ -390,6 +432,7 @@ mod tests {
 
             base_retrieval::<Ristretto255>();
             base_inversion_unsalted::<Ristretto255>();
+            server_evaluate::<Ristretto255>();
 
             zeroize_oprf_client::<Ristretto255>();
             zeroize_oprf_server::<Ristretto255>();
@@ -397,6 +440,7 @@ mod tests {
 
         base_retrieval::<NistP256>();
         base_inversion_unsalted::<NistP256>();
+        server_evaluate::<NistP256>();
 
         zeroize_oprf_client::<NistP256>();
         zeroize_oprf_server::<NistP256>();

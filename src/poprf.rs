@@ -20,9 +20,10 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
-    create_context_string, derive_keypair, deterministic_blind_unchecked, generate_proof, i2osp_2,
-    verify_proof, BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof,
-    STR_FINALIZE, STR_HASH_TO_SCALAR, STR_INFO,
+    create_context_string, derive_keypair, deterministic_blind_unchecked, generate_proof,
+    hash_to_group, i2osp_2, server_evaluate_hash_input, verify_proof, BlindedElement,
+    EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE, STR_HASH_TO_SCALAR,
+    STR_INFO,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
@@ -89,8 +90,8 @@ where
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
     pub fn blind<R: RngCore + CryptoRng>(
-        blinding_factor_rng: &mut R,
         input: &[u8],
+        blinding_factor_rng: &mut R,
     ) -> Result<PoprfClientBlindResult<CS>> {
         let blind = CS::Group::random_scalar(blinding_factor_rng);
         Self::deterministic_blind_unchecked_inner(input, blind)
@@ -248,7 +249,7 @@ where
     /// # Errors
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn evaluate<R: RngCore + CryptoRng>(
+    pub fn blind_evaluate<R: RngCore + CryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
@@ -257,7 +258,7 @@ where
         let PoprfServerBatchEvaluatePrepareResult {
             mut prepared_evaluation_elements,
             prepared_tweak,
-        } = self.batch_evaluate_prepare(iter::once(blinded_element), info)?;
+        } = self.batch_blind_evaluate_prepare(iter::once(blinded_element), info)?;
 
         let prepared_evaluation_element = prepared_evaluation_elements.next().unwrap();
         let prepared_evaluation_elements = core::array::from_ref(&prepared_evaluation_element);
@@ -265,7 +266,7 @@ where
         let PoprfServerBatchEvaluateFinishResult {
             mut messages,
             proof,
-        } = Self::batch_evaluate_finish(
+        } = Self::batch_blind_evaluate_finish(
             rng,
             iter::once(blinded_element),
             prepared_evaluation_elements,
@@ -286,7 +287,7 @@ where
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     #[cfg(feature = "alloc")]
-    pub fn batch_evaluate<'a, R: RngCore + CryptoRng, IE>(
+    pub fn batch_blind_evaluate<'a, R: RngCore + CryptoRng, IE>(
         &self,
         rng: &mut R,
         blinded_elements: &'a IE,
@@ -300,13 +301,13 @@ where
         let PoprfServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements,
             prepared_tweak,
-        } = self.batch_evaluate_prepare(blinded_elements.into_iter(), info)?;
+        } = self.batch_blind_evaluate_prepare(blinded_elements.into_iter(), info)?;
 
         let prepared_evaluation_elements: Vec<_> = prepared_evaluation_elements.collect();
 
         // This can't fail because we know the size of the inputs.
         let PoprfServerBatchEvaluateFinishResult { messages, proof } =
-            Self::batch_evaluate_finish::<_, _, Vec<_>>(
+            Self::batch_blind_evaluate_finish::<_, _, Vec<_>>(
                 rng,
                 blinded_elements.into_iter(),
                 &prepared_evaluation_elements,
@@ -319,15 +320,15 @@ where
         Ok(PoprfServerBatchEvaluateResult { messages, proof })
     }
 
-    /// Alternative version of `batch_evaluate` without
+    /// Alternative version of `batch_blind_evaluate` without
     /// memory allocation. Returned [`PreparedEvaluationElement`] have to
     /// be [`collect`](Iterator::collect)ed and passed into
-    /// [`batch_evaluate_finish`](Self::batch_evaluate_finish).
+    /// [`batch_blind_evaluate_finish`](Self::batch_blind_evaluate_finish).
     ///
     /// # Errors
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn batch_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
+    pub fn batch_blind_evaluate_prepare<'a, I: Iterator<Item = &'a BlindedElement<CS>>>(
         &self,
         blinded_elements: I,
         info: Option<&[u8]>,
@@ -356,7 +357,7 @@ where
     /// [`Error::Batch`] if the number of `blinded_elements` and
     /// `prepared_evaluation_elements` don't match or is longer then
     /// [`u16::MAX`]
-    pub fn batch_evaluate_finish<
+    pub fn batch_blind_evaluate_finish<
         'a,
         'b,
         R: RngCore + CryptoRng,
@@ -396,6 +397,29 @@ where
         ));
 
         Ok(PoprfServerBatchEvaluateFinishResult { messages, proof })
+    }
+
+    /// Computes the output of the VOPRF on the server side
+    ///
+    /// # Errors
+    /// [`Error::Input`]  if the `input` is longer then [`u16::MAX`].
+    pub fn evaluate(
+        &self,
+        input: &[u8],
+        info: Option<&[u8]>,
+    ) -> Result<Output<<CS as CipherSuite>::Hash>> {
+        let input_element = hash_to_group::<CS>(input, Mode::Poprf)?;
+        if CS::Group::is_identity_elem(input_element).into() {
+            return Err(Error::Input);
+        };
+
+        let tweak = compute_tweak::<CS>(self.sk, info)?;
+
+        let evaluated_element = input_element * &CS::Group::invert_scalar(tweak);
+
+        let issued_element = CS::Group::serialize_elem(evaluated_element);
+
+        server_evaluate_hash_input::<CS>(input, info, issued_element)
     }
 
     /// Retrieves the server's public key
@@ -808,9 +832,9 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
-        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .blind_evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
         let client_finalize_result = client_blind_result
             .state
@@ -835,9 +859,9 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
-        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .blind_evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
         let wrong_pk = {
             let dst = GenericArray::from(STR_HASH_TO_GROUP)
@@ -855,6 +879,41 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
+    fn verifiable_server_evaluate<CS: CipherSuite>()
+    where
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let input = b"input";
+        let info = Some(b"info".as_slice());
+        let mut rng = OsRng;
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
+        let server = PoprfServer::<CS>::new(&mut rng).unwrap();
+        let server_result = server
+            .blind_evaluate(&mut rng, &client_blind_result.message, info)
+            .unwrap();
+
+        let client_finalize = client_blind_result
+            .state
+            .finalize(
+                input,
+                &server_result.message,
+                &server_result.proof,
+                server.get_public_key(),
+                info,
+            )
+            .unwrap();
+
+        // We expect the outputs from client and server to be equal given an identical input
+        let server_evaluate = server.evaluate(input, info).unwrap();
+        assert_eq!(client_finalize, server_evaluate);
+
+        // We expect the outputs from client and server to be different given different inputs
+        let wrong_input = b"wrong input";
+        let server_evaluate = server.evaluate(wrong_input, info).unwrap();
+        assert!(client_finalize != server_evaluate);
+    }
+
     fn zeroize_verifiable_client<CS: CipherSuite>()
     where
         <CS::Hash as OutputSizeUser>::OutputSize:
@@ -864,7 +923,7 @@ mod tests {
     {
         let input = b"input";
         let mut rng = OsRng;
-        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
         unsafe { ptr::drop_in_place(&mut state) };
@@ -888,9 +947,9 @@ mod tests {
         let info = b"info";
         let mut rng = OsRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
-        let client_blind_result = PoprfClient::<CS>::blind(&mut rng, input).unwrap();
+        let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server
-            .evaluate(&mut rng, &client_blind_result.message, Some(info))
+            .blind_evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
 
         let mut state = server;
@@ -916,6 +975,7 @@ mod tests {
 
             verifiable_retrieval::<Ristretto255>();
             verifiable_bad_public_key::<Ristretto255>();
+            verifiable_server_evaluate::<Ristretto255>();
 
             zeroize_verifiable_client::<Ristretto255>();
             zeroize_verifiable_server::<Ristretto255>();
@@ -923,6 +983,7 @@ mod tests {
 
         verifiable_retrieval::<NistP256>();
         verifiable_bad_public_key::<NistP256>();
+        verifiable_server_evaluate::<NistP256>();
 
         zeroize_verifiable_client::<NistP256>();
         zeroize_verifiable_server::<NistP256>();

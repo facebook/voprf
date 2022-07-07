@@ -8,7 +8,7 @@
 //! An implementation of a verifiable oblivious pseudorandom function (VOPRF)
 //!
 //! Note: This implementation is in sync with
-//! [draft-irtf-cfrg-voprf-10](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html),
+//! [draft-irtf-cfrg-voprf-11](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html),
 //! but this specification is subject to change, until the final version
 //! published by the IETF.
 //!
@@ -36,18 +36,19 @@
 //!   VOPRF, where a public input can be supplied to the PRF computation
 //!
 //! In all of these modes, the protocol begins with a client blinding, followed
-//! by a server evaluation, and finishes with a client finalization.
+//! by a server evaluation, and finishes with a client finalization and server
+//! evaluation.
 //!
 //! ## Base Mode
 //!
-//! In base mode, an [OprfClient] interacts with an [OprfServer]
-//! to compute the output of the OPRF.
+//! In base mode, an [OprfClient] interacts with an [OprfServer] to compute the
+//! output of the OPRF.
 //!
 //! ### Server Setup
 //!
 //! The protocol begins with a setup phase, in which the server must run
-//! [OprfServer::new()] to produce an instance of itself. This instance
-//! must be persisted on the server and used for online client evaluations.
+//! [OprfServer::new()] to produce an instance of itself. This instance must be
+//! persisted on the server and used for online client evaluations.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -64,11 +65,10 @@
 //!
 //! ### Client Blinding
 //!
-//! In the first step, the client chooses an input, and runs
-//! [OprfClient::blind] to produce an [OprfClientBlindResult],
-//! which consists of a [BlindedElement] to be sent to the server and an
-//! [OprfClient] which must be persisted on the client for the final
-//! step of the VOPRF protocol.
+//! In the first step, the client chooses an input, and runs [OprfClient::blind]
+//! to produce an [OprfClientBlindResult], which consists of a [BlindedElement]
+//! to be sent to the server and an [OprfClient] which must be persisted on the
+//! client for the final step of the VOPRF protocol.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -84,11 +84,11 @@
 //!     .expect("Unable to construct client");
 //! ```
 //!
-//! ### Server Evaluation
+//! ### Server Blind Evaluation
 //!
 //! In the second step, the server takes as input the message from
 //! [OprfClient::blind] (a [BlindedElement]), and runs
-//! [OprfServer::evaluate] to produce [EvaluationElement] to be sent to
+//! [OprfServer::blind_evaluate] to produce [EvaluationElement] to be sent to
 //! the client.
 //!
 //! ```
@@ -107,13 +107,13 @@
 //! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
 //! # let server = OprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
-//! let server_evaluate_result = server.evaluate(&client_blind_result.message);
+//! let server_evaluate_result = server.blind_evaluate(&client_blind_result.message);
 //! ```
 //!
 //! ### Client Finalization
 //!
-//! In the final step, the client takes as input the message from
-//! [OprfServer::evaluate] (an [EvaluationElement]), and runs
+//! In the final step on the client side, the client takes as input the message
+//! from [OprfServer::evaluate] (an [EvaluationElement]), and runs
 //! [OprfClient::finalize] to produce an output for the protocol.
 //!
 //! ```
@@ -132,7 +132,7 @@
 //! # use voprf::OprfServer;
 //! # let mut server_rng = OsRng;
 //! # let server = OprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
-//! # let message = server.evaluate(&client_blind_result.message);
+//! # let message = server.blind_evaluate(&client_blind_result.message);
 //! let client_finalize_result = client_blind_result
 //!     .state
 //!     .finalize(b"input", &message)
@@ -141,10 +141,43 @@
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
+//! ### Server Evaluation
+//!
+//! In the final step on the server side, the server runs [OprfServer::evaluate]
+//! to finish the OPRF protocol by using its private key to produce an output
+//! that is equal to the client's output.
+//!
+//! ```
+//! # #[cfg(feature = "ristretto255")]
+//! # type CipherSuite = voprf::Ristretto255;
+//! # #[cfg(not(feature = "ristretto255"))]
+//! # type CipherSuite = p256::NistP256;
+//! # use voprf::OprfClient;
+//! # use rand::{rngs::OsRng, RngCore};
+//! #
+//! # let mut client_rng = OsRng;
+//! # let client_blind_result = OprfClient::<CipherSuite>::blind(
+//! #     b"input",
+//! #     &mut client_rng,
+//! # ).expect("Unable to construct client");
+//! # use voprf::OprfServer;
+//! # let mut server_rng = OsRng;
+//! # let server = OprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! # let message = server.blind_evaluate(&client_blind_result.message);
+//! let client_finalize_result = client_blind_result
+//!     .state
+//!     .finalize(b"input", &message)
+//!     .expect("Unable to perform client finalization");
+//!
+//! let server_evaluate_result = server.evaluate(b"input").expect("Unable to perform the server evaluation");
+//!
+//! assert_eq!(client_finalize_result, server_evaluate_result);
+//! ```
+//!
 //! ## Verifiable Mode
 //!
-//! In verifiable mode, a [VoprfClient] interacts with a [VoprfServer]
-//! to compute the output of the VOPRF. In order to verify the server's
+//! In verifiable mode, a [VoprfClient] interacts with a [VoprfServer] to
+//! compute the output of the VOPRF. In order to verify the server's
 //! computation, the client checks a server-generated proof against the server's
 //! public key. If the proof fails to verify, then the client does not receive
 //! an output.
@@ -156,8 +189,8 @@
 //! ### Server Setup
 //!
 //! The protocol begins with a setup phase, in which the server must run
-//! [VoprfServer::new()] to produce an instance of itself. This instance
-//! must be persisted on the server and used for online client evaluations.
+//! [VoprfServer::new()] to produce an instance of itself. This instance must be
+//! persisted on the server and used for online client evaluations.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -182,10 +215,9 @@
 //! ### Client Blinding
 //!
 //! In the first step, the client chooses an input, and runs
-//! [VoprfClient::blind] to produce a [VoprfClientBlindResult], which
-//! consists of a [BlindedElement] to be sent to the server and a
-//! [VoprfClient] which must be persisted on the client for the final step
-//! of the VOPRF protocol.
+//! [VoprfClient::blind] to produce a [VoprfClientBlindResult], which consists
+//! of a [BlindedElement] to be sent to the server and a [VoprfClient] which
+//! must be persisted on the client for the final step of the VOPRF protocol.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -201,11 +233,11 @@
 //!     .expect("Unable to construct client");
 //! ```
 //!
-//! ### Server Evaluation
+//! ### Server Blind Evaluation
 //!
 //! In the second step, the server takes as input the message from
 //! [VoprfClient::blind] (a [BlindedElement]), and runs
-//! [VoprfServer::evaluate] to produce a [VoprfServerEvaluateResult],
+//! [VoprfServer::blind_evaluate] to produce a [VoprfServerEvaluateResult],
 //! which consists of an [EvaluationElement] to be sent to the client along with
 //! a proof.
 //!
@@ -226,15 +258,15 @@
 //! # let mut server_rng = OsRng;
 //! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! let VoprfServerEvaluateResult { message, proof } =
-//!     server.evaluate(&mut server_rng, &client_blind_result.message);
+//!     server.blind_evaluate(&mut server_rng, &client_blind_result.message);
 //! ```
 //!
 //! ### Client Finalization
 //!
 //! In the final step, the client takes as input the message from
-//! [VoprfServer::evaluate] (an [EvaluationElement]), the proof, and the
-//! server's public key, and runs [VoprfClient::finalize] to produce an
-//! output for the protocol.
+//! [VoprfServer::blind_evaluate] (an [EvaluationElement]), the proof, and the
+//! server's public key, and runs [VoprfClient::finalize] to produce an output
+//! for the protocol.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -252,7 +284,7 @@
 //! # use voprf::VoprfServer;
 //! # let mut server_rng = OsRng;
 //! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
-//! # let server_evaluate_result = server.evaluate(
+//! # let server_evaluate_result = server.blind_evaluate(
 //! #     &mut server_rng,
 //! #     &client_blind_result.message,
 //! # );
@@ -269,6 +301,47 @@
 //! println!("VOPRF output: {:?}", client_finalize_result.to_vec());
 //! ```
 //!
+//! ### Server Evaluation
+//!
+//! In the final step on the server side, the server runs
+//! [VoprfServer::evaluate] to finish the VOPRF protocol by using its private
+//! key to produce an output that is equal to the client's output.
+//!
+//! ```
+//! # #[cfg(feature = "ristretto255")]
+//! # type CipherSuite = voprf::Ristretto255;
+//! # #[cfg(not(feature = "ristretto255"))]
+//! # type CipherSuite = p256::NistP256;
+//! # use voprf::VoprfClient;
+//! # use rand::{rngs::OsRng, RngCore};
+//! #
+//! # let mut client_rng = OsRng;
+//! # let client_blind_result = VoprfClient::<CipherSuite>::blind(
+//! #     b"input",
+//! #     &mut client_rng,
+//! # ).expect("Unable to construct client");
+//! # use voprf::VoprfServer;
+//! # let mut server_rng = OsRng;
+//! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
+//! # let server_evaluate_result = server.blind_evaluate(
+//! #     &mut server_rng,
+//! #     &client_blind_result.message,
+//! # );
+//! let client_finalize_result = client_blind_result
+//!     .state
+//!     .finalize(
+//!         b"input",
+//!         &server_evaluate_result.message,
+//!         &server_evaluate_result.proof,
+//!         server.get_public_key(),
+//!     )
+//!     .expect("Unable to perform client finalization");
+//!
+//! let server_evaluate_result = server.evaluate(b"input").expect("Unable to perform the server evaluation");
+//!
+//! assert_eq!(client_finalize_result, server_evaluate_result);
+//! ```
+//!
 //! # Advanced Usage
 //!
 //! There are two additional (and optional) extensions to the core VOPRF
@@ -279,9 +352,9 @@
 //!
 //! It is sometimes desirable to generate only a single, constant-size proof for
 //! an unbounded number of VOPRF evaluations (on arbitrary inputs).
-//! [VoprfClient] and [VoprfServer] support a batch API for handling
-//! this case. In the following example, we show how to use the batch API to
-//! produce a single proof for 10 parallel VOPRF evaluations.
+//! [VoprfClient] and [VoprfServer] support a batch API for handling this case.
+//! In the following example, we show how to use the batch API to produce a
+//! single proof for 10 parallel VOPRF evaluations.
 //!
 //! First, the client produces 10 blindings, storing their resulting states and
 //! messages:
@@ -306,7 +379,7 @@
 //! ```
 //!
 //! Next, the server calls the [VoprfServer::batch_evaluate_prepare] and
-//! [VoprfServer::batch_evaluate_finish] function on a set of client
+//! [VoprfServer::batch_blind_evaluate_finish] function on a set of client
 //! messages, to produce a corresponding set of messages to be returned to the
 //! client (returned in the same order), along with a single proof:
 //!
@@ -332,15 +405,15 @@
 //! # use voprf::VoprfServer;
 //! let mut server_rng = OsRng;
 //! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
-//! let prepared_evaluation_elements = server.batch_evaluate_prepare(client_messages.iter());
+//! let prepared_evaluation_elements = server.batch_blind_evaluate_prepare(client_messages.iter());
 //! let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
 //! let VoprfServerBatchEvaluateFinishResult { messages, proof } = server
-//!     .batch_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements)
+//!     .batch_blind_evaluate_finish(&mut server_rng, client_messages.iter(), &prepared_elements)
 //!     .expect("Unable to perform server batch evaluate");
 //! let messages: Vec<_> = messages.collect();
 //! ```
 //!
-//! If `alloc` is available, `VoprfServer::batch_evaluate` can be called
+//! If `alloc` is available, `VoprfServer::batch_blind_evaluate` can be called
 //! to avoid having to collect output manually:
 //!
 //! ```
@@ -367,15 +440,15 @@
 //! let mut server_rng = OsRng;
 //! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! let VoprfServerBatchEvaluateResult { messages, proof } = server
-//!     .batch_evaluate(&mut server_rng, &client_messages)
+//!     .batch_blind_evaluate(&mut server_rng, &client_messages)
 //!     .expect("Unable to perform server batch evaluate");
 //! # }
 //! ```
 //!
-//! Then, the client calls [VoprfClient::batch_finalize] on the client
-//! states saved from the first step, along with the messages returned by the
-//! server, along with the server's proof, in order to produce a vector of
-//! outputs if the proof verifies correctly.
+//! Then, the client calls [VoprfClient::batch_finalize] on the client states
+//! saved from the first step, along with the messages returned by the server,
+//! along with the server's proof, in order to produce a vector of outputs if
+//! the proof verifies correctly.
 //!
 //! ```
 //! # #[cfg(feature = "alloc")] {
@@ -401,7 +474,7 @@
 //! # let mut server_rng = OsRng;
 //! # let server = VoprfServer::<CipherSuite>::new(&mut server_rng).unwrap();
 //! # let VoprfServerBatchEvaluateResult { messages, proof } = server
-//! #     .batch_evaluate(&mut server_rng, &client_messages)
+//! #     .batch_blind_evaluate(&mut server_rng, &client_messages)
 //! #     .expect("Unable to perform server batch evaluate");
 //! let client_batch_finalize_result = VoprfClient::batch_finalize(
 //!     &[b"input"; 10],
@@ -420,17 +493,17 @@
 //! ## Metadata
 //!
 //! The optional metadata parameter included in the POPRF mode allows clients
-//! and servers to cryptographically bind additional data to the
-//! VOPRF output. This metadata is known to both parties at the start of the
-//! protocol, and is inserted under the server's evaluate step and the client's
-//! finalize step. This metadata can be constructed with some type of
-//! higher-level domain separation to avoid cross-protocol attacks or related
-//! issues.
+//! and servers to cryptographically bind additional data to the VOPRF output.
+//! This metadata is known to both parties at the start of the protocol, and is
+//! inserted under the server's blind evaluate step and the client's finalize
+//! step. This metadata can be constructed with some type of higher-level domain
+//! separation to avoid cross-protocol attacks or related issues.
 //!
 //! The API for POPRF mode is similar to VOPRF mode, except that a [PoprfServer]
 //! and [PoprfClient] are used, and that each of the functions accept an
 //! additional (and optional) info parameter which represents the public input.
-//! See <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#name-poprf-public-input>
+//! See
+//! <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#name-poprf-public-input>
 //! for more detailed information on how this public input should be used.
 //!
 //! # Features
@@ -464,7 +537,8 @@
 //!   automatically enable the `ristretto255-u64` feature and requires Rust
 //!   nightly.
 //!
-//! [curve25519-dalek]: (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
+//! [curve25519-dalek]:
+//!     (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
 
 #![cfg_attr(not(test), deny(unsafe_code))]
 #![no_std]
