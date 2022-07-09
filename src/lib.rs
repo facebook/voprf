@@ -143,9 +143,11 @@
 //!
 //! ### Server Evaluation
 //!
-//! In the final step on the server side, the server runs [OprfServer::evaluate]
-//! to finish the OPRF protocol by using its private key to produce an output
-//! that is equal to the client's output.
+//! Optionally, if the server has direct access to the PRF input, then it need
+//! not perform the oblivious computation and can simply run
+//! [OprfServer::evaluate] to generate an output which matches the output
+//! produced by an execution of the oblivious protocol on the same input and
+//! key.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -305,9 +307,11 @@
 //!
 //! ### Server Evaluation
 //!
-//! In the final step on the server side, the server runs
-//! [VoprfServer::evaluate] to finish the VOPRF protocol by using its private
-//! key to produce an output that is equal to the client's output.
+//! Optionally, if the server has direct access to the PRF input, then it need
+//! not perform the oblivious computation and can simply run
+//! [VoprfServer::evaluate] to generate an output which matches the output
+//! produced by an execution of the oblivious protocol on the same input and
+//! key.
 //!
 //! ```
 //! # #[cfg(feature = "ristretto255")]
@@ -507,7 +511,7 @@
 //! and [PoprfClient] are used, and that each of the functions accept an
 //! additional (and optional) info parameter which represents the public input.
 //! See
-//! <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#name-poprf-public-input>
+//! <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#name-poprf-public-input>
 //! for more detailed information on how this public input should be used.
 //!
 //! # Features
