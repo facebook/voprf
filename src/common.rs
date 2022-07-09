@@ -11,7 +11,7 @@ use core::convert::TryFrom;
 
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, OutputSizeUser};
+use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U2, U256};
 use generic_array::{ArrayLength, GenericArray};
@@ -153,7 +153,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.1
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.1
 
     let (m, z) = compute_composites::<CS, _, _>(Some(k), b, cs, ds, mode)?;
 
@@ -216,7 +216,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.2
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.2
     let (m, z) = compute_composites::<CS, _, _>(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
@@ -285,7 +285,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-10.html#section-2.2.1
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.1
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
@@ -437,10 +437,59 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-    let hashed_point =
-        CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).map_err(|_| Error::Input)?;
+    let hashed_point = hash_to_group::<CS>(input, mode)?;
     Ok(hashed_point * blind)
+}
+
+/// Hashes `input` to a point on the curve
+pub(crate) fn hash_to_group<CS: CipherSuite>(
+    input: &[u8],
+    mode: Mode,
+) -> Result<<CS::Group as Group>::Elem>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
+    CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).map_err(|_| Error::Input)
+}
+
+/// Internal function that finalizes the hash input for OPRF, VOPRF & POPRF.
+/// Returned values can only fail with [`Error::Input`].
+pub(crate) fn server_evaluate_hash_input<CS: CipherSuite>(
+    input: &[u8],
+    info: Option<&[u8]>,
+    issued_element: GenericArray<u8, <<CS as CipherSuite>::Group as Group>::ElemLen>,
+) -> Result<Output<CS::Hash>>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    // OPRF & VOPRF
+    // hashInput = I2OSP(len(input), 2) || input ||
+    //             I2OSP(len(issuedElement), 2) || issuedElement ||
+    //             "Finalize"
+    // return Hash(hashInput)
+    //
+    // POPRF
+    // hashInput = I2OSP(len(input), 2) || input ||
+    //             I2OSP(len(info), 2) || info ||
+    //             I2OSP(len(issuedElement), 2) || issuedElement ||
+    //             "Finalize"
+
+    let mut hash = CS::Hash::new()
+        .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
+        .chain_update(input.as_ref());
+    if let Some(info) = info {
+        hash = hash
+            .chain_update(i2osp_2(info.as_ref().len()).map_err(|_| Error::Input)?)
+            .chain_update(info.as_ref());
+    }
+    Ok(hash
+        .chain_update(i2osp_2(issued_element.as_ref().len()).map_err(|_| Error::Input)?)
+        .chain_update(issued_element)
+        .chain_update(STR_FINALIZE)
+        .finalize())
 }
 
 /// Generates the contextString parameter as defined in

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0-pre.4 (July 9, 2022)
+* Updated to be in sync with draft-irtf-cfrg-voprf-11
+* Adds the evaluate() function to the servers to calculate the output of the OPRF
+  directly
+* Renames the former evaluate() function to blind_evaluate to match the spec
+* Fixes the order of parameters for PoprfClient::blind to align it with the
+  other clients
+
 ## 0.4.0-pre.3 (July 1, 2022)
 * Updated to be in sync with draft-irtf-cfrg-voprf-10, with
   the only difference from -09 being a constant string change

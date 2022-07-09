@@ -101,8 +101,9 @@ fn test_vectors() -> Result<()> {
         assert_ne!(ristretto_oprf_tvs.len(), 0);
         test_oprf_seed_to_key::<Ristretto255>(&ristretto_oprf_tvs)?;
         test_oprf_blind::<Ristretto255>(&ristretto_oprf_tvs)?;
-        test_oprf_evaluate::<Ristretto255>(&ristretto_oprf_tvs)?;
+        test_oprf_blind_evaluate::<Ristretto255>(&ristretto_oprf_tvs)?;
         test_oprf_finalize::<Ristretto255>(&ristretto_oprf_tvs)?;
+        test_oprf_evaluate::<Ristretto255>(&ristretto_oprf_tvs)?;
 
         let ristretto_voprf_tvs = json_to_test_vectors!(
             rfc,
@@ -112,8 +113,9 @@ fn test_vectors() -> Result<()> {
         assert_ne!(ristretto_voprf_tvs.len(), 0);
         test_voprf_seed_to_key::<Ristretto255>(&ristretto_voprf_tvs)?;
         test_voprf_blind::<Ristretto255>(&ristretto_voprf_tvs)?;
-        test_voprf_evaluate::<Ristretto255>(&ristretto_voprf_tvs)?;
+        test_voprf_blind_evaluate::<Ristretto255>(&ristretto_voprf_tvs)?;
         test_voprf_finalize::<Ristretto255>(&ristretto_voprf_tvs)?;
+        test_voprf_evaluate::<Ristretto255>(&ristretto_voprf_tvs)?;
 
         let ristretto_poprf_tvs = json_to_test_vectors!(
             rfc,
@@ -123,8 +125,9 @@ fn test_vectors() -> Result<()> {
         assert_ne!(ristretto_poprf_tvs.len(), 0);
         test_poprf_seed_to_key::<Ristretto255>(&ristretto_poprf_tvs)?;
         test_poprf_blind::<Ristretto255>(&ristretto_poprf_tvs)?;
-        test_poprf_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
+        test_poprf_blind_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
         test_poprf_finalize::<Ristretto255>(&ristretto_poprf_tvs)?;
+        test_poprf_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
     }
 
     let p256_oprf_tvs =
@@ -132,24 +135,27 @@ fn test_vectors() -> Result<()> {
     assert_ne!(p256_oprf_tvs.len(), 0);
     test_oprf_seed_to_key::<NistP256>(&p256_oprf_tvs)?;
     test_oprf_blind::<NistP256>(&p256_oprf_tvs)?;
-    test_oprf_evaluate::<NistP256>(&p256_oprf_tvs)?;
+    test_oprf_blind_evaluate::<NistP256>(&p256_oprf_tvs)?;
     test_oprf_finalize::<NistP256>(&p256_oprf_tvs)?;
+    test_oprf_evaluate::<NistP256>(&p256_oprf_tvs)?;
 
     let p256_voprf_tvs =
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("VOPRF"));
     assert_ne!(p256_voprf_tvs.len(), 0);
     test_voprf_seed_to_key::<NistP256>(&p256_voprf_tvs)?;
     test_voprf_blind::<NistP256>(&p256_voprf_tvs)?;
-    test_voprf_evaluate::<NistP256>(&p256_voprf_tvs)?;
+    test_voprf_blind_evaluate::<NistP256>(&p256_voprf_tvs)?;
     test_voprf_finalize::<NistP256>(&p256_voprf_tvs)?;
+    test_voprf_evaluate::<NistP256>(&p256_voprf_tvs)?;
 
     let p256_poprf_tvs =
         json_to_test_vectors!(rfc, String::from("P-256, SHA-256"), String::from("POPRF"));
     assert_ne!(p256_poprf_tvs.len(), 0);
     test_poprf_seed_to_key::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_blind::<NistP256>(&p256_poprf_tvs)?;
-    test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
+    test_poprf_blind_evaluate::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_finalize::<NistP256>(&p256_poprf_tvs)?;
+    test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
 
     Ok(())
 }
@@ -286,7 +292,7 @@ where
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_oprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_oprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -294,7 +300,7 @@ where
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
-            let message = server.evaluate(&BlindedElement::deserialize(
+            let message = server.blind_evaluate(&BlindedElement::deserialize(
                 &parameters.blinded_element[i],
             )?);
 
@@ -307,7 +313,7 @@ where
     Ok(())
 }
 
-fn test_voprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_voprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -323,10 +329,11 @@ where
             blinded_elements.push(BlindedElement::deserialize(blinded_element_bytes)?);
         }
 
-        let prepared_evaluation_elements = server.batch_evaluate_prepare(blinded_elements.iter());
+        let prepared_evaluation_elements =
+            server.batch_blind_evaluate_prepare(blinded_elements.iter());
         let prepared_elements: Vec<_> = prepared_evaluation_elements.collect();
-        let VoprfServerBatchEvaluateFinishResult { messages, proof } =
-            server.batch_evaluate_finish(&mut rng, blinded_elements.iter(), &prepared_elements)?;
+        let VoprfServerBatchEvaluateFinishResult { messages, proof } = server
+            .batch_blind_evaluate_finish(&mut rng, blinded_elements.iter(), &prepared_elements)?;
         let messages: Vec<_> = messages.collect();
 
         for (parameter, message) in parameters.evaluation_element.iter().zip(messages) {
@@ -338,7 +345,7 @@ where
     Ok(())
 }
 
-fn test_poprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+fn test_poprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
@@ -357,10 +364,10 @@ where
         let PoprfServerBatchEvaluatePrepareResult {
             prepared_evaluation_elements,
             prepared_tweak,
-        } = server.batch_evaluate_prepare(blinded_elements.iter(), Some(&parameters.info))?;
+        } = server.batch_blind_evaluate_prepare(blinded_elements.iter(), Some(&parameters.info))?;
         let prepared_evaluation_elements: Vec<_> = prepared_evaluation_elements.collect();
         let PoprfServerBatchEvaluateFinishResult { messages, proof } =
-            PoprfServer::batch_evaluate_finish::<_, _, Vec<_>>(
+            PoprfServer::batch_blind_evaluate_finish::<_, _, Vec<_>>(
                 &mut rng,
                 blinded_elements.iter(),
                 &prepared_evaluation_elements,
@@ -473,6 +480,59 @@ where
         let result: Vec<Vec<u8>> = batch_result.map(|arr| arr.unwrap().to_vec()).collect();
 
         assert_eq!(parameters.output, result);
+    }
+    Ok(())
+}
+
+// Tests input, sksm -> output
+fn test_oprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        for i in 0..parameters.input.len() {
+            let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
+
+            let server_evaluate_result = server.evaluate(&parameters.input[i])?;
+
+            assert_eq!(&parameters.output[i], &server_evaluate_result.to_vec());
+        }
+    }
+    Ok(())
+}
+
+fn test_voprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        for i in 0..parameters.input.len() {
+            let server = VoprfServer::<CS>::new_with_key(&parameters.sksm)?;
+
+            let server_evaluate_result = server.evaluate(&parameters.input[i])?;
+
+            assert_eq!(&parameters.output[i], &server_evaluate_result.to_vec());
+        }
+    }
+    Ok(())
+}
+
+fn test_poprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
+where
+    <CS::Hash as OutputSizeUser>::OutputSize:
+        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+{
+    for parameters in tvs {
+        for i in 0..parameters.input.len() {
+            let server = PoprfServer::<CS>::new_with_key(&parameters.sksm)?;
+
+            let server_evaluate_result =
+                server.evaluate(&parameters.input[i], Some(&parameters.info))?;
+
+            assert_eq!(&parameters.output[i], &server_evaluate_result.to_vec());
+        }
     }
     Ok(())
 }
