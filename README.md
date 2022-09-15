@@ -16,7 +16,7 @@ Installation
 Add the following line to the dependencies of your `Cargo.toml`:
 
 ```
-voprf = "0.4.0-pre.4"
+voprf = "0.4"
 ```
 
 ### Minimum Supported Rust Version
