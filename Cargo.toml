@@ -1,5 +1,5 @@
 [package]
-authors = ["Kevin Lewi <klewi@fb.com>"]
+authors = ["Kevin Lewi <lewi.kevin.k@gmail.com>"]
 categories = ["no-std", "algorithms", "cryptography"]
 description = "An implementation of a verifiable oblivious pseudorandom function (VOPRF)"
 edition = "2021"
@@ -9,7 +9,7 @@ name = "voprf"
 readme = "README.md"
 repository = "https://github.com/novifinancial/voprf/"
 rust-version = "1.57"
-version = "0.4.0-pre.4"
+version = "0.4.0"
 
 [features]
 alloc = []
@@ -27,7 +27,7 @@ std = ["alloc"]
 
 [dependencies]
 curve25519-dalek = { version = "=4.0.0-pre.1", default-features = false, optional = true }
-derive-where = { version = "=1.0.0-rc.3", features = ["zeroize-on-drop"] }
+derive-where = { version = "1", features = ["zeroize-on-drop"] }
 digest = "0.10"
 displaydoc = { version = "0.2", default-features = false }
 elliptic-curve = { version = "0.12", features = [
