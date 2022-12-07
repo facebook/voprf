@@ -389,6 +389,7 @@ mod test {
             }
 
             let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
+            let _ = $item::<p384::NistP384>::deserialize(&$bytes[..]);
         };
     }
 
