@@ -277,7 +277,7 @@ where
             .chain_update(input.as_ref())
             .chain_update(elem_len)
             .chain_update(CS::Group::serialize_elem(unblinded_element))
-            .chain_update(&STR_FINALIZE)
+            .chain_update(STR_FINALIZE)
             .finalize())
     })
 }

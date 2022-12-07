@@ -302,7 +302,7 @@ where
     //           I2OSP(len(seedDST), 2) || seedDST
     // seed = Hash(h1Input)
     let seed = CS::Hash::new()
-        .chain_update(&elem_len)
+        .chain_update(elem_len)
         .chain_update(CS::Group::serialize_elem(b))
         .chain_update(i2osp_2_array(&seed_dst))
         .chain_update(seed_dst)
