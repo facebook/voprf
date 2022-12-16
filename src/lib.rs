@@ -532,21 +532,11 @@
 //!   a [`CipherSuite`].
 //!
 //! - The `ristretto255` feature enables using [`Ristretto255`] as the
-//!   underlying group for the [Group] choice. A backend feature, which are
-//!   re-exported from [curve25519-dalek] and allow for selecting the
-//!   corresponding backend for the curve arithmetic used, has to be selected,
-//!   otherwise compilation will fail. The `ristretto255-u64` feature is
-//!   included as the default. Other features are mapped as `ristretto255-u32`,
-//!   `ristretto255-fiat-u64` and `ristretto255-fiat-u32`. Any `ristretto255-*`
-//!   backend feature will enable the `ristretto255` feature.
-//!
-//! - The `ristretto255-simd` feature is re-exported from [curve25519-dalek] and
-//!   enables parallel formulas, using either AVX2 or AVX512-IFMA. This will
-//!   automatically enable the `ristretto255-u64` feature and requires Rust
-//!   nightly.
+//!   underlying group for the [Group] choice. To select a specific backend see
+//!   the [curve25519-dalek] documentation.
 //!
 //! [curve25519-dalek]:
-//!     (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
+//!     (https://docs.rs/curve25519-dalek/4.0.0-pre.5/curve25519_dalek/index.html#backends)
 
 #![cfg_attr(not(test), deny(unsafe_code))]
 #![no_std]

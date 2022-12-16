@@ -104,7 +104,7 @@ impl Group for Ristretto255 {
         loop {
             let scalar = Scalar::random(rng);
 
-            if scalar != Scalar::zero() {
+            if scalar != Scalar::ZERO {
                 break scalar;
             }
         }
@@ -115,12 +115,12 @@ impl Group for Ristretto255 {
     }
 
     fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
-        scalar.ct_eq(&Scalar::zero())
+        scalar.ct_eq(&Scalar::ZERO)
     }
 
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
-        Scalar::zero()
+        Scalar::ZERO
     }
 
     fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
@@ -131,8 +131,8 @@ impl Group for Ristretto255 {
         scalar_bits
             .try_into()
             .ok()
-            .and_then(Scalar::from_canonical_bytes)
-            .filter(|scalar| scalar != &Scalar::zero())
+            .and_then(|bytes| Scalar::from_canonical_bytes(bytes).into())
+            .filter(|scalar| scalar != &Scalar::ZERO)
             .ok_or(Error::Deserialization)
     }
 }
