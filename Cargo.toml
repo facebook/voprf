@@ -55,5 +55,6 @@ regex = "1"
 sha2 = "0.10"
 
 [package.metadata.docs.rs]
-features = ["danger", "std"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 targets = []
