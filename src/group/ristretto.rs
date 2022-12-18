@@ -22,8 +22,6 @@ use crate::{Error, InternalError, Result};
 
 /// [`Group`] implementation for Ristretto255.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
-#[cfg(feature = "ristretto255")]
 pub struct Ristretto255;
 
 #[cfg(feature = "ristretto255-ciphersuite")]
@@ -35,8 +33,6 @@ impl crate::CipherSuite for Ristretto255 {
     type Hash = sha2::Sha512;
 }
 
-// `cfg` here is only needed because of a bug in Rust's crate feature documentation. See: https://github.com/rust-lang/rust/issues/83428
-#[cfg(feature = "ristretto255")]
 impl Group for Ristretto255 {
     type Elem = RistrettoPoint;
 
@@ -104,7 +100,7 @@ impl Group for Ristretto255 {
         loop {
             let scalar = Scalar::random(rng);
 
-            if scalar != Scalar::zero() {
+            if scalar != Scalar::ZERO {
                 break scalar;
             }
         }
@@ -115,12 +111,12 @@ impl Group for Ristretto255 {
     }
 
     fn is_zero_scalar(scalar: Self::Scalar) -> subtle::Choice {
-        scalar.ct_eq(&Scalar::zero())
+        scalar.ct_eq(&Scalar::ZERO)
     }
 
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
-        Scalar::zero()
+        Scalar::ZERO
     }
 
     fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
@@ -131,8 +127,8 @@ impl Group for Ristretto255 {
         scalar_bits
             .try_into()
             .ok()
-            .and_then(Scalar::from_canonical_bytes)
-            .filter(|scalar| scalar != &Scalar::zero())
+            .and_then(|bytes| Scalar::from_canonical_bytes(bytes).into())
+            .filter(|scalar| scalar != &Scalar::ZERO)
             .ok_or(Error::Deserialization)
     }
 }
