@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0-pre.1 (December 19, 2022)
+* Updated curve25519-dalek dependency to 4.0.0-pre.5
+
 ## 0.4.0 (September 15, 2022)
 * Updated to be in sync with draft-irtf-cfrg-voprf-11, with
   the addition of the POPRF mode
