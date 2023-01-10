@@ -542,7 +542,6 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(not(test), deny(unsafe_code))]
 #![warn(
-    clippy::cargo,
     clippy::missing_errors_doc,
     missing_debug_implementations,
     missing_docs
