@@ -21,7 +21,7 @@ voprf = "0.5.0-pre.1"
 
 ### Minimum Supported Rust Version
 
-Rust **1.57** or higher.
+Rust **1.60** or higher.
 
 Contributors
 ------------
