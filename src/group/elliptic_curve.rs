@@ -23,7 +23,7 @@ use crate::{Error, InternalError, Result};
 impl<C> Group for C
 where
     C: GroupDigest,
-    ProjectivePoint<Self>: CofactorGroup + ToEncodedPoint<Self>,
+    ProjectivePoint<Self>: CofactorGroup,
     FieldSize<Self>: ModulusSize,
     AffinePoint<Self>: FromEncodedPoint<Self> + ToEncodedPoint<Self>,
     Scalar<Self>: FromOkm,
@@ -65,7 +65,8 @@ where
     }
 
     fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
-        let bytes = elem.to_encoded_point(true);
+        let affine: AffinePoint<Self> = elem.into();
+        let bytes = affine.to_encoded_point(true);
         let bytes = bytes.as_bytes();
         let mut result = GenericArray::default();
         result[..bytes.len()].copy_from_slice(bytes);
