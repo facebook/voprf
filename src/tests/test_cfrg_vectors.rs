@@ -14,7 +14,7 @@ use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::ArrayLength;
-use json::JsonValue;
+use serde_json::Value;
 
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
@@ -40,7 +40,7 @@ struct VOPRFTestVectorParameters {
     output: Vec<Vec<u8>>,
 }
 
-fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
+fn populate_test_vectors(values: &Value) -> VOPRFTestVectorParameters {
     VOPRFTestVectorParameters {
         seed: decode(values, "Seed"),
         sksm: decode(values, "skSm"),
@@ -57,14 +57,14 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
     }
 }
 
-fn decode(values: &JsonValue, key: &str) -> Vec<u8> {
+fn decode(values: &Value, key: &str) -> Vec<u8> {
     values[key]
         .as_str()
         .and_then(|s| hex::decode(s).ok())
         .unwrap_or_default()
 }
 
-fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
+fn decode_vec(values: &Value, key: &str) -> Vec<Vec<u8>> {
     let s = values[key].as_str().unwrap();
     let res = match s.contains(',') {
         true => Some(s.split(',').map(|x| hex::decode(x).unwrap()).collect()),
@@ -76,8 +76,10 @@ fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
 macro_rules! json_to_test_vectors {
     ( $v:ident, $cs:expr, $mode:expr ) => {
         $v[$cs][$mode]
-            .members()
-            .map(|x| populate_test_vectors(&x))
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(populate_test_vectors)
             .collect::<Vec<VOPRFTestVectorParameters>>()
     };
 }
@@ -86,7 +88,7 @@ macro_rules! json_to_test_vectors {
 fn test_vectors() -> Result<()> {
     use p256::NistP256;
 
-    let rfc = json::parse(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
+    let rfc: Value = serde_json::from_str(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
     #[cfg(feature = "ristretto255")]
