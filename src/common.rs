@@ -388,7 +388,12 @@ where
     Err(Error::Protocol)
 }
 
-/// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
+/// Corresponds to DeriveKeyPair() function from the VOPRF specification.
+///
+/// # Errors
+/// - [`Error::DeriveKeyPair`] if the `input` and `seed` together are longer
+///   then `u16::MAX - 3`.
+/// - [`Error::Protocol`] if the protocol fails and can't be completed.
 #[cfg(feature = "danger")]
 pub fn derive_key<CS: CipherSuite>(
     seed: &[u8],
