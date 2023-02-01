@@ -14,7 +14,7 @@ pub(crate) fn rfc_to_json(input: &str) -> String {
 }
 
 fn parse_ciphersuites(input: &str) -> String {
-    let re = regex::Regex::new(r"## OPRF\((?P<ciphersuite>.+?)\)").unwrap();
+    let re = regex::Regex::new(r"\n## (?P<ciphersuite>.+?)\n").unwrap();
     let mut ciphersuites = vec![];
 
     let chunks: Vec<&str> = re.split(input).collect();
