@@ -41,7 +41,7 @@ use crate::{CipherSuite, Error, Group, Result};
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfClient<CS: CipherSuite>
 where
@@ -61,7 +61,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfServer<CS: CipherSuite>
 where
@@ -541,7 +541,7 @@ pub type PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfPreparedTweak<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
