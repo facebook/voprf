@@ -41,7 +41,7 @@ use crate::{CipherSuite, Error, Group, Result};
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct OprfClient<CS: CipherSuite>
 where
@@ -59,7 +59,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct OprfServer<CS: CipherSuite>
 where
