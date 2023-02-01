@@ -555,9 +555,6 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-#[cfg(feature = "serde")]
-extern crate serde_ as serde;
-
 mod ciphersuite;
 mod common;
 mod error;

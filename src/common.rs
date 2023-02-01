@@ -72,7 +72,7 @@ impl Mode {
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct BlindedElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -89,7 +89,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct EvaluationElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -106,7 +106,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PreparedEvaluationElement<CS: CipherSuite>(pub(crate) EvaluationElement<CS>)
 where
@@ -120,7 +120,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct Proof<CS: CipherSuite>
 where
