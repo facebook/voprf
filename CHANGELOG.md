@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0-pre.2 (February 3, 2023)
+* Increased MSRV to 1.60
+* Updated p256 dependency to v0.12
+* Updated curve25519-dalek dependency to 4.0.0-rc.1
+
 ## 0.5.0-pre.1 (December 19, 2022)
 * Updated curve25519-dalek dependency to 4.0.0-pre.5
 
