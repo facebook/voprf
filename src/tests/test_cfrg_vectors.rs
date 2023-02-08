@@ -87,6 +87,7 @@ macro_rules! json_to_test_vectors {
 #[test]
 fn test_vectors() -> Result<()> {
     use p256::NistP256;
+    use p384::NistP384;
 
     let rfc: Value = serde_json::from_str(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
         .expect("Could not parse json");
@@ -158,6 +159,33 @@ fn test_vectors() -> Result<()> {
     test_poprf_blind_evaluate::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_finalize::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
+
+    let p384_oprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("OPRF"));
+    assert_ne!(p384_oprf_tvs.len(), 0);
+    test_oprf_seed_to_key::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_blind::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_blind_evaluate::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_finalize::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_evaluate::<NistP384>(&p384_oprf_tvs)?;
+
+    let p384_voprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("VOPRF"));
+    assert_ne!(p384_voprf_tvs.len(), 0);
+    test_voprf_seed_to_key::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_blind::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_blind_evaluate::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_finalize::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_evaluate::<NistP384>(&p384_voprf_tvs)?;
+
+    let p384_poprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("POPRF"));
+    assert_ne!(p384_poprf_tvs.len(), 0);
+    test_poprf_seed_to_key::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_blind::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_blind_evaluate::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_finalize::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_evaluate::<NistP384>(&p384_poprf_tvs)?;
 
     Ok(())
 }

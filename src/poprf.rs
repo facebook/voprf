@@ -965,6 +965,7 @@ mod tests {
     #[test]
     fn test_functionality() -> Result<()> {
         use p256::NistP256;
+        use p384::NistP384;
 
         #[cfg(feature = "ristretto255")]
         {
@@ -984,6 +985,13 @@ mod tests {
 
         zeroize_verifiable_client::<NistP256>();
         zeroize_verifiable_server::<NistP256>();
+
+        verifiable_retrieval::<NistP384>();
+        verifiable_bad_public_key::<NistP384>();
+        verifiable_server_evaluate::<NistP384>();
+
+        zeroize_verifiable_client::<NistP384>();
+        zeroize_verifiable_server::<NistP384>();
 
         Ok(())
     }

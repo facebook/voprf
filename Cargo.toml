@@ -49,6 +49,10 @@ p256 = { version = "=0.13.0-pre", default-features = false, features = [
   "hash2curve",
   "voprf",
 ] }
+p384 = { version = "=0.13.0-pre", default-features = false, features = [
+  "hash2curve",
+  "voprf",
+] }
 proptest = "1"
 rand = "0.8"
 regex = "1"
@@ -62,3 +66,4 @@ targets = []
 
 [patch.crates-io]
 p256 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "136fed7944d53c0508b1a93cd97bdab46891bcf7" }
+p384 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "136fed7944d53c0508b1a93cd97bdab46891bcf7" }
