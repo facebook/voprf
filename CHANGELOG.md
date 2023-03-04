@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0-pre.3 (March 4, 2023)
+* Updated to be in sync with draft-irtf-cfrg-voprf-19
+* Increased MSRV to 1.65
+* Updated p256 dependency to v0.13
+* Added p384 tests
+
 ## 0.5.0-pre.2 (February 3, 2023)
 * Increased MSRV to 1.60
 * Updated p256 dependency to v0.12
