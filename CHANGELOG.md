@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0-pre.4 (May 20, 2023)
+* Updated curve25519-dalek dependency to 4.0.0-rc.2
+
 ## 0.5.0-pre.3 (March 4, 2023)
 * Updated to be in sync with draft-irtf-cfrg-voprf-19
 * Increased MSRV to 1.65
