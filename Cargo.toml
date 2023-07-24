@@ -21,7 +21,7 @@ serde = ["generic-array/serde", "dep:serde"]
 std = ["alloc"]
 
 [dependencies]
-curve25519-dalek = { version = "=4.0.0-rc.3", default-features = false, features = [
+curve25519-dalek = { version = "4", default-features = false, features = [
   "rand_core",
   "zeroize",
 ], optional = true }
