@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0-pre.6 (July 24, 2023)
+* Updated curve25519-dalek dependency to 4
+
 ## 0.5.0-pre.5 (June 27, 2023)
 * Updated curve25519-dalek dependency to 4.0.0-rc.3
 
