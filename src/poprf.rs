@@ -724,7 +724,7 @@ where
     )?;
 
     Ok(blinds
-        .zip(messages.into_iter())
+        .zip(messages)
         .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind)))
 }
 
