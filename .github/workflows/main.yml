@@ -24,7 +24,7 @@ jobs:
         run: cargo install cargo-audit
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run cargo audit
         run: cargo audit -D warnings
@@ -47,7 +47,7 @@ jobs:
     name: test
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install ${{ matrix.toolchain }} toolchain
         uses: actions-rs/toolchain@v1
@@ -99,7 +99,7 @@ jobs:
           - --features danger
           - --features serde
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: hecrj/setup-rust-action@v1
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features ${{ matrix.frontend_feature }} ${{ matrix.backend_feature }}
@@ -110,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -173,7 +173,7 @@ jobs:
         run: cargo install taplo-cli --locked
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Taplo
         run: taplo fmt --check
