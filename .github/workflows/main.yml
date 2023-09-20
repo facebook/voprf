@@ -170,7 +170,7 @@ jobs:
           key: taplo
 
       - name: Install Taplo
-        run: cargo install taplo-cli
+        run: cargo install taplo-cli --locked
 
       - name: Checkout sources
         uses: actions/checkout@v3
