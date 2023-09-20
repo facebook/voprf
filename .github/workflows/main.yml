@@ -100,7 +100,7 @@ jobs:
           - --features serde
     steps:
       - uses: actions/checkout@v4
-      - uses: hecrj/setup-rust-action@v1
+      - uses: hecrj/setup-rust-action@v2
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features ${{ matrix.frontend_feature }} ${{ matrix.backend_feature }}
 
