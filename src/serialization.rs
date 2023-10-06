@@ -293,9 +293,10 @@ where
 }
 
 fn deserialize_elem<G: Group>(input: &mut &[u8]) -> Result<G::Elem> {
-    let input = input
-        .take_ext(G::ElemLen::USIZE)
-        .ok_or(Error::Deserialization)?;
+  // This doesn't work with uncompressed points
+    // let input = input
+    //     .take_ext(G::ElemLen::USIZE)
+    //     .ok_or(Error::Deserialization)?;
     G::deserialize_elem(input)
 }
 
