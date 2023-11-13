@@ -429,6 +429,7 @@ mod tests {
     fn test_functionality() -> Result<()> {
         use p256::NistP256;
         use p384::NistP384;
+        use p521::NistP521;
 
         #[cfg(feature = "ristretto255")]
         {
@@ -455,6 +456,13 @@ mod tests {
 
         zeroize_oprf_client::<NistP384>();
         zeroize_oprf_server::<NistP384>();
+
+        base_retrieval::<NistP521>();
+        base_inversion_unsalted::<NistP521>();
+        server_evaluate::<NistP521>();
+
+        zeroize_oprf_client::<NistP521>();
+        zeroize_oprf_server::<NistP521>();
 
         Ok(())
     }
