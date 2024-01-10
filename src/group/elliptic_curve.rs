@@ -38,7 +38,7 @@ where
     type ScalarLen = FieldBytesSize<Self>;
 
     // Implements the `hash_to_curve()` function from
-    // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
+    // https://www.rfc-editor.org/rfc/rfc9380.html#section-3
     fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
         H: BlockSizeUser + Default + FixedOutput + HashMarker,

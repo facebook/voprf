@@ -27,7 +27,7 @@ use zeroize::Zeroize;
 use crate::{InternalError, Result};
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
-/// subgroup is noted additively — as in the draft RFC — in this trait.
+/// subgroup is noted additively — as in the RFC — in this trait.
 pub trait Group {
     /// The type of group elements
     type Elem: ConstantTimeEq

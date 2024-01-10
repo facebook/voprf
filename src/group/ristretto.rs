@@ -44,7 +44,7 @@ impl Group for Ristretto255 {
     type ScalarLen = U32;
 
     // Implements the `hash_to_ristretto255()` function from
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.txt
+    // https://www.rfc-editor.org/rfc/rfc9380.html#appendix-B
     fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
         H: BlockSizeUser + Default + FixedOutput + HashMarker,
@@ -59,7 +59,7 @@ impl Group for Ristretto255 {
     }
 
     // Implements the `HashToScalar()` function from
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-07.html#section-4.1
+    // https://www.rfc-editor.org/rfc/rfc9497#section-4.1
     fn hash_to_scalar<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
         H: BlockSizeUser + Default + FixedOutput + HashMarker,

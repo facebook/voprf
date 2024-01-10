@@ -15,7 +15,7 @@ pub(crate) fn rfc_to_json(input: &str) -> String {
 }
 
 fn parse_ciphersuites(input: &str) -> String {
-    let re = regex::Regex::new(r"\n## (?P<ciphersuite>.+?)\n").unwrap();
+    let re = regex::Regex::new(r"\nA\.\d\.  (?P<ciphersuite>.+?)\n\n").unwrap();
     let mut ciphersuites = vec![];
 
     let chunks: Vec<&str> = re.split(input).collect();
@@ -34,7 +34,7 @@ fn parse_ciphersuites(input: &str) -> String {
 }
 
 fn parse_modes(input: &str) -> String {
-    let re = regex::Regex::new(r"### (?P<mode>.*+) Mode").unwrap();
+    let re = regex::Regex::new(r"A\.\d.\d\.  (?P<mode>.*?) Mode").unwrap();
     let mut modes = vec![];
 
     let chunks: Vec<&str> = re.split(input).collect();
@@ -53,7 +53,7 @@ fn parse_modes(input: &str) -> String {
 }
 
 fn parse_vectors(input: &str) -> String {
-    let re = regex::Regex::new(r"Test Vector.*+\n").unwrap();
+    let re = regex::Regex::new(r"A\.\d.\d\.\d\.  Test Vector.*+\n").unwrap();
     let mut vectors = vec![];
 
     let chunks: Vec<&str> = re.split(input).collect();
