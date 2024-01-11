@@ -9,9 +9,7 @@
 //! An implementation of a verifiable oblivious pseudorandom function (VOPRF)
 //!
 //! Note: This implementation is in sync with
-//! [draft-irtf-cfrg-voprf-19](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-19.html),
-//! but this specification is subject to change, until the final version
-//! published by the IETF.
+//! [RFC 9497](https://www.rfc-editor.org/rfc/rfc9497).
 //!
 //! # Overview
 //!
@@ -512,7 +510,7 @@
 //! and [PoprfClient] are used, and that each of the functions accept an
 //! additional (and optional) info parameter which represents the public input.
 //! See
-//! <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#name-poprf-public-input>
+//! <https://www.rfc-editor.org/rfc/rfc9497#name-poprf-public-input>
 //! for more detailed information on how this public input should be used.
 //!
 //! # Features

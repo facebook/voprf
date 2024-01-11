@@ -3,7 +3,7 @@ An implementation of a (verifiable) oblivious pseudorandom function (VOPRF)
 
 A VOPRF is a verifiable oblivious pseudorandom function, a protocol between a client and a server. The regular (non-verifiable) OPRF is also supported in this implementation.
 
-This implementation is based on the [Internet Draft for VOPRF](https://github.com/cfrg/draft-irtf-cfrg-voprf).
+This implementation is based on [RFC 9497](https://www.rfc-editor.org/rfc/rfc9497).
 
 Documentation
 -------------
@@ -16,7 +16,7 @@ Installation
 Add the following line to the dependencies of your `Cargo.toml`:
 
 ```
-voprf = "0.5.0-pre.6"
+voprf = "0.5.0-pre.7"
 ```
 
 ### Minimum Supported Rust Version

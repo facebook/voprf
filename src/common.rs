@@ -155,7 +155,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.1
+    // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.1
 
     let (m, z) = compute_composites::<CS, _, _>(Some(k), b, cs, ds, mode)?;
 
@@ -218,7 +218,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.2
+    // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.2
     let (m, z) = compute_composites::<CS, _, _>(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
     let t3 = (m * &proof.s_scalar) + &(z * &proof.c_scalar);
@@ -287,7 +287,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-2.2.1
+    // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.1
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
@@ -513,7 +513,7 @@ impl<L: ArrayLength<u8>> Dst<L> {
     {
         let par_1 = par_1.into();
         // Generates the contextString parameter as defined in
-        // <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
+        // <https://www.rfc-editor.org/rfc/rfc9497#section-3.1>
         let par_2 = GenericArray::from(STR_OPRF)
             .concat([mode.to_u8()].into())
             .concat([b'-'].into());

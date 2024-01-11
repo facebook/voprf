@@ -22,7 +22,7 @@ where
         IsLess<U256> + IsLessOrEqual<<Self::Hash as BlockSizeUser>::BlockSize>,
 {
     /// The ciphersuite identifier as dictated by
-    /// <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
+    /// <https://www.rfc-editor.org/rfc/rfc9497>
     const ID: &'static str;
 
     /// A finite cyclic group along with a point representation that allows some
