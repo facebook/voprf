@@ -307,11 +307,11 @@ fn deserialize_scalar<G: Group>(input: &mut &[u8]) -> Result<G::Scalar> {
 }
 
 trait SliceExt {
-    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self>;
+    fn take_ext<'a>(self: &mut &'a Self, take: usize) -> Option<&'a Self>;
 }
 
 impl<T> SliceExt for [T] {
-    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self> {
+    fn take_ext<'a>(self: &mut &'a Self, take: usize) -> Option<&'a Self> {
         if take > self.len() {
             return None;
         }
