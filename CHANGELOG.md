@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.5.0-pre.7 (January 11, 2023)
+## 0.5.0 (March 6, 2024)
+* Just a version bump from v0.5.0-pre.7
+
+## 0.5.0-pre.7 (January 11, 2024)
 * Updated to be in sync with RFC 9497
 
 ## 0.5.0-pre.6 (July 24, 2023)
