@@ -1,11 +1,11 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use paste::paste;
 
-use rand::{rngs::StdRng, SeedableRng};
-use voprf::{Ristretto255, OprfClient, OprfServer};
 use p256::NistP256 as P256;
 use p384::NistP384 as P384;
 use p521::NistP521 as P521;
+use rand::{rngs::StdRng, SeedableRng};
+use voprf::{OprfClient, OprfServer, Ristretto255};
 
 macro_rules! make_oprf_benches {
     ($cipher_suite:ident) => {
