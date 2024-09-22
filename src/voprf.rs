@@ -161,7 +161,7 @@ where
     ///
     /// The resulting messages can each fail individually with [`Error::Input`]
     /// if the `input` is empty or longer then [`u16::MAX`].
-    pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
+    pub fn batch_finalize<'a, I, II, IC, IM>(
         inputs: &'a II,
         clients: &'a IC,
         messages: &'a IM,
@@ -170,7 +170,7 @@ where
     ) -> Result<VoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
     where
         CS: 'a,
-        I: AsRef<[u8]>,
+        I: 'a + AsRef<[u8]>,
         &'a II: 'a + IntoIterator<Item = I>,
         <&'a II as IntoIterator>::IntoIter: ExactSizeIterator,
         &'a IC: 'a + IntoIterator<Item = &'a VoprfClient<CS>>,
