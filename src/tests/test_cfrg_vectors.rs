@@ -163,7 +163,7 @@ fn test_vectors() -> Result<()> {
     test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
 
     let p384_oprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("OPRF"));
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("OPRF"));
     assert_ne!(p384_oprf_tvs.len(), 0);
     test_oprf_seed_to_key::<NistP384>(&p384_oprf_tvs)?;
     test_oprf_blind::<NistP384>(&p384_oprf_tvs)?;
@@ -172,7 +172,7 @@ fn test_vectors() -> Result<()> {
     test_oprf_evaluate::<NistP384>(&p384_oprf_tvs)?;
 
     let p384_voprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("VOPRF"));
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("VOPRF"));
     assert_ne!(p384_voprf_tvs.len(), 0);
     test_voprf_seed_to_key::<NistP384>(&p384_voprf_tvs)?;
     test_voprf_blind::<NistP384>(&p384_voprf_tvs)?;
@@ -181,7 +181,7 @@ fn test_vectors() -> Result<()> {
     test_voprf_evaluate::<NistP384>(&p384_voprf_tvs)?;
 
     let p384_poprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P384-SHA384"), String::from("POPRF"));
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("POPRF"));
     assert_ne!(p384_poprf_tvs.len(), 0);
     test_poprf_seed_to_key::<NistP384>(&p384_poprf_tvs)?;
     test_poprf_blind::<NistP384>(&p384_poprf_tvs)?;
@@ -190,7 +190,7 @@ fn test_vectors() -> Result<()> {
     test_poprf_evaluate::<NistP384>(&p384_poprf_tvs)?;
 
     let p521_oprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P521-SHA512"), String::from("OPRF"));
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("OPRF"));
     assert_ne!(p521_oprf_tvs.len(), 0);
     test_oprf_seed_to_key::<NistP521>(&p521_oprf_tvs)?;
     test_oprf_blind::<NistP521>(&p521_oprf_tvs)?;
@@ -199,7 +199,7 @@ fn test_vectors() -> Result<()> {
     test_oprf_evaluate::<NistP521>(&p521_oprf_tvs)?;
 
     let p521_voprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P521-SHA512"), String::from("VOPRF"));
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("VOPRF"));
     assert_ne!(p521_voprf_tvs.len(), 0);
     test_voprf_seed_to_key::<NistP521>(&p521_voprf_tvs)?;
     test_voprf_blind::<NistP521>(&p521_voprf_tvs)?;
@@ -208,7 +208,7 @@ fn test_vectors() -> Result<()> {
     test_voprf_evaluate::<NistP521>(&p521_voprf_tvs)?;
 
     let p521_poprf_tvs =
-        json_to_test_vectors!(rfc, String::from("P521-SHA512"), String::from("POPRF"));
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("POPRF"));
     assert_ne!(p521_poprf_tvs.len(), 0);
     test_poprf_seed_to_key::<NistP521>(&p521_poprf_tvs)?;
     test_poprf_blind::<NistP521>(&p521_poprf_tvs)?;

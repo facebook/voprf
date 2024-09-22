@@ -500,7 +500,7 @@ where
 
 pub(crate) struct Dst<L: ArrayLength<u8>> {
     dst_1: GenericArray<u8, L>,
-    dst_2: &'static str,
+    dst_2: [u8; 2],
 }
 
 impl<L: ArrayLength<u8>> Dst<L> {
@@ -516,11 +516,21 @@ impl<L: ArrayLength<u8>> Dst<L> {
         // <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
         let par_2 = GenericArray::from(STR_VOPRF).concat([mode.to_u8()].into());
 
+        // See <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-4.1>
+        let cs_id_u16: u16 = match CS::ID {
+            "ristretto255-SHA512" => 0x0001,
+            "decaf448-SHAKE256" => 0x0002,
+            "P256-SHA256" => 0x0003,
+            "P384-SHA384" => 0x0004,
+            "P521-SHA512" => 0x0005,
+            _ => panic!("Incompatible ciphersuite: {}", CS::ID),
+        };
+
         let dst_1 = par_1.concat(par_2);
-        let dst_2 = CS::ID;
+        let dst_2 = cs_id_u16.to_be_bytes();
 
         assert!(
-            L::USIZE + dst_2.len() <= u16::MAX.into(),
+            L::USIZE + 2 <= u16::MAX.into(),
             "constructed DST longer then {}",
             u16::MAX
         );
@@ -529,13 +539,11 @@ impl<L: ArrayLength<u8>> Dst<L> {
     }
 
     pub(crate) fn as_dst(&self) -> [&[u8]; 2] {
-        [&self.dst_1, self.dst_2.as_bytes()]
+        [&self.dst_1, &self.dst_2]
     }
 
     pub(crate) fn i2osp_2(&self) -> [u8; 2] {
-        u16::try_from(L::USIZE + self.dst_2.len())
-            .unwrap()
-            .to_be_bytes()
+        u16::try_from(L::USIZE + 2).unwrap().to_be_bytes()
     }
 }
 

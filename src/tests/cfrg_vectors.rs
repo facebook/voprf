@@ -7,7 +7,7 @@
 // licenses.
 
 //! The VOPRF test vectors taken from:
-//! https://github.com/cfrg/draft-irtf-cfrg-voprf/blob/master/draft-irtf-cfrg-voprf.md
+//! https://github.com/cfrg/draft-irtf-cfrg-voprf/blob/dff20b461c0de23fcd521116f3d058cfa5b80b90/draft-irtf-cfrg-voprf.md
 
 pub(crate) const VECTORS: &str = r#"
 ## OPRF(ristretto255, SHA-512)
