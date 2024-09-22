@@ -292,11 +292,10 @@ where
 mod tests {
     use core::ptr;
 
-    use generic_array::sequence::Concat;
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::common::{create_context_string, STR_HASH_TO_GROUP};
+    use crate::common::{Dst, STR_HASH_TO_GROUP};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -309,8 +308,8 @@ mod tests {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
+        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
         let res = point * &key;
 
@@ -349,9 +348,8 @@ mod tests {
             .finalize(&input, &EvaluationElement(client_blind_result.message.0))
             .unwrap();
 
-        let dst =
-            GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(Mode::Oprf));
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst).unwrap();
+        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst.as_dst()).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), &[])
             .next()
             .unwrap()

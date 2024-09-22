@@ -7,12 +7,12 @@
 // licenses.
 
 use digest::core_api::BlockSizeUser;
-use digest::Digest;
+use digest::{FixedOutput, HashMarker};
 use elliptic_curve::group::cofactor::CofactorGroup;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, FromOkm, GroupDigest};
 use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
-    AffinePoint, Field, FieldSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
+    AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::GenericArray;
@@ -25,32 +25,32 @@ impl<C> Group for C
 where
     C: GroupDigest,
     ProjectivePoint<Self>: CofactorGroup + ToEncodedPoint<Self>,
-    FieldSize<Self>: ModulusSize,
+    FieldBytesSize<Self>: ModulusSize,
     AffinePoint<Self>: FromEncodedPoint<Self> + ToEncodedPoint<Self>,
     Scalar<Self>: FromOkm,
 {
     type Elem = ProjectivePoint<Self>;
 
-    type ElemLen = <FieldSize<Self> as ModulusSize>::CompressedPointSize;
+    type ElemLen = <FieldBytesSize<Self> as ModulusSize>::CompressedPointSize;
 
     type Scalar = Scalar<Self>;
 
-    type ScalarLen = FieldSize<Self>;
+    type ScalarLen = FieldBytesSize<Self>;
 
     // Implements the `hash_to_curve()` function from
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#section-3
-    fn hash_to_curve<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
-        H: Digest + BlockSizeUser,
+        H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
         Self::hash_from_bytes::<ExpandMsgXmd<H>>(input, dst).map_err(|_| InternalError::Input)
     }
 
     // Implements the `HashToScalar()` function
-    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
-        H: Digest + BlockSizeUser,
+        H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
         <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<H>>(input, dst)
@@ -93,7 +93,7 @@ where
 
     #[cfg(test)]
     fn zero_scalar() -> Self::Scalar {
-        Scalar::<Self>::zero()
+        Scalar::<Self>::ZERO
     }
 
     fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
@@ -101,7 +101,7 @@ where
     }
 
     fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar> {
-        SecretKey::<Self>::from_be_bytes(scalar_bits)
+        SecretKey::<Self>::from_slice(scalar_bits)
             .map(|secret_key| *secret_key.to_nonzero_scalar())
             .map_err(|_| Error::Deserialization)
     }

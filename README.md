@@ -1,4 +1,4 @@
-# voprf ![Build Status](https://github.com/novifinancial/voprf/workflows/Rust%20CI/badge.svg)
+# voprf ![Build Status](https://github.com/facebook/voprf/workflows/Rust%20CI/badge.svg)
 An implementation of a (verifiable) oblivious pseudorandom function (VOPRF)
 
 A VOPRF is a verifiable oblivious pseudorandom function, a protocol between a client and a server. The regular (non-verifiable) OPRF is also supported in this implementation.

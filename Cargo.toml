@@ -7,7 +7,7 @@ keywords = ["oprf"]
 license = "MIT"
 name = "voprf"
 readme = "README.md"
-repository = "https://github.com/novifinancial/voprf/"
+repository = "https://github.com/facebook/voprf/"
 rust-version = "1.65"
 version = "0.4.0"
 
@@ -39,8 +39,8 @@ serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
 sha2 = { version = "0.10", default-features = false, optional = true }
-subtle = { version = "2.3", default-features = false }
-zeroize = { version = "1.5", default-features = false }
+subtle = { version = "2.6", default-features = false }
+zeroize = { version = "1.8", default-features = false }
 
 [dev-dependencies]
 generic-array = { version = "0.14", features = ["more_lengths"] }
