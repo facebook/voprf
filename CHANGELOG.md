@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.1 (TBD)
+## 0.4.1 (September 24, 2024)
 * Backport all non-protocol-breaking changes from versions 0.5+
   * Fixes Rust 1.81+ compatibility, compatible with 0.4.0 (draft 11), incompatible with 0.5+ (final RFC)
 * Updated dependencies
