@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Defines the Group trait to specify the underlying prime order group
 
@@ -14,7 +15,7 @@ mod ristretto;
 use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
-use digest::Digest;
+use digest::{FixedOutput, HashMarker};
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
@@ -54,9 +55,9 @@ pub trait Group {
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_curve<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
-        H: Digest + BlockSizeUser,
+        H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
@@ -64,9 +65,9 @@ pub trait Group {
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[u8]) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
-        H: Digest + BlockSizeUser,
+        H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
 
     /// Get the base point for the group

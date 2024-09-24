@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -96,7 +97,7 @@ fn parse_params(input: &str) -> String {
                     let key = iter.next().unwrap().split_whitespace().next().unwrap();
                     let val = iter.next().unwrap().split_whitespace().next().unwrap();
 
-                    param = format!("    \"{}\": \"{}", key, val);
+                    param = format!("    \"{key}\": \"{val}");
                 } else {
                     let s = line.trim().to_string();
                     if s.contains('~') || s.contains('#') {

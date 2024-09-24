@@ -1,14 +1,15 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Defines the CipherSuite trait to specify the underlying primitives for VOPRF
 
 use digest::core_api::BlockSizeUser;
-use digest::{Digest, OutputSizeUser};
+use digest::{FixedOutput, HashMarker, OutputSizeUser};
 use elliptic_curve::VoprfParameters;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
 
@@ -22,7 +23,7 @@ where
 {
     /// The ciphersuite identifier as dictated by
     /// <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
-    const ID: u16;
+    const ID: &'static str;
 
     /// A finite cyclic group along with a point representation that allows some
     /// customization on how to hash an input to a curve point. See [`Group`].
@@ -30,17 +31,17 @@ where
 
     /// The main hash function to use (for HKDF computations and hashing
     /// transcripts).
-    type Hash: BlockSizeUser + Digest;
+    type Hash: BlockSizeUser + Default + FixedOutput + HashMarker;
 }
 
 impl<T: VoprfParameters> CipherSuite for T
 where
     T: Group,
-    T::Hash: BlockSizeUser + Digest,
+    T::Hash: BlockSizeUser + Default + FixedOutput + HashMarker,
     <T::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
 {
-    const ID: u16 = T::ID;
+    const ID: &'static str = T::ID;
 
     type Group = T;
 

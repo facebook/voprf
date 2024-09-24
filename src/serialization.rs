@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Handles the serialization of each of the components used in the VOPRF
 //! protocol
@@ -306,11 +307,11 @@ fn deserialize_scalar<G: Group>(input: &mut &[u8]) -> Result<G::Scalar> {
 }
 
 trait SliceExt {
-    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self>;
+    fn take_ext<'a>(self: &mut &'a Self, take: usize) -> Option<&'a Self>;
 }
 
 impl<T> SliceExt for [T] {
-    fn take_ext(self: &mut &Self, take: usize) -> Option<&Self> {
+    fn take_ext<'a>(self: &mut &'a Self, take: usize) -> Option<&'a Self> {
         if take > self.len() {
             return None;
         }
@@ -389,6 +390,8 @@ mod test {
             }
 
             let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
+            let _ = $item::<p384::NistP384>::deserialize(&$bytes[..]);
+            let _ = $item::<p521::NistP521>::deserialize(&$bytes[..]);
         };
     }
 

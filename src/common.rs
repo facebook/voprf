@@ -1,19 +1,21 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Common functionality between multiple OPRF modes.
 
 use core::convert::TryFrom;
+use core::ops::Add;
 
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U11, U2, U256};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U2, U256, U9};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -72,7 +74,7 @@ impl Mode {
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct BlindedElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -89,7 +91,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct EvaluationElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -106,7 +108,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PreparedEvaluationElement<CS: CipherSuite>(pub(crate) EvaluationElement<CS>)
 where
@@ -120,7 +122,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct Proof<CS: CipherSuite>
 where
@@ -145,8 +147,8 @@ pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     mode: Mode,
 ) -> Result<Proof<CS>>
 where
@@ -194,9 +196,9 @@ where
         &STR_CHALLENGE,
     ];
 
-    let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
+    let dst = Dst::new::<CS, _, _>(STR_HASH_TO_SCALAR, mode);
     // This can't fail, the size of the `input` is known.
-    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
+    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -207,8 +209,8 @@ where
 pub(crate) fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     proof: &Proof<CS>,
     mode: Mode,
 ) -> Result<()>
@@ -254,9 +256,9 @@ where
         &STR_CHALLENGE,
     ];
 
-    let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
+    let dst = Dst::new::<CS, _, _>(STR_HASH_TO_SCALAR, mode);
     // This can't fail, the size of the `input` is known.
-    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
+    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -296,16 +298,16 @@ where
     let len = u16::try_from(c_slice.len()).map_err(|_| Error::Batch)?;
 
     // seedDST = "Seed-" || contextString
-    let seed_dst = GenericArray::from(STR_SEED).concat(create_context_string::<CS>(mode));
+    let seed_dst = Dst::new::<CS, _, _>(STR_SEED, mode);
 
     // h1Input = I2OSP(len(Bm), 2) || Bm ||
     //           I2OSP(len(seedDST), 2) || seedDST
     // seed = Hash(h1Input)
     let seed = CS::Hash::new()
-        .chain_update(&elem_len)
+        .chain_update(elem_len)
         .chain_update(CS::Group::serialize_elem(b))
-        .chain_update(i2osp_2_array(&seed_dst))
-        .chain_update(seed_dst)
+        .chain_update(seed_dst.i2osp_2())
+        .chain_update_multi(&seed_dst.as_dst())
         .finalize();
     let seed_len = i2osp_2_array(&seed);
 
@@ -332,9 +334,9 @@ where
             &STR_COMPOSITE,
         ];
 
-        let dst = GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(mode));
+        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_SCALAR, mode);
         // This can't fail, the size of the `input` is known.
-        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst).unwrap();
+        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
         m = c * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -365,8 +367,7 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let context_string = create_context_string::<CS>(mode);
-    let dst = GenericArray::from(STR_DERIVE_KEYPAIR).concat(context_string);
+    let dst = Dst::new::<CS, _, _>(STR_DERIVE_KEYPAIR, mode);
 
     let info_len = i2osp_2(info.len()).map_err(|_| Error::DeriveKeyPair)?;
 
@@ -376,7 +377,7 @@ where
         // || contextString)
         let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
             &[seed, &info_len, info, &counter.to_be_bytes()],
-            &dst,
+            &dst.as_dst(),
         )
         .map_err(|_| Error::DeriveKeyPair)?;
 
@@ -388,7 +389,12 @@ where
     Err(Error::Protocol)
 }
 
-/// Can only fail with [`Error::DeriveKeyPair`] and [`Error::Protocol`].
+/// Corresponds to DeriveKeyPair() function from the VOPRF specification.
+///
+/// # Errors
+/// - [`Error::DeriveKeyPair`] if the `input` and `seed` together are longer
+///   then `u16::MAX - 3`.
+/// - [`Error::Protocol`] if the protocol fails and can't be completed.
 #[cfg(feature = "danger")]
 pub fn derive_key<CS: CipherSuite>(
     seed: &[u8],
@@ -450,8 +456,8 @@ where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
 {
-    let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-    CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).map_err(|_| Error::Input)
+    let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
+    CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).map_err(|_| Error::Input)
 }
 
 /// Internal function that finalizes the hash input for OPRF, VOPRF & POPRF.
@@ -492,16 +498,70 @@ where
         .finalize())
 }
 
-/// Generates the contextString parameter as defined in
-/// <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
-pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> GenericArray<u8, U11>
+pub(crate) struct Dst<L: ArrayLength<u8>> {
+    dst_1: GenericArray<u8, L>,
+    dst_2: [u8; 2],
+}
+
+impl<L: ArrayLength<u8>> Dst<L> {
+    pub(crate) fn new<CS: CipherSuite, T, TL>(par_1: T, mode: Mode) -> Self
+    where
+        T: Into<GenericArray<u8, TL>>,
+        TL: ArrayLength<u8> + Add<U9, Output = L>,
+        <CS::Hash as OutputSizeUser>::OutputSize:
+            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    {
+        let par_1 = par_1.into();
+        // Generates the contextString parameter as defined in
+        // <https://datatracker.ietf.org/doc/draft-irtf-cfrg-voprf/>
+        let par_2 = GenericArray::from(STR_VOPRF).concat([mode.to_u8()].into());
+
+        // See <https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html#section-4.1>
+        let cs_id_u16: u16 = match CS::ID {
+            "ristretto255-SHA512" => 0x0001,
+            "decaf448-SHAKE256" => 0x0002,
+            "P256-SHA256" => 0x0003,
+            "P384-SHA384" => 0x0004,
+            "P521-SHA512" => 0x0005,
+            _ => panic!("Incompatible ciphersuite: {}", CS::ID),
+        };
+
+        let dst_1 = par_1.concat(par_2);
+        let dst_2 = cs_id_u16.to_be_bytes();
+
+        assert!(
+            L::USIZE + 2 <= u16::MAX.into(),
+            "constructed DST longer then {}",
+            u16::MAX
+        );
+
+        Self { dst_1, dst_2 }
+    }
+
+    pub(crate) fn as_dst(&self) -> [&[u8]; 2] {
+        [&self.dst_1, &self.dst_2]
+    }
+
+    pub(crate) fn i2osp_2(&self) -> [u8; 2] {
+        u16::try_from(L::USIZE + 2).unwrap().to_be_bytes()
+    }
+}
+
+trait DigestExt {
+    fn chain_update_multi(self, data: &[&[u8]]) -> Self;
+}
+
+impl<T> DigestExt for T
 where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+    T: Digest,
 {
-    GenericArray::from(STR_VOPRF)
-        .concat([mode.to_u8()].into())
-        .concat(CS::ID.to_be_bytes().into())
+    fn chain_update_multi(mut self, datas: &[&[u8]]) -> Self {
+        for data in datas {
+            self.update(data)
+        }
+
+        self
+    }
 }
 
 ///////////////////////

@@ -3,8 +3,9 @@ on:
   push:
     branches:
       - main
+      - v0.4
   pull_request:
-    types: [opened, repoened, synchronize]
+    types: [opened, reopened, synchronize]
 
 jobs:
   cargo-audit:
@@ -12,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cache cargo-audit
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/.crates.toml
@@ -24,7 +25,7 @@ jobs:
         run: cargo install cargo-audit
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run cargo audit
         run: cargo audit -D warnings
@@ -35,8 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         backend_feature:
-          - --features ristretto255-ciphersuite,ristretto255-u64
-          - --features ristretto255-ciphersuite,ristretto255-u32
+          - --features ristretto255-ciphersuite
           -
         frontend_feature:
           -
@@ -44,11 +44,11 @@ jobs:
           - --features serde
         toolchain:
           - stable
-          - 1.57.0
+          - 1.65.0
     name: test
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install ${{ matrix.toolchain }} toolchain
         uses: actions-rs/toolchain@v1
@@ -75,6 +75,12 @@ jobs:
           command: test
           args: --no-default-features ${{ matrix.frontend_feature }},std ${{ matrix.backend_feature }}
 
+      - name: Run cargo test with all features enabled
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
   build-no-std:
     name: Build with no-std on ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -88,15 +94,14 @@ jobs:
           - thumbv6m-none-eabi
         backend_feature:
           -
-          - --features ristretto255-ciphersuite,ristretto255-u64
-          - --features ristretto255-ciphersuite,ristretto255-u32
+          - --features ristretto255-ciphersuite
         frontend_feature:
           -
           - --features danger
           - --features serde
     steps:
-      - uses: actions/checkout@v3
-      - uses: hecrj/setup-rust-action@v1
+      - uses: actions/checkout@v4
+      - uses: hecrj/setup-rust-action@v2
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features ${{ matrix.frontend_feature }} ${{ matrix.backend_feature }}
 
@@ -106,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -120,7 +125,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets -- -D warnings
+          args: --all-features --all-targets -- -D warnings
 
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
@@ -136,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -157,7 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/.crates.toml
@@ -166,10 +171,10 @@ jobs:
           key: taplo
 
       - name: Install Taplo
-        run: cargo install taplo-cli
+        run: cargo install taplo-cli --locked
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Taplo
         run: taplo fmt --check

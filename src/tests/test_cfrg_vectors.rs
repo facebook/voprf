@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 use alloc::string::String;
 use alloc::vec;
@@ -14,7 +15,7 @@ use digest::core_api::BlockSizeUser;
 use digest::OutputSizeUser;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::ArrayLength;
-use json::JsonValue;
+use serde_json::Value;
 
 use crate::tests::mock_rng::CycleRng;
 use crate::tests::parser::*;
@@ -40,7 +41,7 @@ struct VOPRFTestVectorParameters {
     output: Vec<Vec<u8>>,
 }
 
-fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
+fn populate_test_vectors(values: &Value) -> VOPRFTestVectorParameters {
     VOPRFTestVectorParameters {
         seed: decode(values, "Seed"),
         sksm: decode(values, "skSm"),
@@ -57,18 +58,18 @@ fn populate_test_vectors(values: &JsonValue) -> VOPRFTestVectorParameters {
     }
 }
 
-fn decode(values: &JsonValue, key: &str) -> Vec<u8> {
+fn decode(values: &Value, key: &str) -> Vec<u8> {
     values[key]
         .as_str()
-        .and_then(|s| hex::decode(&s).ok())
+        .and_then(|s| hex::decode(s).ok())
         .unwrap_or_default()
 }
 
-fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
+fn decode_vec(values: &Value, key: &str) -> Vec<Vec<u8>> {
     let s = values[key].as_str().unwrap();
     let res = match s.contains(',') {
-        true => Some(s.split(',').map(|x| hex::decode(&x).unwrap()).collect()),
-        false => Some(vec![hex::decode(&s).unwrap()]),
+        true => Some(s.split(',').map(|x| hex::decode(x).unwrap()).collect()),
+        false => Some(vec![hex::decode(s).unwrap()]),
     };
     res.unwrap()
 }
@@ -76,8 +77,10 @@ fn decode_vec(values: &JsonValue, key: &str) -> Vec<Vec<u8>> {
 macro_rules! json_to_test_vectors {
     ( $v:ident, $cs:expr, $mode:expr ) => {
         $v[$cs][$mode]
-            .members()
-            .map(|x| populate_test_vectors(&x))
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(populate_test_vectors)
             .collect::<Vec<VOPRFTestVectorParameters>>()
     };
 }
@@ -85,8 +88,10 @@ macro_rules! json_to_test_vectors {
 #[test]
 fn test_vectors() -> Result<()> {
     use p256::NistP256;
+    use p384::NistP384;
+    use p521::NistP521;
 
-    let rfc = json::parse(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
+    let rfc: Value = serde_json::from_str(rfc_to_json(super::cfrg_vectors::VECTORS).as_str())
         .expect("Could not parse json");
 
     #[cfg(feature = "ristretto255")]
@@ -156,6 +161,60 @@ fn test_vectors() -> Result<()> {
     test_poprf_blind_evaluate::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_finalize::<NistP256>(&p256_poprf_tvs)?;
     test_poprf_evaluate::<NistP256>(&p256_poprf_tvs)?;
+
+    let p384_oprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("OPRF"));
+    assert_ne!(p384_oprf_tvs.len(), 0);
+    test_oprf_seed_to_key::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_blind::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_blind_evaluate::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_finalize::<NistP384>(&p384_oprf_tvs)?;
+    test_oprf_evaluate::<NistP384>(&p384_oprf_tvs)?;
+
+    let p384_voprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("VOPRF"));
+    assert_ne!(p384_voprf_tvs.len(), 0);
+    test_voprf_seed_to_key::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_blind::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_blind_evaluate::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_finalize::<NistP384>(&p384_voprf_tvs)?;
+    test_voprf_evaluate::<NistP384>(&p384_voprf_tvs)?;
+
+    let p384_poprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-384, SHA-384"), String::from("POPRF"));
+    assert_ne!(p384_poprf_tvs.len(), 0);
+    test_poprf_seed_to_key::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_blind::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_blind_evaluate::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_finalize::<NistP384>(&p384_poprf_tvs)?;
+    test_poprf_evaluate::<NistP384>(&p384_poprf_tvs)?;
+
+    let p521_oprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("OPRF"));
+    assert_ne!(p521_oprf_tvs.len(), 0);
+    test_oprf_seed_to_key::<NistP521>(&p521_oprf_tvs)?;
+    test_oprf_blind::<NistP521>(&p521_oprf_tvs)?;
+    test_oprf_blind_evaluate::<NistP521>(&p521_oprf_tvs)?;
+    test_oprf_finalize::<NistP521>(&p521_oprf_tvs)?;
+    test_oprf_evaluate::<NistP521>(&p521_oprf_tvs)?;
+
+    let p521_voprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("VOPRF"));
+    assert_ne!(p521_voprf_tvs.len(), 0);
+    test_voprf_seed_to_key::<NistP521>(&p521_voprf_tvs)?;
+    test_voprf_blind::<NistP521>(&p521_voprf_tvs)?;
+    test_voprf_blind_evaluate::<NistP521>(&p521_voprf_tvs)?;
+    test_voprf_finalize::<NistP521>(&p521_voprf_tvs)?;
+    test_voprf_evaluate::<NistP521>(&p521_voprf_tvs)?;
+
+    let p521_poprf_tvs =
+        json_to_test_vectors!(rfc, String::from("P-521, SHA-512"), String::from("POPRF"));
+    assert_ne!(p521_poprf_tvs.len(), 0);
+    test_poprf_seed_to_key::<NistP521>(&p521_poprf_tvs)?;
+    test_poprf_blind::<NistP521>(&p521_poprf_tvs)?;
+    test_poprf_blind_evaluate::<NistP521>(&p521_poprf_tvs)?;
+    test_poprf_finalize::<NistP521>(&p521_poprf_tvs)?;
+    test_poprf_evaluate::<NistP521>(&p521_poprf_tvs)?;
 
     Ok(())
 }

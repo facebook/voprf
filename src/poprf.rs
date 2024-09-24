@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Contains the main POPRF API
 
@@ -14,16 +15,14 @@ use core::iter::{self, Map, Repeat, Zip};
 use derive_where::derive_where;
 use digest::core_api::BlockSizeUser;
 use digest::{Digest, Output, OutputSizeUser};
-use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
-    create_context_string, derive_keypair, deterministic_blind_unchecked, generate_proof,
-    hash_to_group, i2osp_2, server_evaluate_hash_input, verify_proof, BlindedElement,
-    EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE, STR_HASH_TO_SCALAR,
-    STR_INFO,
+    derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
+    server_evaluate_hash_input, verify_proof, BlindedElement, Dst, EvaluationElement, Mode,
+    PreparedEvaluationElement, Proof, STR_FINALIZE, STR_HASH_TO_SCALAR, STR_INFO,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
@@ -41,7 +40,7 @@ use crate::{CipherSuite, Error, Group, Result};
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfClient<CS: CipherSuite>
 where
@@ -61,7 +60,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfServer<CS: CipherSuite>
 where
@@ -541,7 +540,7 @@ pub type PoprfServerBatchEvaluatePreparedEvaluationElements<CS, I> = Map<
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct PoprfPreparedTweak<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
@@ -616,10 +615,9 @@ where
     let info_len = i2osp_2(info.len()).map_err(|_| Error::Info)?;
     let framed_info = [STR_INFO.as_slice(), &info_len, info];
 
-    let dst =
-        GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
+    let dst = Dst::new::<CS, _, _>(STR_HASH_TO_SCALAR, Mode::Poprf);
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst.as_dst()).unwrap();
 
     let t = CS::Group::base_elem() * &m;
     let tweaked_key = t + &pk;
@@ -654,10 +652,9 @@ where
     let info_len = i2osp_2(info.len()).map_err(|_| Error::Info)?;
     let framed_info = [STR_INFO.as_slice(), &info_len, info];
 
-    let dst =
-        GenericArray::from(STR_HASH_TO_SCALAR).concat(create_context_string::<CS>(Mode::Poprf));
+    let dst = Dst::new::<CS, _, _>(STR_HASH_TO_SCALAR, Mode::Poprf);
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst.as_dst()).unwrap();
 
     let t = sk + &m;
 
@@ -723,7 +720,7 @@ where
     )?;
 
     Ok(blinds
-        .zip(messages.into_iter())
+        .zip(messages)
         .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind)))
 }
 
@@ -810,8 +807,8 @@ mod tests {
     {
         let t = compute_tweak::<CS>(key, Some(info)).unwrap();
 
-        let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
+        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
         // evaluatedElement = G.ScalarInverse(t) * blindedElement
         let res = point * &CS::Group::invert_scalar(t);
@@ -864,10 +861,9 @@ mod tests {
             .blind_evaluate(&mut rng, &client_blind_result.message, Some(info))
             .unwrap();
         let wrong_pk = {
-            let dst = GenericArray::from(STR_HASH_TO_GROUP)
-                .concat(create_context_string::<CS>(Mode::Oprf));
+            let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -970,6 +966,8 @@ mod tests {
     #[test]
     fn test_functionality() -> Result<()> {
         use p256::NistP256;
+        use p384::NistP384;
+        use p521::NistP521;
 
         #[cfg(feature = "ristretto255")]
         {
@@ -989,6 +987,20 @@ mod tests {
 
         zeroize_verifiable_client::<NistP256>();
         zeroize_verifiable_server::<NistP256>();
+
+        verifiable_retrieval::<NistP384>();
+        verifiable_bad_public_key::<NistP384>();
+        verifiable_server_evaluate::<NistP384>();
+
+        zeroize_verifiable_client::<NistP384>();
+        zeroize_verifiable_server::<NistP384>();
+
+        verifiable_retrieval::<NistP521>();
+        verifiable_bad_public_key::<NistP521>();
+        verifiable_server_evaluate::<NistP521>();
+
+        zeroize_verifiable_client::<NistP521>();
+        zeroize_verifiable_server::<NistP521>();
 
         Ok(())
     }

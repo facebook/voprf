@@ -1,14 +1,15 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! An implementation of a verifiable oblivious pseudorandom function (VOPRF)
 //!
 //! Note: This implementation is in sync with
-//! [draft-irtf-cfrg-voprf-11](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-11.html),
+//! [draft-irtf-cfrg-voprf-11](https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-19.html),
 //! but this specification is subject to change, until the final version
 //! published by the IETF.
 //!
@@ -532,24 +533,15 @@
 //!   a [`CipherSuite`].
 //!
 //! - The `ristretto255` feature enables using [`Ristretto255`] as the
-//!   underlying group for the [Group] choice. A backend feature, which are
-//!   re-exported from [curve25519-dalek] and allow for selecting the
-//!   corresponding backend for the curve arithmetic used, has to be selected,
-//!   otherwise compilation will fail. The `ristretto255-u64` feature is
-//!   included as the default. Other features are mapped as `ristretto255-u32`,
-//!   `ristretto255-fiat-u64` and `ristretto255-fiat-u32`. Any `ristretto255-*`
-//!   backend feature will enable the `ristretto255` feature.
-//!
-//! - The `ristretto255-simd` feature is re-exported from [curve25519-dalek] and
-//!   enables parallel formulas, using either AVX2 or AVX512-IFMA. This will
-//!   automatically enable the `ristretto255-u64` feature and requires Rust
-//!   nightly.
+//!   underlying group for the [Group] choice. To select a specific backend see
+//!   the [curve25519-dalek] documentation.
 //!
 //! [curve25519-dalek]:
-//!     (https://doc.dalek.rs/curve25519_dalek/index.html#backends-and-features)
+//!     (https://docs.rs/curve25519-dalek/4.0.0-pre.5/curve25519_dalek/index.html#backends)
 
-#![cfg_attr(not(test), deny(unsafe_code))]
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(not(test), deny(unsafe_code))]
 #![warn(
     clippy::cargo,
     clippy::missing_errors_doc,
@@ -563,9 +555,6 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 extern crate std;
-
-#[cfg(feature = "serde")]
-extern crate serde_ as serde;
 
 mod ciphersuite;
 mod common;

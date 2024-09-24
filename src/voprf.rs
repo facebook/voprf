@@ -1,9 +1,10 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 //
-// This source code is licensed under both the MIT license found in the
-// LICENSE-MIT file in the root directory of this source tree and the Apache
+// This source code is dual-licensed under either the MIT license found in the
+// LICENSE-MIT file in the root directory of this source tree or the Apache
 // License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-// of this source tree.
+// of this source tree. You may select, at your option, one of the above-listed
+// licenses.
 
 //! Contains the main VOPRF API
 
@@ -39,7 +40,7 @@ use crate::{CipherSuite, Error, Group, Result};
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct VoprfClient<CS: CipherSuite>
 where
@@ -59,7 +60,7 @@ where
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(crate = "serde", bound = "")
+    serde(bound = "")
 )]
 pub struct VoprfServer<CS: CipherSuite>
 where
@@ -160,7 +161,7 @@ where
     ///
     /// The resulting messages can each fail individually with [`Error::Input`]
     /// if the `input` is empty or longer then [`u16::MAX`].
-    pub fn batch_finalize<'a, I: 'a, II, IC, IM>(
+    pub fn batch_finalize<'a, I, II, IC, IM>(
         inputs: &'a II,
         clients: &'a IC,
         messages: &'a IM,
@@ -169,7 +170,7 @@ where
     ) -> Result<VoprfClientBatchFinalizeResult<'a, CS, I, II, IC, IM>>
     where
         CS: 'a,
-        I: AsRef<[u8]>,
+        I: 'a + AsRef<[u8]>,
         &'a II: 'a + IntoIterator<Item = I>,
         <&'a II as IntoIterator>::IntoIter: ExactSizeIterator,
         &'a IC: 'a + IntoIterator<Item = &'a VoprfClient<CS>>,
@@ -536,7 +537,7 @@ where
     )?;
 
     Ok(blinds
-        .zip(messages.into_iter())
+        .zip(messages)
         .map(|(blind, x)| x.0 * &CS::Group::invert_scalar(blind)))
 }
 
@@ -587,13 +588,12 @@ mod tests {
 
     use ::alloc::vec;
     use ::alloc::vec::Vec;
-    use generic_array::sequence::Concat;
     use generic_array::typenum::Sum;
     use generic_array::ArrayLength;
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::common::{create_context_string, STR_HASH_TO_GROUP};
+    use crate::common::{Dst, STR_HASH_TO_GROUP};
     use crate::Group;
 
     fn prf<CS: CipherSuite>(
@@ -605,8 +605,8 @@ mod tests {
         <CS::Hash as OutputSizeUser>::OutputSize:
             IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     {
-        let dst = GenericArray::from(STR_HASH_TO_GROUP).concat(create_context_string::<CS>(mode));
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst).unwrap();
+        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
+        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
         let res = point * &key;
 
@@ -718,10 +718,9 @@ mod tests {
             .unwrap();
         let messages: Vec<_> = messages.collect();
         let wrong_pk = {
-            let dst = GenericArray::from(STR_HASH_TO_GROUP)
-                .concat(create_context_string::<CS>(Mode::Oprf));
+            let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result =
             VoprfClient::batch_finalize(&inputs, &client_states, &messages, &proof, wrong_pk);
@@ -739,10 +738,9 @@ mod tests {
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
         let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
         let wrong_pk = {
-            let dst = GenericArray::from(STR_HASH_TO_GROUP)
-                .concat(create_context_string::<CS>(Mode::Oprf));
+            let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst).unwrap()
+            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -837,6 +835,8 @@ mod tests {
     #[test]
     fn test_functionality() -> Result<()> {
         use p256::NistP256;
+        use p384::NistP384;
+        use p521::NistP521;
 
         #[cfg(feature = "ristretto255")]
         {
@@ -860,6 +860,24 @@ mod tests {
 
         zeroize_voprf_client::<NistP256>();
         zeroize_voprf_server::<NistP256>();
+
+        verifiable_retrieval::<NistP384>();
+        verifiable_batch_retrieval::<NistP384>();
+        verifiable_bad_public_key::<NistP384>();
+        verifiable_batch_bad_public_key::<NistP384>();
+        verifiable_server_evaluate::<NistP384>();
+
+        zeroize_voprf_client::<NistP384>();
+        zeroize_voprf_server::<NistP384>();
+
+        verifiable_retrieval::<NistP521>();
+        verifiable_batch_retrieval::<NistP521>();
+        verifiable_bad_public_key::<NistP521>();
+        verifiable_batch_bad_public_key::<NistP521>();
+        verifiable_server_evaluate::<NistP521>();
+
+        zeroize_voprf_client::<NistP521>();
+        zeroize_voprf_server::<NistP521>();
 
         Ok(())
     }
