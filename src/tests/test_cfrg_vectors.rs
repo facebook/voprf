@@ -9,12 +9,7 @@
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::ops::Add;
 
-use digest::core_api::BlockSizeUser;
-use digest::OutputSizeUser;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
-use generic_array::ArrayLength;
 use serde_json::Value;
 
 use crate::tests::mock_rng::CycleRng;
@@ -219,11 +214,7 @@ fn test_vectors() -> Result<()> {
     Ok(())
 }
 
-fn test_oprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_oprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let server = OprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
@@ -235,11 +226,7 @@ where
     Ok(())
 }
 
-fn test_voprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_voprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let server = VoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
@@ -255,11 +242,7 @@ where
     Ok(())
 }
 
-fn test_poprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_poprf_seed_to_key<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let server = PoprfServer::<CS>::new_from_seed(&parameters.seed, &parameters.key_info)?;
 
@@ -276,11 +259,7 @@ where
 }
 
 // Tests input -> blind, blinded_element
-fn test_oprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_oprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
@@ -301,11 +280,7 @@ where
 }
 
 // Tests input -> blind, blinded_element
-fn test_voprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_voprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
@@ -326,11 +301,7 @@ where
 }
 
 // Tests input -> blind, blinded_element
-fn test_poprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_poprf_blind<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let blind = CS::Group::deserialize_scalar(&parameters.blind[i])?;
@@ -351,11 +322,7 @@ where
 }
 
 // Tests sksm, blinded_element -> evaluation_element
-fn test_oprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_oprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -372,13 +339,7 @@ where
     Ok(())
 }
 
-fn test_voprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
-    Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
-{
+fn test_voprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = VoprfServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -404,13 +365,7 @@ where
     Ok(())
 }
 
-fn test_poprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
-    Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
-{
+fn test_poprf_blind_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let mut rng = CycleRng::new(parameters.proof_random_scalar.clone());
         let server = PoprfServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -446,11 +401,7 @@ where
 }
 
 // Tests input, blind, evaluation_element -> output
-fn test_oprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_oprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let client =
@@ -467,11 +418,7 @@ where
     Ok(())
 }
 
-fn test_voprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_voprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
@@ -506,11 +453,7 @@ where
     Ok(())
 }
 
-fn test_poprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_poprf_finalize<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         let mut clients = vec![];
         for i in 0..parameters.input.len() {
@@ -544,11 +487,7 @@ where
 }
 
 // Tests input, sksm -> output
-fn test_oprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_oprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = OprfServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -561,11 +500,7 @@ where
     Ok(())
 }
 
-fn test_voprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_voprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = VoprfServer::<CS>::new_with_key(&parameters.sksm)?;
@@ -578,11 +513,7 @@ where
     Ok(())
 }
 
-fn test_poprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+fn test_poprf_evaluate<CS: CipherSuite>(tvs: &[VOPRFTestVectorParameters]) -> Result<()> {
     for parameters in tvs {
         for i in 0..parameters.input.len() {
             let server = PoprfServer::<CS>::new_with_key(&parameters.sksm)?;

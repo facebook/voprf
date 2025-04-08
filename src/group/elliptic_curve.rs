@@ -6,6 +6,8 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
+use core::ops::Add;
+
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker};
 use elliptic_curve::group::cofactor::CofactorGroup;
@@ -14,28 +16,37 @@ use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
     AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
-use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
-use generic_array::GenericArray;
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 
 use super::Group;
 use crate::{Error, InternalError, Result};
 
+type ElemLen<C> = <ScalarLen<C> as ModulusSize>::CompressedPointSize;
+type ScalarLen<C> = FieldBytesSize<C>;
+
 impl<C> Group for C
 where
     C: GroupDigest,
     ProjectivePoint<Self>: CofactorGroup + ToEncodedPoint<Self>,
-    FieldBytesSize<Self>: ModulusSize,
+    ScalarLen<Self>: ModulusSize,
     AffinePoint<Self>: FromEncodedPoint<Self> + ToEncodedPoint<Self>,
     Scalar<Self>: FromOkm,
+    // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
+    ScalarLen<Self>: Add<ElemLen<Self>>,
+    Sum<ScalarLen<Self>, ElemLen<Self>>: ArrayLength<u8>,
+    // `ProofLen`
+    ScalarLen<Self>: Add<ScalarLen<Self>>,
+    Sum<ScalarLen<Self>, ScalarLen<Self>>: ArrayLength<u8>,
 {
     type Elem = ProjectivePoint<Self>;
 
-    type ElemLen = <FieldBytesSize<Self> as ModulusSize>::CompressedPointSize;
+    type ElemLen = ElemLen<Self>;
 
     type Scalar = Scalar<Self>;
 
-    type ScalarLen = FieldBytesSize<Self>;
+    type ScalarLen = ScalarLen<Self>;
 
     // Implements the `hash_to_curve()` function from
     // https://www.rfc-editor.org/rfc/rfc9380.html#section-3

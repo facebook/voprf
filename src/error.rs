@@ -41,5 +41,4 @@ pub enum InternalError {
     I2osp,
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error {}
+impl core::error::Error for Error {}

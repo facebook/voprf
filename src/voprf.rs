@@ -13,9 +13,8 @@ use alloc::vec::Vec;
 use core::iter::{self, Map, Repeat, Zip};
 
 use derive_where::derive_where;
-use digest::core_api::BlockSizeUser;
-use digest::{Digest, Output, OutputSizeUser};
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
+use digest::{Digest, Output};
+use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
@@ -42,11 +41,7 @@ use crate::{CipherSuite, Error, Group, Result};
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct VoprfClient<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct VoprfClient<CS: CipherSuite> {
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -62,11 +57,7 @@ where
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct VoprfServer<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct VoprfServer<CS: CipherSuite> {
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
@@ -78,11 +69,7 @@ where
 // =================== //
 /////////////////////////
 
-impl<CS: CipherSuite> VoprfClient<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> VoprfClient<CS> {
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
     ///
@@ -204,11 +191,7 @@ where
     }
 }
 
-impl<CS: CipherSuite> VoprfServer<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> VoprfServer<CS> {
     /// Produces a new instance of a [VoprfServer] using a supplied RNG
     ///
     /// # Errors
@@ -402,11 +385,7 @@ where
 
 /// Contains the fields that are returned by a verifiable client blind
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
-pub struct VoprfClientBlindResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct VoprfClientBlindResult<CS: CipherSuite> {
     /// The state to be persisted on the client
     pub state: VoprfClient<CS>,
     /// The message to send to the server
@@ -423,11 +402,7 @@ pub type VoprfClientBatchFinalizeResult<'a, C, I, II, IC, IM> = FinalizeAfterUnb
 
 /// Contains the fields that are returned by a verifiable server evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
-pub struct VoprfServerEvaluateResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct VoprfServerEvaluateResult<CS: CipherSuite> {
     /// The message to send to the client
     pub message: EvaluationElement<CS>,
     /// The proof for the client to verify
@@ -437,11 +412,7 @@ where
 /// Contains the fields that are returned by a verifiable server batch evaluate
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
 #[cfg(feature = "alloc")]
-pub struct VoprfServerBatchEvaluateResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct VoprfServerBatchEvaluateResult<CS: CipherSuite> {
     /// The messages to send to the client
     pub messages: Vec<EvaluationElement<CS>>,
     /// The proof for the client to verify
@@ -472,8 +443,6 @@ pub type VoprfServerBatchEvaluateFinishedMessages<'a, CS, I> = Map<
 #[derive_where(Debug; <&'a I as IntoIterator>::IntoIter, <CS::Group as Group>::Scalar)]
 pub struct VoprfServerBatchEvaluateFinishResult<'a, CS: 'a + CipherSuite, I>
 where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     &'a I: IntoIterator<Item = &'a PreparedEvaluationElement<CS>>,
 {
     /// The [`EvaluationElement`]s to send to the client
@@ -511,8 +480,6 @@ fn verifiable_unblind<'a, CS: 'a + CipherSuite, IC, IM>(
     proof: &Proof<CS>,
 ) -> Result<VoprfUnblindResult<'a, CS, IC, IM>>
 where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
     &'a IC: 'a + IntoIterator<Item = &'a VoprfClient<CS>>,
     <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
     &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
@@ -554,11 +521,7 @@ fn finalize_after_unblind<
     IE: 'a + Iterator<Item = (I, <CS::Group as Group>::Elem)>,
 >(
     inputs_and_unblinded_elements: IE,
-) -> FinalizeAfterUnblindResult<'a, CS, I, IE>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> FinalizeAfterUnblindResult<'a, CS, I, IE> {
     inputs_and_unblinded_elements.map(|(input, unblinded_element)| {
         let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
@@ -583,13 +546,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::ops::Add;
     use core::ptr;
 
     use ::alloc::vec;
     use ::alloc::vec::Vec;
-    use generic_array::typenum::Sum;
-    use generic_array::ArrayLength;
     use rand::rngs::OsRng;
 
     use super::*;
@@ -600,11 +560,7 @@ mod tests {
         input: &[u8],
         key: <CS::Group as Group>::Scalar,
         mode: Mode,
-    ) -> Output<CS::Hash>
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    ) -> Output<CS::Hash> {
         let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
         let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
@@ -616,11 +572,7 @@ mod tests {
             .unwrap()
     }
 
-    fn verifiable_retrieval<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn verifiable_retrieval<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -639,11 +591,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn verifiable_batch_retrieval<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn verifiable_batch_retrieval<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut inputs = vec![];
         let mut client_states = vec![];
@@ -687,11 +635,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn verifiable_batch_bad_public_key<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn verifiable_batch_bad_public_key<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut inputs = vec![];
         let mut client_states = vec![];
@@ -727,11 +671,7 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    fn verifiable_bad_public_key<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn verifiable_bad_public_key<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -751,11 +691,7 @@ mod tests {
         assert!(client_finalize_result.is_err());
     }
 
-    fn verifiable_server_evaluate<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn verifiable_server_evaluate<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -784,13 +720,7 @@ mod tests {
         assert!(client_finalize != server_evaluate);
     }
 
-    fn zeroize_voprf_client<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>: ArrayLength<u8>,
-    {
+    fn zeroize_voprf_client<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -804,15 +734,7 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_voprf_server<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ElemLen>: ArrayLength<u8>,
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
-        Sum<<CS::Group as Group>::ScalarLen, <CS::Group as Group>::ScalarLen>: ArrayLength<u8>,
-    {
+    fn zeroize_voprf_server<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = VoprfClient::<CS>::blind(input, &mut rng).unwrap();

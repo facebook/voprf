@@ -16,7 +16,7 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker};
-use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
+use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "ristretto255")]
@@ -28,7 +28,15 @@ use crate::{InternalError, Result};
 
 /// A prime-order subgroup of a base field (EC, prime-order field ...). This
 /// subgroup is noted additively — as in the RFC — in this trait.
-pub trait Group {
+pub trait Group
+where
+    // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
+    Self::ScalarLen: Add<Self::ElemLen>,
+    Sum<Self::ScalarLen, Self::ElemLen>: ArrayLength<u8>,
+    // `ProofLen`
+    Self::ScalarLen: Add<Self::ScalarLen>,
+    Sum<Self::ScalarLen, Self::ScalarLen>: ArrayLength<u8>,
+{
     /// The type of group elements
     type Elem: ConstantTimeEq
         + Copy
