@@ -12,10 +12,11 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker};
+use elliptic_curve::Field;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
-use generic_array::typenum::{IsLess, IsLessOrEqual, U256, U32, U64};
-use generic_array::GenericArray;
-use rand_core::{CryptoRng, RngCore};
+use hybrid_array::Array;
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, U32, U64, U256};
+use rand_core::{TryCryptoRng, TryRngCore};
 use subtle::ConstantTimeEq;
 
 use super::Group;
@@ -50,7 +51,7 @@ impl Group for Ristretto255 {
         H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
-        let mut uniform_bytes = GenericArray::<_, U64>::default();
+        let mut uniform_bytes = Array::<_, U64>::default();
         ExpandMsgXmd::<H>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
@@ -65,7 +66,7 @@ impl Group for Ristretto255 {
         H: BlockSizeUser + Default + FixedOutput + HashMarker,
         H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
     {
-        let mut uniform_bytes = GenericArray::<_, U64>::default();
+        let mut uniform_bytes = Array::<_, U64>::default();
         ExpandMsgXmd::<H>::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
@@ -82,7 +83,7 @@ impl Group for Ristretto255 {
     }
 
     // serialization of a group element
-    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+    fn serialize_elem(elem: Self::Elem) -> Array<u8, Self::ElemLen> {
         elem.compress().to_bytes().into()
     }
 
@@ -94,12 +95,12 @@ impl Group for Ristretto255 {
             .ok_or(Error::Deserialization)
     }
 
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
+    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar, R::Error> {
         loop {
-            let scalar = Scalar::random(rng);
+            let scalar = Scalar::try_from_rng(rng)?;
 
             if scalar != Scalar::ZERO {
-                break scalar;
+                break Ok(scalar);
             }
         }
     }
@@ -117,7 +118,7 @@ impl Group for Ristretto255 {
         Scalar::ZERO
     }
 
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+    fn serialize_scalar(scalar: Self::Scalar) -> Array<u8, Self::ScalarLen> {
         scalar.to_bytes().into()
     }
 

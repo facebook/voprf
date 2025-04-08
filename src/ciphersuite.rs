@@ -11,7 +11,7 @@
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker, OutputSizeUser};
 use elliptic_curve::VoprfParameters;
-use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, U256};
 
 use crate::Group;
 

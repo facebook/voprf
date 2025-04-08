@@ -16,9 +16,9 @@ use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
     AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
-use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
-use generic_array::{ArrayLength, GenericArray};
-use rand_core::{CryptoRng, RngCore};
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use hybrid_array::{Array, ArraySize};
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use super::Group;
 use crate::{Error, InternalError, Result};
@@ -35,10 +35,10 @@ where
     Scalar<Self>: FromOkm,
     // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
     ScalarLen<Self>: Add<ElemLen<Self>>,
-    Sum<ScalarLen<Self>, ElemLen<Self>>: ArrayLength<u8>,
+    Sum<ScalarLen<Self>, ElemLen<Self>>: ArraySize,
     // `ProofLen`
     ScalarLen<Self>: Add<ScalarLen<Self>>,
-    Sum<ScalarLen<Self>, ScalarLen<Self>>: ArrayLength<u8>,
+    Sum<ScalarLen<Self>, ScalarLen<Self>>: ArraySize,
 {
     type Elem = ProjectivePoint<Self>;
 
@@ -76,10 +76,10 @@ where
         ProjectivePoint::<Self>::identity()
     }
 
-    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen> {
+    fn serialize_elem(elem: Self::Elem) -> Array<u8, Self::ElemLen> {
         let bytes = elem.to_encoded_point(true);
         let bytes = bytes.as_bytes();
-        let mut result = GenericArray::default();
+        let mut result = Array::default();
         result[..bytes.len()].copy_from_slice(bytes);
         result
     }
@@ -90,8 +90,8 @@ where
             .map_err(|_| Error::Deserialization)
     }
 
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        *SecretKey::<Self>::random(rng).to_nonzero_scalar()
+    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar, R::Error> {
+        Ok(*SecretKey::<Self>::try_from_rng(rng)?.to_nonzero_scalar())
     }
 
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
@@ -107,7 +107,7 @@ where
         Scalar::<Self>::ZERO
     }
 
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
+    fn serialize_scalar(scalar: Self::Scalar) -> Array<u8, Self::ScalarLen> {
         scalar.into()
     }
 

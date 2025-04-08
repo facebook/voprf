@@ -8,6 +8,8 @@
 
 //! Errors which are produced during an execution of the protocol
 
+use core::convert::Infallible;
+
 use displaydoc::Display;
 
 /// [`Result`](core::result::Result) shorthand that uses [`Error`].
@@ -15,7 +17,7 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Represents an error in the manipulation of internal cryptographic data
 #[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Error {
+pub enum Error<R = Infallible> {
     /// Size of info is longer then [`u16::MAX`].
     Info,
     /// Size of input is empty or longer then [`u16::MAX`].
@@ -30,6 +32,23 @@ pub enum Error {
     ProofVerification,
     /// The protocol has failed and can't be completed.
     Protocol,
+    /// Error returned from [`TryRngCore`](rand_core::TryRngCore).
+    Random(R),
+}
+
+impl Error {
+    pub(crate) fn cast<R>(self) -> Error<R> {
+        match self {
+            Error::Info => Error::Info,
+            Error::Input => Error::Input,
+            Error::DeriveKeyPair => Error::DeriveKeyPair,
+            Error::Deserialization => Error::Deserialization,
+            Error::Batch => Error::Batch,
+            Error::ProofVerification => Error::ProofVerification,
+            Error::Protocol => Error::Protocol,
+            Error::Random(_) => unreachable!(),
+        }
+    }
 }
 
 /// Only used to implement [`Group`](crate::Group).

@@ -9,7 +9,7 @@
 use alloc::vec::Vec;
 use core::cmp::min;
 
-use rand_core::{CryptoRng, Error, RngCore};
+use rand_core::{CryptoRng, RngCore};
 
 /// A simple implementation of `RngCore` for testing purposes.
 ///
@@ -53,12 +53,6 @@ impl RngCore for CycleRng {
         let len = min(self.v.len(), dest.len());
         dest[..len].copy_from_slice(&self.v[..len]);
         rotate_left(&mut self.v, len);
-    }
-
-    #[inline]
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.fill_bytes(dest);
-        Ok(())
     }
 }
 

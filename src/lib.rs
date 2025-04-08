@@ -54,8 +54,8 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! use rand::rngs::OsRng;
 //! use rand::RngCore;
+//! use rand::rngs::OsRng;
 //! use voprf::OprfServer;
 //!
 //! let mut server_rng = OsRng;
@@ -74,8 +74,8 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! use rand::rngs::OsRng;
 //! use rand::RngCore;
+//! use rand::rngs::OsRng;
 //! use voprf::OprfClient;
 //!
 //! let mut client_rng = OsRng;
@@ -200,8 +200,8 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! use rand::rngs::OsRng;
 //! use rand::RngCore;
+//! use rand::rngs::OsRng;
 //! use voprf::VoprfServer;
 //!
 //! let mut server_rng = OsRng;
@@ -227,8 +227,8 @@
 //! # type CipherSuite = voprf::Ristretto255;
 //! # #[cfg(not(feature = "ristretto255"))]
 //! # type CipherSuite = p256::NistP256;
-//! use rand::rngs::OsRng;
 //! use rand::RngCore;
+//! use rand::rngs::OsRng;
 //! use voprf::VoprfClient;
 //!
 //! let mut client_rng = OsRng;

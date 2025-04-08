@@ -12,13 +12,13 @@ use core::iter::{self, Map};
 
 use derive_where::derive_where;
 use digest::{Digest, Output};
-use generic_array::typenum::Unsigned;
-use generic_array::GenericArray;
-use rand_core::{CryptoRng, RngCore};
+use hybrid_array::Array;
+use hybrid_array::typenum::Unsigned;
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use crate::common::{
-    derive_key_internal, deterministic_blind_unchecked, hash_to_group, i2osp_2,
-    server_evaluate_hash_input, BlindedElement, EvaluationElement, Mode, STR_FINALIZE,
+    BlindedElement, EvaluationElement, Mode, STR_FINALIZE, derive_key_internal,
+    deterministic_blind_unchecked, hash_to_group, i2osp_2, server_evaluate_hash_input,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::Scalar;
@@ -73,12 +73,12 @@ impl<CS: CipherSuite> OprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    pub fn blind<R: RngCore + CryptoRng>(
+    pub fn blind<R: TryRngCore + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<OprfClientBlindResult<CS>> {
-        let blind = CS::Group::random_scalar(blinding_factor_rng);
-        Self::deterministic_blind_unchecked_inner(input, blind)
+    ) -> Result<OprfClientBlindResult<CS>, Error<R::Error>> {
+        let blind = CS::Group::random_scalar(blinding_factor_rng).map_err(Error::Random)?;
+        Self::deterministic_blind_unchecked_inner(input, blind).map_err(Error::cast)
     }
 
     /// Computes the first step for the multiplicative blinding version of
@@ -146,10 +146,10 @@ impl<CS: CipherSuite> OprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
-        let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.fill_bytes(&mut seed);
-        Self::new_from_seed(&seed, &[])
+    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self, Error<R::Error>> {
+        let mut seed = Array::<u8, <CS::Group as Group>::ScalarLen>::default();
+        rng.try_fill_bytes(&mut seed).map_err(Error::Random)?;
+        Self::new_from_seed(&seed, &[]).map_err(Error::cast)
     }
 
     /// Produces a new instance of a [OprfServer] using a supplied set
@@ -270,8 +270,8 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::common::{Dst, STR_HASH_TO_GROUP};
     use crate::Group;
+    use crate::common::{Dst, STR_HASH_TO_GROUP};
 
     fn prf<CS: CipherSuite>(
         input: &[u8],
@@ -279,7 +279,7 @@ mod tests {
         info: &[u8],
         mode: Mode,
     ) -> Output<CS::Hash> {
-        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
+        let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, mode);
         let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
         let res = point * &key;
@@ -304,16 +304,16 @@ mod tests {
     fn base_inversion_unsalted<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut input = [0u8; 64];
-        rng.fill_bytes(&mut input);
+        rng.try_fill_bytes(&mut input).unwrap();
         let client_blind_result = OprfClient::<CS>::blind(&input, &mut rng).unwrap();
         let client_finalize_result = client_blind_result
             .state
             .finalize(&input, &EvaluationElement(client_blind_result.message.0))
             .unwrap();
 
-        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
+        let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, Mode::Oprf);
         let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst.as_dst()).unwrap();
-        let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input.as_ref(), point)), &[])
+        let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input, point)), &[])
             .next()
             .unwrap()
             .unwrap();

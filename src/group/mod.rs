@@ -16,9 +16,9 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker};
-use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
-use generic_array::{ArrayLength, GenericArray};
-use rand_core::{CryptoRng, RngCore};
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use hybrid_array::{Array, ArraySize};
+use rand_core::{TryCryptoRng, TryRngCore};
 #[cfg(feature = "ristretto255")]
 pub use ristretto::Ristretto255;
 use subtle::{Choice, ConstantTimeEq};
@@ -32,10 +32,10 @@ pub trait Group
 where
     // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
     Self::ScalarLen: Add<Self::ElemLen>,
-    Sum<Self::ScalarLen, Self::ElemLen>: ArrayLength<u8>,
+    Sum<Self::ScalarLen, Self::ElemLen>: ArraySize,
     // `ProofLen`
     Self::ScalarLen: Add<Self::ScalarLen>,
-    Sum<Self::ScalarLen, Self::ScalarLen>: ArrayLength<u8>,
+    Sum<Self::ScalarLen, Self::ScalarLen>: ArraySize,
 {
     /// The type of group elements
     type Elem: ConstantTimeEq
@@ -45,7 +45,7 @@ where
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
 
     /// The byte length necessary to represent group elements
-    type ElemLen: ArrayLength<u8> + 'static;
+    type ElemLen: ArraySize + 'static;
 
     /// The type of base field scalars
     type Scalar: ConstantTimeEq
@@ -56,7 +56,7 @@ where
         + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>;
 
     /// The byte length necessary to represent scalars
-    type ScalarLen: ArrayLength<u8> + 'static;
+    type ScalarLen: ArraySize + 'static;
 
     /// Transforms a password and domain separation tag (DST) into a curve point
     ///
@@ -90,7 +90,7 @@ where
     }
 
     /// Serializes the `self` group element
-    fn serialize_elem(elem: Self::Elem) -> GenericArray<u8, Self::ElemLen>;
+    fn serialize_elem(elem: Self::Elem) -> Array<u8, Self::ElemLen>;
 
     /// Return an element from its fixed-length bytes representation. If the
     /// element is the identity element, return an error.
@@ -101,7 +101,10 @@ where
     fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem>;
 
     /// picks a scalar at random
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar;
+    ///
+    /// # Errors
+    /// Returns any errors from the supplied random generator.
+    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar, R::Error>;
 
     /// The multiplicative inverse of this scalar
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
@@ -114,7 +117,7 @@ where
     fn zero_scalar() -> Self::Scalar;
 
     /// Serializes a scalar to bytes
-    fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen>;
+    fn serialize_scalar(scalar: Self::Scalar) -> Array<u8, Self::ScalarLen>;
 
     /// Return a scalar from its fixed-length bytes representation. If the
     /// scalar is zero or invalid, then return an error.
