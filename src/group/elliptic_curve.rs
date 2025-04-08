@@ -8,15 +8,13 @@
 
 use core::ops::Add;
 
-use digest::core_api::BlockSizeUser;
-use digest::{FixedOutput, HashMarker};
 use elliptic_curve::group::cofactor::CofactorGroup;
-use elliptic_curve::hash2curve::{ExpandMsgXmd, FromOkm, GroupDigest};
+use elliptic_curve::hash2curve::{ExpandMsg, FromOkm, GroupDigest};
 use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
     AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
-use hybrid_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use hybrid_array::typenum::Sum;
 use hybrid_array::{Array, ArraySize};
 use rand_core::{TryCryptoRng, TryRngCore};
 
@@ -50,22 +48,19 @@ where
 
     // Implements the `hash_to_curve()` function from
     // https://www.rfc-editor.org/rfc/rfc9380.html#section-3
-    fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
-        H: BlockSizeUser + Default + FixedOutput + HashMarker,
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+        X: for<'a> ExpandMsg<'a>,
     {
-        Self::hash_from_bytes::<ExpandMsgXmd<H>>(input, dst).map_err(|_| InternalError::Input)
+        Self::hash_from_bytes::<X>(input, dst).map_err(|_| InternalError::Input)
     }
 
     // Implements the `HashToScalar()` function
-    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
-        H: BlockSizeUser + Default + FixedOutput + HashMarker,
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>,
+        X: for<'a> ExpandMsg<'a>,
     {
-        <Self as GroupDigest>::hash_to_scalar::<ExpandMsgXmd<H>>(input, dst)
-            .map_err(|_| InternalError::Input)
+        <Self as GroupDigest>::hash_to_scalar::<X>(input, dst).map_err(|_| InternalError::Input)
     }
 
     fn base_elem() -> Self::Elem {

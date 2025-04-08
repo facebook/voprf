@@ -179,7 +179,7 @@ pub(crate) fn generate_proof<CS: CipherSuite, R: TryRngCore + TryCryptoRng>(
 
     let dst = Dst::new::<CS, _>(STR_HASH_TO_SCALAR, mode);
     // This can't fail, the size of the `input` is known.
-    let c_scalar = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
+    let c_scalar = CS::Group::hash_to_scalar::<CS::ExpandMsg>(&h2_input, &dst.as_dst()).unwrap();
     let s_scalar = r - &(c_scalar * &k);
 
     Ok(Proof { c_scalar, s_scalar })
@@ -235,7 +235,7 @@ pub(crate) fn verify_proof<CS: CipherSuite>(
 
     let dst = Dst::new::<CS, _>(STR_HASH_TO_SCALAR, mode);
     // This can't fail, the size of the `input` is known.
-    let c = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
+    let c = CS::Group::hash_to_scalar::<CS::ExpandMsg>(&h2_input, &dst.as_dst()).unwrap();
 
     match c.ct_eq(&proof.c_scalar).into() {
         true => Ok(()),
@@ -309,7 +309,7 @@ fn compute_composites<
 
         let dst = Dst::new::<CS, _>(STR_HASH_TO_SCALAR, mode);
         // This can't fail, the size of the `input` is known.
-        let di = CS::Group::hash_to_scalar::<CS::Hash>(&h2_input, &dst.as_dst()).unwrap();
+        let di = CS::Group::hash_to_scalar::<CS::ExpandMsg>(&h2_input, &dst.as_dst()).unwrap();
         m = c * &di + &m;
         z = match k_option {
             Some(_) => z,
@@ -344,7 +344,7 @@ pub(crate) fn derive_key_internal<CS: CipherSuite>(
         // deriveInput = seed || I2OSP(len(info), 2) || info
         // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
         // || contextString)
-        let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
+        let sk_s = CS::Group::hash_to_scalar::<CS::ExpandMsg>(
             &[seed, &info_len, info, &counter.to_be_bytes()],
             &dst.as_dst(),
         )
@@ -410,7 +410,7 @@ pub(crate) fn hash_to_group<CS: CipherSuite>(
     mode: Mode,
 ) -> Result<<CS::Group as Group>::Elem> {
     let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, mode);
-    CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).map_err(|_| Error::Input)
+    CS::Group::hash_to_curve::<CS::ExpandMsg>(&[input], &dst.as_dst()).map_err(|_| Error::Input)
 }
 
 /// Internal function that finalizes the hash input for OPRF, VOPRF & POPRF.

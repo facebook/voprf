@@ -567,7 +567,7 @@ fn compute_tweaked_key<CS: CipherSuite>(
 
     let dst = Dst::new::<CS, _>(STR_HASH_TO_SCALAR, Mode::Poprf);
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst.as_dst()).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::ExpandMsg>(&framed_info, &dst.as_dst()).unwrap();
 
     let t = CS::Group::base_elem() * &m;
     let tweaked_key = t + &pk;
@@ -600,7 +600,7 @@ fn compute_tweak<CS: CipherSuite>(
 
     let dst = Dst::new::<CS, _>(STR_HASH_TO_SCALAR, Mode::Poprf);
     // This can't fail, the size of the `input` is known.
-    let m = CS::Group::hash_to_scalar::<CS::Hash>(&framed_info, &dst.as_dst()).unwrap();
+    let m = CS::Group::hash_to_scalar::<CS::ExpandMsg>(&framed_info, &dst.as_dst()).unwrap();
 
     let t = sk + &m;
 
@@ -741,7 +741,7 @@ mod tests {
         let t = compute_tweak::<CS>(key, Some(info)).unwrap();
 
         let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, mode);
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::ExpandMsg>(&[input], &dst.as_dst()).unwrap();
 
         // evaluatedElement = G.ScalarInverse(t) * blindedElement
         let res = point * &CS::Group::invert_scalar(t);
@@ -788,7 +788,7 @@ mod tests {
         let wrong_pk = {
             let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
+            CS::Group::hash_to_curve::<CS::ExpandMsg>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -886,6 +886,18 @@ mod tests {
 
             zeroize_verifiable_client::<Ristretto255>();
             zeroize_verifiable_server::<Ristretto255>();
+        }
+
+        #[cfg(feature = "decaf448")]
+        {
+            use crate::Decaf448;
+
+            verifiable_retrieval::<Decaf448>();
+            verifiable_bad_public_key::<Decaf448>();
+            verifiable_server_evaluate::<Decaf448>();
+
+            zeroize_verifiable_client::<Decaf448>();
+            zeroize_verifiable_server::<Decaf448>();
         }
 
         verifiable_retrieval::<NistP256>();

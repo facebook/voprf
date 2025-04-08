@@ -327,6 +327,10 @@ mod test {
             {
                 let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
             }
+            #[cfg(feature = "decaf448")]
+            {
+                let _ = $item::<crate::Decaf448>::deserialize(&$bytes[..]);
+            }
 
             let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
             let _ = $item::<p384::NistP384>::deserialize(&$bytes[..]);

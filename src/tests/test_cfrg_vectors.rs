@@ -130,6 +130,44 @@ fn test_vectors() -> Result<()> {
         test_poprf_evaluate::<Ristretto255>(&ristretto_poprf_tvs)?;
     }
 
+    #[cfg(feature = "decaf448")]
+    {
+        use crate::Decaf448;
+
+        let decaf_oprf_tvs =
+            json_to_test_vectors!(rfc, String::from("decaf448-SHAKE256"), String::from("OPRF"));
+        assert_ne!(decaf_oprf_tvs.len(), 0);
+        test_oprf_seed_to_key::<Decaf448>(&decaf_oprf_tvs)?;
+        test_oprf_blind::<Decaf448>(&decaf_oprf_tvs)?;
+        test_oprf_blind_evaluate::<Decaf448>(&decaf_oprf_tvs)?;
+        test_oprf_finalize::<Decaf448>(&decaf_oprf_tvs)?;
+        test_oprf_evaluate::<Decaf448>(&decaf_oprf_tvs)?;
+
+        let decaf_voprf_tvs = json_to_test_vectors!(
+            rfc,
+            String::from("decaf448-SHAKE256"),
+            String::from("VOPRF")
+        );
+        assert_ne!(decaf_voprf_tvs.len(), 0);
+        test_voprf_seed_to_key::<Decaf448>(&decaf_voprf_tvs)?;
+        test_voprf_blind::<Decaf448>(&decaf_voprf_tvs)?;
+        test_voprf_blind_evaluate::<Decaf448>(&decaf_voprf_tvs)?;
+        test_voprf_finalize::<Decaf448>(&decaf_voprf_tvs)?;
+        test_voprf_evaluate::<Decaf448>(&decaf_voprf_tvs)?;
+
+        let decaf_poprf_tvs = json_to_test_vectors!(
+            rfc,
+            String::from("decaf448-SHAKE256"),
+            String::from("POPRF")
+        );
+        assert_ne!(decaf_poprf_tvs.len(), 0);
+        test_poprf_seed_to_key::<Decaf448>(&decaf_poprf_tvs)?;
+        test_poprf_blind::<Decaf448>(&decaf_poprf_tvs)?;
+        test_poprf_blind_evaluate::<Decaf448>(&decaf_poprf_tvs)?;
+        test_poprf_finalize::<Decaf448>(&decaf_poprf_tvs)?;
+        test_poprf_evaluate::<Decaf448>(&decaf_poprf_tvs)?;
+    }
+
     let p256_oprf_tvs =
         json_to_test_vectors!(rfc, String::from("P256-SHA256"), String::from("OPRF"));
     assert_ne!(p256_oprf_tvs.len(), 0);

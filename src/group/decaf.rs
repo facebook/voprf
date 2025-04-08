@@ -6,96 +6,107 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::Identity;
-use elliptic_curve::Field;
-use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
+use ed448::{CompressedDecaf, DecafPoint, Scalar};
+use elliptic_curve::bigint::{Encoding, NonZero, U448, U512};
+use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXof, Expander};
 use hybrid_array::Array;
-use hybrid_array::typenum::{U32, U64};
+use hybrid_array::typenum::U56;
 use rand_core::{TryCryptoRng, TryRngCore};
 use subtle::ConstantTimeEq;
 
 use super::Group;
 use crate::{Error, InternalError, Result};
 
-/// [`Group`] implementation for Ristretto255.
+/// [`Group`] implementation for Decaf448.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Ristretto255;
+pub struct Decaf448;
 
-#[cfg(feature = "ristretto255-ciphersuite")]
-impl crate::CipherSuite for Ristretto255 {
-    const ID: &'static str = "ristretto255-SHA512";
+const WIDE_ORDER: NonZero<U512> = NonZero::<U512>::new_unwrap(U512::from_be_hex("00000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3"));
+const ORDER: NonZero<U448> = NonZero::<U448>::new_unwrap(ed448::ORDER);
 
-    type Group = Ristretto255;
+#[cfg(feature = "decaf448-ciphersuite")]
+impl crate::CipherSuite for Decaf448 {
+    const ID: &'static str = "decaf448-SHAKE256";
 
-    type Hash = sha2::Sha512;
+    type Group = Decaf448;
 
-    type ExpandMsg = ExpandMsgXmd<Self::Hash>;
+    type Hash = super::xof_fixed_wrapper::XofFixedWrapper<sha3::Shake256, hybrid_array::sizes::U64>;
+
+    type ExpandMsg = ExpandMsgXof<Self::Hash>;
 }
 
-impl Group for Ristretto255 {
-    type Elem = RistrettoPoint;
+impl Group for Decaf448 {
+    type Elem = DecafPoint;
 
-    type ElemLen = U32;
+    type ElemLen = U56;
 
     type Scalar = Scalar;
 
-    type ScalarLen = U32;
+    type ScalarLen = U56;
 
     // Implements the `hash_to_ristretto255()` function from
-    // https://www.rfc-editor.org/rfc/rfc9380.html#appendix-B
+    // https://www.rfc-editor.org/rfc/rfc9380.html#appendix-C
     fn hash_to_curve<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
         X: for<'a> ExpandMsg<'a>,
     {
-        let mut uniform_bytes = Array::<_, U64>::default();
-        X::expand_message(input, dst, 64)
+        let mut uniform_bytes = [0; 112];
+        X::expand_message(input, dst, 112)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
 
-        Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes.into()))
+        Ok(DecafPoint::from_uniform_bytes(&uniform_bytes))
     }
 
     // Implements the `HashToScalar()` function from
-    // https://www.rfc-editor.org/rfc/rfc9497#section-4.1
+    // https://www.rfc-editor.org/rfc/rfc9497#section-4.2
     fn hash_to_scalar<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
         X: for<'a> ExpandMsg<'a>,
     {
-        let mut uniform_bytes = Array::<_, U64>::default();
+        let mut uniform_bytes = [0; 64];
         X::expand_message(input, dst, 64)
             .map_err(|_| InternalError::Input)?
             .fill_bytes(&mut uniform_bytes);
+        let uniform_bytes = U512::from_le_slice(&uniform_bytes);
 
-        Ok(Scalar::from_bytes_mod_order_wide(&uniform_bytes.into()))
+        let scalar = uniform_bytes.rem(&WIDE_ORDER);
+        let scalar = Scalar::from_bytes(&scalar.to_le_bytes()[..56].try_into().unwrap());
+
+        Ok(scalar)
     }
 
     fn base_elem() -> Self::Elem {
-        RISTRETTO_BASEPOINT_POINT
+        DecafPoint::GENERATOR
     }
 
     fn identity_elem() -> Self::Elem {
-        RistrettoPoint::identity()
+        DecafPoint::IDENTITY
     }
 
     // serialization of a group element
     fn serialize_elem(elem: Self::Elem) -> Array<u8, Self::ElemLen> {
-        elem.compress().to_bytes().into()
+        elem.compress().0.into()
     }
 
     fn deserialize_elem(element_bits: &[u8]) -> Result<Self::Elem> {
-        CompressedRistretto::from_slice(element_bits)
+        let result = element_bits
+            .try_into()
+            .map(CompressedDecaf)
             .map_err(|_| Error::Deserialization)?
-            .decompress()
-            .filter(|point| point != &RistrettoPoint::identity())
+            .decompress();
+        Option::from(result)
+            .filter(|point| point != &DecafPoint::IDENTITY)
             .ok_or(Error::Deserialization)
     }
 
     fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar, R::Error> {
         loop {
-            let scalar = Scalar::try_from_rng(rng)?;
+            let mut scalar_bytes = [0; 64];
+            rng.try_fill_bytes(&mut scalar_bytes)?;
+            let scalar_bytes = U512::from_le_slice(&scalar_bytes);
+            let scalar = scalar_bytes.rem(&WIDE_ORDER);
+            let scalar = Scalar::from_bytes(&scalar.to_le_bytes()[..56].try_into().unwrap());
 
             if scalar != Scalar::ZERO {
                 break Ok(scalar);
@@ -124,7 +135,8 @@ impl Group for Ristretto255 {
         scalar_bits
             .try_into()
             .ok()
-            .and_then(|bytes| Scalar::from_canonical_bytes(bytes).into())
+            .map(U448::from_le_bytes)
+            .map(|value| Scalar::from_bytes(&value.rem(&ORDER).to_le_bytes()))
             .filter(|scalar| scalar != &Scalar::ZERO)
             .ok_or(Error::Deserialization)
     }

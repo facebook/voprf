@@ -280,7 +280,7 @@ mod tests {
         mode: Mode,
     ) -> Output<CS::Hash> {
         let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, mode);
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::ExpandMsg>(&[input], &dst.as_dst()).unwrap();
 
         let res = point * &key;
 
@@ -312,7 +312,7 @@ mod tests {
             .unwrap();
 
         let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, Mode::Oprf);
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[&input], &dst.as_dst()).unwrap();
+        let point = CS::Group::hash_to_curve::<CS::ExpandMsg>(&[&input], &dst.as_dst()).unwrap();
         let res2 = finalize_after_unblind::<CS, _, _>(iter::once((input, point)), &[])
             .next()
             .unwrap()
@@ -390,6 +390,18 @@ mod tests {
 
             zeroize_oprf_client::<Ristretto255>();
             zeroize_oprf_server::<Ristretto255>();
+        }
+
+        #[cfg(feature = "decaf448")]
+        {
+            use crate::Decaf448;
+
+            base_retrieval::<Decaf448>();
+            base_inversion_unsalted::<Decaf448>();
+            server_evaluate::<Decaf448>();
+
+            zeroize_oprf_client::<Decaf448>();
+            zeroize_oprf_server::<Decaf448>();
         }
 
         base_retrieval::<NistP256>();

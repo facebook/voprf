@@ -534,8 +534,19 @@
 //!   underlying group for the [Group] choice. To select a specific backend see
 //!   the [curve25519-dalek] documentation.
 //!
+//! - The `decaf448-ciphersuite` features enables using [`Decaf448`] as a
+//!   [`CipherSuite`].
+//!
+//! - The `decaf448` feature enables using [`Decaf448`] as the underlying group
+//!   for the [Group] choice.
+//!
 //! [curve25519-dalek]:
 //!     (https://docs.rs/curve25519-dalek/4.0.0-pre.5/curve25519_dalek/index.html#backends)
+#![cfg_attr(
+    not(feature = "decaf448"),
+    doc = "[`Decaf448`]: (https://docs.rs/voprf/latest/voprf/struct.Decaf448.html)"
+)]
+//!
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
@@ -575,6 +586,8 @@ pub use crate::common::{
     BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof,
 };
 pub use crate::error::{Error, InternalError, Result};
+#[cfg(feature = "decaf448")]
+pub use crate::group::Decaf448;
 pub use crate::group::Group;
 #[cfg(feature = "ristretto255")]
 pub use crate::group::Ristretto255;

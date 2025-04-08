@@ -36,6 +36,8 @@ jobs:
       matrix:
         backend_feature:
           - --features ristretto255-ciphersuite
+          - --features decaf448-ciphersuite
+          - --features ristretto255-ciphersuite,decaf448-ciphersuite
           -
         frontend_feature:
           -
@@ -94,6 +96,8 @@ jobs:
         backend_feature:
           -
           - --features ristretto255-ciphersuite
+          - --features decaf448-ciphersuite
+          - --features ristretto255-ciphersuite,decaf448-ciphersuite
         frontend_feature:
           -
           - --features danger

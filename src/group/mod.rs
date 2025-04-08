@@ -8,15 +8,20 @@
 
 //! Defines the Group trait to specify the underlying prime order group
 
+#[cfg(feature = "decaf448")]
+mod decaf;
 mod elliptic_curve;
 #[cfg(feature = "ristretto255")]
 mod ristretto;
+#[cfg(feature = "decaf448-ciphersuite")]
+mod xof_fixed_wrapper;
 
 use core::ops::{Add, Mul, Sub};
 
-use digest::core_api::BlockSizeUser;
-use digest::{FixedOutput, HashMarker};
-use hybrid_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
+use ::elliptic_curve::hash2curve::ExpandMsg;
+#[cfg(feature = "decaf448")]
+pub use decaf::Decaf448;
+use hybrid_array::typenum::Sum;
 use hybrid_array::{Array, ArraySize};
 use rand_core::{TryCryptoRng, TryRngCore};
 #[cfg(feature = "ristretto255")]
@@ -63,20 +68,18 @@ where
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_curve<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
+    fn hash_to_curve<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Elem, InternalError>
     where
-        H: BlockSizeUser + Default + FixedOutput + HashMarker,
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
+        X: for<'a> ExpandMsg<'a>;
 
     /// Hashes a slice of pseudo-random bytes to a scalar
     ///
     /// # Errors
     /// [`Error::Input`](crate::Error::Input) if the `input` is empty or longer
     /// then [`u16::MAX`].
-    fn hash_to_scalar<H>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
+    fn hash_to_scalar<X>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
     where
-        H: BlockSizeUser + Default + FixedOutput + HashMarker,
-        H::OutputSize: IsLess<U256> + IsLessOrEqual<H::BlockSize>;
+        X: for<'a> ExpandMsg<'a>;
 
     /// Get the base point for the group
     fn base_elem() -> Self::Elem;

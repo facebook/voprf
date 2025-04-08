@@ -14,6 +14,8 @@ version = "0.5.0"
 [features]
 alloc = []
 danger = []
+decaf448 = ["dep:ed448"]
+decaf448-ciphersuite = ["decaf448", "dep:sha3"]
 default = ["ristretto255-ciphersuite", "dep:serde"]
 ristretto255 = ["dep:curve25519-dalek"]
 ristretto255-ciphersuite = ["ristretto255", "dep:sha2"]
@@ -29,6 +31,9 @@ curve25519-dalek = { version = "4", default-features = false, features = [
 derive-where = { version = "1", features = ["zeroize-on-drop"] }
 digest = "0.11.0-pre.10"
 displaydoc = { version = "0.2", default-features = false }
+ed448 = { version = "0.17.0-pre.0", default-features = false, features = [
+  "zeroize",
+], optional = true }
 elliptic-curve = { version = "0.14.0-rc.1", features = [
   "hash2curve",
   "sec1",
@@ -40,6 +45,7 @@ serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
 sha2 = { version = "0.11.0-pre.5", default-features = false, optional = true }
+sha3 = { version = "0.11.0-pre.5", default-features = false, optional = true }
 subtle = { version = "2.3", default-features = false }
 zeroize = { version = "1.5", default-features = false }
 
@@ -71,6 +77,7 @@ targets = []
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint.git", rev = "e97beae6593c30b4477b7f29e30e5372cd8204bf" }
 curve25519-dalek = { git = "https://github.com/khonsulabs/curve25519-dalek", branch = "voprf" }
+ed448 = { git = "https://github.com/khonsulabs/elliptic-curves", branch = "ed448-voprf" }
 elliptic-curve = { git = "https://github.com/RustCrypto/traits", rev = "204a4e030fa98863429ccd3797e12f9e7c45dc33" }
 ff = { git = "https://github.com/zkcrypto/ff", branch = "release-0.14.0" }
 group = { git = "https://github.com/pinkforest/group", branch = "bump-rand-0.9" }
