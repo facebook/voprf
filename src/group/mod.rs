@@ -21,7 +21,7 @@ use core::ops::{Add, Mul, Sub};
 use ::elliptic_curve::hash2curve::ExpandMsg;
 #[cfg(feature = "decaf448")]
 pub use decaf::Decaf448;
-use hybrid_array::typenum::Sum;
+use hybrid_array::typenum::{IsLess, Sum, U65536};
 use hybrid_array::{Array, ArraySize};
 use rand_core::{TryCryptoRng, TryRngCore};
 #[cfg(feature = "ristretto255")]
@@ -50,7 +50,7 @@ where
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
 
     /// The byte length necessary to represent group elements
-    type ElemLen: ArraySize + 'static;
+    type ElemLen: ArraySize + IsLess<U65536> + 'static;
 
     /// The type of base field scalars
     type Scalar: ConstantTimeEq

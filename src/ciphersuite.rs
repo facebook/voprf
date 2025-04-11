@@ -12,14 +12,14 @@ use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker, OutputSizeUser};
 use elliptic_curve::VoprfParameters;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd};
-use hybrid_array::typenum::{IsLess, IsLessOrEqual, U256};
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, U256, U65536};
 
 use crate::Group;
 
 /// Configures the underlying primitives used in VOPRF
 pub trait CipherSuite
 where
-    <Self::Hash as OutputSizeUser>::OutputSize: IsLess<U256>,
+    <Self::Hash as OutputSizeUser>::OutputSize: IsLess<U65536>,
 {
     /// The ciphersuite identifier as dictated by
     /// <https://www.rfc-editor.org/rfc/rfc9497>
@@ -43,7 +43,7 @@ where
     T: Group,
     T::Hash: BlockSizeUser + Default + FixedOutput + HashMarker,
     <T::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
+        IsLess<U256> + IsLess<U65536> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
 {
     const ID: &'static str = T::ID;
 

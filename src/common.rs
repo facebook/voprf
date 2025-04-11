@@ -13,7 +13,7 @@ use core::ops::Add;
 
 use derive_where::derive_where;
 use digest::{Digest, Output};
-use hybrid_array::typenum::{IsLess, U9, U256, Unsigned};
+use hybrid_array::typenum::{IsLess, U9, U65536, Unsigned};
 use hybrid_array::{Array, ArrayN, ArraySize};
 use rand_core::{TryCryptoRng, TryRngCore};
 use subtle::ConstantTimeEq;
@@ -441,7 +441,7 @@ pub(crate) fn server_evaluate_hash_input<CS: CipherSuite>(
             .chain_update(info.as_ref());
     }
     Ok(hash
-        .chain_update(i2osp_2(issued_element.len()).map_err(|_| Error::Input)?)
+        .chain_update(i2osp_2_array(&issued_element))
         .chain_update(issued_element)
         .chain_update(STR_FINALIZE)
         .finalize())
@@ -515,6 +515,6 @@ pub(crate) fn i2osp_2(input: usize) -> Result<[u8; 2], InternalError> {
         .map_err(|_| InternalError::I2osp)
 }
 
-pub(crate) fn i2osp_2_array<L: ArraySize + IsLess<U256>>(_: &Array<u8, L>) -> ArrayN<u8, 2> {
+pub(crate) fn i2osp_2_array<L: ArraySize + IsLess<U65536>>(_: &Array<u8, L>) -> ArrayN<u8, 2> {
     L::U16.to_be_bytes().into()
 }

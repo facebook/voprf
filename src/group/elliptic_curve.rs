@@ -14,7 +14,7 @@ use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
     AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
 };
-use hybrid_array::typenum::Sum;
+use hybrid_array::typenum::{IsLess, Sum, U65536};
 use hybrid_array::{Array, ArraySize};
 use rand_core::{TryCryptoRng, TryRngCore};
 
@@ -28,6 +28,7 @@ impl<C> Group for C
 where
     C: GroupDigest,
     ProjectivePoint<Self>: CofactorGroup + ToEncodedPoint<Self>,
+    ElemLen<Self>: IsLess<U65536>,
     ScalarLen<Self>: ModulusSize,
     AffinePoint<Self>: FromEncodedPoint<Self> + ToEncodedPoint<Self>,
     Scalar<Self>: FromOkm,
