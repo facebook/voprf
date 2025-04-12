@@ -147,8 +147,8 @@ pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     mode: Mode,
 ) -> Result<Proof<CS>>
 where
@@ -209,8 +209,8 @@ where
 pub(crate) fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     proof: &Proof<CS>,
     mode: Mode,
 ) -> Result<()>

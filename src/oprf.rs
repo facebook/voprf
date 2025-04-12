@@ -194,7 +194,7 @@ where
         Ok(Self { sk })
     }
 
-    // Only used for tests
+    /// Only used for tests
     #[cfg(test)]
     pub fn get_private_key(&self) -> <CS::Group as Group>::Scalar {
         self.sk
@@ -261,7 +261,7 @@ fn finalize_after_unblind<
 >(
     inputs_and_unblinded_elements: IE,
     _unused: &'a [u8],
-) -> FinalizeAfterUnblindResult<CS, I, IE>
+) -> FinalizeAfterUnblindResult<'a, CS, I, IE>
 where
     <CS::Hash as OutputSizeUser>::OutputSize:
         IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,

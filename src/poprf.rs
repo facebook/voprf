@@ -235,7 +235,7 @@ where
         Ok(Self { sk, pk })
     }
 
-    // Only used for tests
+    /// Only used for tests
     #[cfg(test)]
     pub fn get_private_key(&self) -> <CS::Group as Group>::Scalar {
         self.sk
