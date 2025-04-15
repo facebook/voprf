@@ -12,10 +12,9 @@ use core::convert::TryFrom;
 use core::ops::Add;
 
 use derive_where::derive_where;
-use digest::core_api::BlockSizeUser;
-use digest::{Digest, Output, OutputSizeUser};
+use digest::{Digest, Output};
 use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U2, U256, U9};
+use generic_array::typenum::{IsLess, Unsigned, U2, U256, U9};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -79,10 +78,7 @@ impl Mode {
 pub struct BlindedElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate)  <CS::Group as Group>::Elem,
-)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+);
 
 /// The server's response to the [BlindedElement] message from a client (either
 /// verifiable or not) to a server (either verifiable or not).
@@ -96,10 +92,7 @@ where
 pub struct EvaluationElement<CS: CipherSuite>(
     #[cfg_attr(feature = "serde", serde(with = "Element::<CS::Group>"))]
     pub(crate)  <CS::Group as Group>::Elem,
-)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+);
 
 /// Contains prepared [`EvaluationElement`]s by a server batch evaluate
 /// preparation.
@@ -110,10 +103,7 @@ where
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct PreparedEvaluationElement<CS: CipherSuite>(pub(crate) EvaluationElement<CS>)
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>;
+pub struct PreparedEvaluationElement<CS: CipherSuite>(pub(crate) EvaluationElement<CS>);
 
 /// A proof produced by a server that the OPRF output matches against a server
 /// public key.
@@ -124,11 +114,7 @@ where
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct Proof<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct Proof<CS: CipherSuite> {
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) c_scalar: <CS::Group as Group>::Scalar,
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
@@ -147,14 +133,10 @@ pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     mode: Mode,
-) -> Result<Proof<CS>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<Proof<CS>> {
     // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.1
 
     let (m, z) = compute_composites::<CS, _, _>(Some(k), b, cs, ds, mode)?;
@@ -209,15 +191,11 @@ where
 pub(crate) fn verify_proof<CS: CipherSuite>(
     a: <CS::Group as Group>::Elem,
     b: <CS::Group as Group>::Elem,
-    cs: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
-    ds: impl Iterator<Item = <CS::Group as Group>::Elem> + ExactSizeIterator,
+    cs: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
+    ds: impl ExactSizeIterator<Item = <CS::Group as Group>::Elem>,
     proof: &Proof<CS>,
     mode: Mode,
-) -> Result<()>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<()> {
     // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.2
     let (m, z) = compute_composites::<CS, _, _>(None, b, cs, ds, mode)?;
     let t2 = (a * &proof.s_scalar) + &(b * &proof.c_scalar);
@@ -282,11 +260,7 @@ fn compute_composites<
     c_slice: IC,
     d_slice: ID,
     mode: Mode,
-) -> Result<ComputeCompositesResult<CS>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<ComputeCompositesResult<CS>> {
     // https://www.rfc-editor.org/rfc/rfc9497#section-2.2.1
 
     let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
@@ -362,11 +336,7 @@ pub(crate) fn derive_key_internal<CS: CipherSuite>(
     seed: &[u8],
     info: &[u8],
     mode: Mode,
-) -> Result<<CS::Group as Group>::Scalar, Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<<CS::Group as Group>::Scalar, Error> {
     let dst = Dst::new::<CS, _, _>(STR_DERIVE_KEYPAIR, mode);
 
     let info_len = i2osp_2(info.len()).map_err(|_| Error::DeriveKeyPair)?;
@@ -400,11 +370,7 @@ pub fn derive_key<CS: CipherSuite>(
     seed: &[u8],
     info: &[u8],
     mode: Mode,
-) -> Result<<CS::Group as Group>::Scalar, Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<<CS::Group as Group>::Scalar, Error> {
     derive_key_internal::<CS>(seed, info, mode)
 }
 
@@ -418,11 +384,7 @@ pub(crate) fn derive_keypair<CS: CipherSuite>(
     seed: &[u8],
     info: &[u8],
     mode: Mode,
-) -> Result<DeriveKeypairResult<CS>, Error>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<DeriveKeypairResult<CS>, Error> {
     let sk_s = derive_key_internal::<CS>(seed, info, mode)?;
     let pk_s = CS::Group::base_elem() * &sk_s;
 
@@ -438,11 +400,7 @@ pub(crate) fn deterministic_blind_unchecked<CS: CipherSuite>(
     input: &[u8],
     blind: &<CS::Group as Group>::Scalar,
     mode: Mode,
-) -> Result<<CS::Group as Group>::Elem>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<<CS::Group as Group>::Elem> {
     let hashed_point = hash_to_group::<CS>(input, mode)?;
     Ok(hashed_point * blind)
 }
@@ -451,11 +409,7 @@ where
 pub(crate) fn hash_to_group<CS: CipherSuite>(
     input: &[u8],
     mode: Mode,
-) -> Result<<CS::Group as Group>::Elem>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<<CS::Group as Group>::Elem> {
     let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
     CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).map_err(|_| Error::Input)
 }
@@ -466,11 +420,7 @@ pub(crate) fn server_evaluate_hash_input<CS: CipherSuite>(
     input: &[u8],
     info: Option<&[u8]>,
     issued_element: GenericArray<u8, <<CS as CipherSuite>::Group as Group>::ElemLen>,
-) -> Result<Output<CS::Hash>>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> Result<Output<CS::Hash>> {
     // OPRF & VOPRF
     // hashInput = I2OSP(len(input), 2) || input ||
     //             I2OSP(len(issuedElement), 2) || issuedElement ||
@@ -504,12 +454,11 @@ pub(crate) struct Dst<L: ArrayLength<u8>> {
 }
 
 impl<L: ArrayLength<u8>> Dst<L> {
-    pub(crate) fn new<CS: CipherSuite, T, TL: ArrayLength<u8>>(par_1: T, mode: Mode) -> Self
+    pub(crate) fn new<CS, T, TL>(par_1: T, mode: Mode) -> Self
     where
+        CS: CipherSuite,
         T: Into<GenericArray<u8, TL>>,
-        TL: Add<U9, Output = L>,
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
+        TL: ArrayLength<u8> + Add<U9, Output = L>,
     {
         let par_1 = par_1.into();
         // Generates the contextString parameter as defined in

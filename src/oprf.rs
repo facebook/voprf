@@ -11,9 +11,8 @@
 use core::iter::{self, Map};
 
 use derive_where::derive_where;
-use digest::core_api::BlockSizeUser;
-use digest::{Digest, Output, OutputSizeUser};
-use generic_array::typenum::{IsLess, IsLessOrEqual, Unsigned, U256};
+use digest::{Digest, Output};
+use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
@@ -44,11 +43,7 @@ use crate::{CipherSuite, Error, Group, Result};
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct OprfClient<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct OprfClient<CS: CipherSuite> {
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) blind: <CS::Group as Group>::Scalar,
 }
@@ -62,11 +57,7 @@ where
     derive(serde::Deserialize, serde::Serialize),
     serde(bound = "")
 )]
-pub struct OprfServer<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct OprfServer<CS: CipherSuite> {
     #[cfg_attr(feature = "serde", serde(with = "Scalar::<CS::Group>"))]
     pub(crate) sk: <CS::Group as Group>::Scalar,
 }
@@ -76,11 +67,7 @@ where
 // =================== //
 /////////////////////////
 
-impl<CS: CipherSuite> OprfClient<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> OprfClient<CS> {
     /// Computes the first step for the multiplicative blinding version of
     /// DH-OPRF.
     ///
@@ -154,11 +141,7 @@ where
     }
 }
 
-impl<CS: CipherSuite> OprfServer<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> OprfServer<CS> {
     /// Produces a new instance of a [OprfServer] using a supplied RNG
     ///
     /// # Errors
@@ -194,7 +177,7 @@ where
         Ok(Self { sk })
     }
 
-    // Only used for tests
+    /// Only used for tests
     #[cfg(test)]
     pub fn get_private_key(&self) -> <CS::Group as Group>::Scalar {
         self.sk
@@ -231,11 +214,7 @@ where
 
 /// Contains the fields that are returned by a non-verifiable client blind
 #[derive_where(Debug; <CS::Group as Group>::Scalar, <CS::Group as Group>::Elem)]
-pub struct OprfClientBlindResult<CS: CipherSuite>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+pub struct OprfClientBlindResult<CS: CipherSuite> {
     /// The state to be persisted on the client
     pub state: OprfClient<CS>,
     /// The message to send to the server
@@ -261,11 +240,7 @@ fn finalize_after_unblind<
 >(
     inputs_and_unblinded_elements: IE,
     _unused: &'a [u8],
-) -> FinalizeAfterUnblindResult<CS, I, IE>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+) -> FinalizeAfterUnblindResult<'a, CS, I, IE> {
     inputs_and_unblinded_elements.map(|(input, unblinded_element)| {
         let elem_len = <CS::Group as Group>::ElemLen::U16.to_be_bytes();
 
@@ -303,11 +278,7 @@ mod tests {
         key: <CS::Group as Group>::Scalar,
         info: &[u8],
         mode: Mode,
-    ) -> Output<CS::Hash>
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    ) -> Output<CS::Hash> {
         let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
         let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
 
@@ -319,11 +290,7 @@ mod tests {
             .unwrap()
     }
 
-    fn base_retrieval<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn base_retrieval<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -334,11 +301,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn base_inversion_unsalted<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn base_inversion_unsalted<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut input = [0u8; 64];
         rng.fill_bytes(&mut input);
@@ -358,11 +321,7 @@ mod tests {
         assert_eq!(client_finalize_result, res2);
     }
 
-    fn server_evaluate<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn server_evaluate<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -386,11 +345,7 @@ mod tests {
         assert!(client_finalize != server_evaluate);
     }
 
-    fn zeroize_oprf_client<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn zeroize_oprf_client<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
@@ -404,11 +359,7 @@ mod tests {
         assert!(message.serialize().iter().all(|&x| x == 0));
     }
 
-    fn zeroize_oprf_server<CS: CipherSuite>()
-    where
-        <CS::Hash as OutputSizeUser>::OutputSize:
-            IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-    {
+    fn zeroize_oprf_server<CS: CipherSuite>() {
         let input = b"input";
         let mut rng = OsRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();

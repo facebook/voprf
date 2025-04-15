@@ -9,13 +9,9 @@
 //! Handles the serialization of each of the components used in the VOPRF
 //! protocol
 
-use core::ops::Add;
-
-use digest::core_api::BlockSizeUser;
-use digest::OutputSizeUser;
 use generic_array::sequence::Concat;
-use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, Unsigned, U256};
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::typenum::{Sum, Unsigned};
+use generic_array::GenericArray;
 
 use crate::{
     BlindedElement, CipherSuite, Error, EvaluationElement, Group, OprfClient, OprfServer,
@@ -30,11 +26,7 @@ use crate::{
 /// Length of [`OprfClient`] in bytes for serialization.
 pub type OprfClientLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
-impl<CS: CipherSuite> OprfClient<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> OprfClient<CS> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, OprfClientLen<CS>> {
         CS::Group::serialize_scalar(self.blind)
@@ -57,17 +49,9 @@ pub type VoprfClientLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> VoprfClient<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> VoprfClient<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfClientLen<CS>>
-    where
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        VoprfClientLen<CS>: ArrayLength<u8>,
-    {
+    pub fn serialize(&self) -> GenericArray<u8, VoprfClientLen<CS>> {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
     }
@@ -93,17 +77,9 @@ pub type PoprfClientLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> PoprfClient<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> PoprfClient<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, PoprfClientLen<CS>>
-    where
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        PoprfClientLen<CS>: ArrayLength<u8>,
-    {
+    pub fn serialize(&self) -> GenericArray<u8, PoprfClientLen<CS>> {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
     }
@@ -126,11 +102,7 @@ where
 /// Length of [`OprfServer`] in bytes for serialization.
 pub type OprfServerLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
-impl<CS: CipherSuite> OprfServer<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> OprfServer<CS> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, OprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk)
@@ -153,17 +125,9 @@ pub type VoprfServerLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> VoprfServer<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> VoprfServer<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfServerLen<CS>>
-    where
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        VoprfServerLen<CS>: ArrayLength<u8>,
-    {
+    pub fn serialize(&self) -> GenericArray<u8, VoprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
 
@@ -185,17 +149,9 @@ pub type PoprfServerLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ElemLen,
 >;
 
-impl<CS: CipherSuite> PoprfServer<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> PoprfServer<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, PoprfServerLen<CS>>
-    where
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ElemLen>,
-        PoprfServerLen<CS>: ArrayLength<u8>,
-    {
+    pub fn serialize(&self) -> GenericArray<u8, PoprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
 
@@ -217,17 +173,9 @@ pub type ProofLen<CS> = Sum<
     <<CS as CipherSuite>::Group as Group>::ScalarLen,
 >;
 
-impl<CS: CipherSuite> Proof<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> Proof<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, ProofLen<CS>>
-    where
-        <CS::Group as Group>::ScalarLen: Add<<CS::Group as Group>::ScalarLen>,
-        ProofLen<CS>: ArrayLength<u8>,
-    {
+    pub fn serialize(&self) -> GenericArray<u8, ProofLen<CS>> {
         CS::Group::serialize_scalar(self.c_scalar)
             .concat(CS::Group::serialize_scalar(self.s_scalar))
     }
@@ -247,11 +195,7 @@ where
 /// Length of [`BlindedElement`] in bytes for serialization.
 pub type BlindedElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemLen;
 
-impl<CS: CipherSuite> BlindedElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> BlindedElement<CS> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, BlindedElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
@@ -271,11 +215,7 @@ where
 /// Length of [`EvaluationElement`] in bytes for serialization.
 pub type EvaluationElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemLen;
 
-impl<CS: CipherSuite> EvaluationElement<CS>
-where
-    <CS::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<CS::Hash as BlockSizeUser>::BlockSize>,
-{
+impl<CS: CipherSuite> EvaluationElement<CS> {
     /// Serialization into bytes
     pub fn serialize(&self) -> GenericArray<u8, EvaluationElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
