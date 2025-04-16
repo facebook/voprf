@@ -14,14 +14,14 @@ use core::iter::{self, Map, Repeat, Zip};
 
 use derive_where::derive_where;
 use digest::{Digest, Output};
-use generic_array::typenum::Unsigned;
-use generic_array::GenericArray;
-use rand_core::{CryptoRng, RngCore};
+use hybrid_array::Array;
+use hybrid_array::typenum::Unsigned;
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use crate::common::{
+    BlindedElement, EvaluationElement, Mode, PreparedEvaluationElement, Proof, STR_FINALIZE,
     derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
-    server_evaluate_hash_input, verify_proof, BlindedElement, EvaluationElement, Mode,
-    PreparedEvaluationElement, Proof, STR_FINALIZE,
+    server_evaluate_hash_input, verify_proof,
 };
 #[cfg(feature = "serde")]
 use crate::serialization::serde::{Element, Scalar};
@@ -75,12 +75,12 @@ impl<CS: CipherSuite> VoprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    pub fn blind<R: RngCore + CryptoRng>(
+    pub fn blind<R: TryRngCore + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
-    ) -> Result<VoprfClientBlindResult<CS>> {
-        let blind = CS::Group::random_scalar(blinding_factor_rng);
-        Self::deterministic_blind_unchecked_inner(input, blind)
+    ) -> Result<VoprfClientBlindResult<CS>, Error<R::Error>> {
+        let blind = CS::Group::random_scalar(blinding_factor_rng).map_err(Error::Random)?;
+        Self::deterministic_blind_unchecked_inner(input, blind).map_err(Error::cast)
     }
 
     /// Computes the first step for the multiplicative blinding version of
@@ -196,11 +196,11 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
-        let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.fill_bytes(&mut seed);
+    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self, Error<R::Error>> {
+        let mut seed = Array::<_, <CS::Group as Group>::ScalarLen>::default();
+        rng.try_fill_bytes(&mut seed).map_err(Error::Random)?;
         // This can't fail as the hash output is type constrained.
-        Self::new_from_seed(&seed, &[])
+        Self::new_from_seed(&seed, &[]).map_err(Error::cast)
     }
 
     /// Produces a new instance of a [VoprfServer] using a supplied set of
@@ -238,7 +238,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
-    pub fn blind_evaluate<R: RngCore + CryptoRng>(
+    pub fn blind_evaluate<R: TryRngCore + TryCryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
@@ -271,11 +271,11 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     /// [`Error::Batch`] if the number of `blinded_elements` and
     /// `evaluation_elements` don't match or is longer then [`u16::MAX`]
     #[cfg(feature = "alloc")]
-    pub fn batch_blind_evaluate<'a, R: RngCore + CryptoRng, I>(
+    pub fn batch_blind_evaluate<'a, R: TryRngCore + TryCryptoRng, I>(
         &self,
         rng: &mut R,
         blinded_elements: &'a I,
-    ) -> Result<VoprfServerBatchEvaluateResult<CS>>
+    ) -> Result<VoprfServerBatchEvaluateResult<CS>, Error<R::Error>>
     where
         CS: 'a,
         &'a I: IntoIterator<Item = &'a BlindedElement<CS>>,
@@ -322,7 +322,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     pub fn batch_blind_evaluate_finish<
         'a,
         'b,
-        R: RngCore + CryptoRng,
+        R: TryRngCore + TryCryptoRng,
         IB: Iterator<Item = &'a BlindedElement<CS>> + ExactSizeIterator,
         IE,
     >(
@@ -330,7 +330,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
         rng: &mut R,
         blinded_elements: IB,
         evaluation_elements: &'b IE,
-    ) -> Result<VoprfServerBatchEvaluateFinishResult<'b, CS, IE>>
+    ) -> Result<VoprfServerBatchEvaluateFinishResult<'b, CS, IE>, Error<R::Error>>
     where
         CS: 'a + 'b,
         &'b IE: IntoIterator<Item = &'b PreparedEvaluationElement<CS>>,
@@ -343,14 +343,14 @@ impl<CS: CipherSuite> VoprfServer<CS> {
             g,
             self.pk,
             blinded_elements.map(|element| element.0),
-            evaluation_elements.into_iter().map(|element| element.0 .0),
+            evaluation_elements.into_iter().map(|element| element.0.0),
             Mode::Voprf,
         )?;
 
         let messages = evaluation_elements.into_iter().map(<fn(
             &PreparedEvaluationElement<CS>,
         ) -> EvaluationElement<CS>>::from(
-            |element| EvaluationElement(element.0 .0),
+            |element| EvaluationElement(element.0.0),
         ));
 
         Ok(VoprfServerBatchEvaluateFinishResult { messages, proof })
@@ -553,16 +553,16 @@ mod tests {
     use rand::rngs::OsRng;
 
     use super::*;
-    use crate::common::{Dst, STR_HASH_TO_GROUP};
     use crate::Group;
+    use crate::common::{Dst, STR_HASH_TO_GROUP};
 
     fn prf<CS: CipherSuite>(
         input: &[u8],
         key: <CS::Group as Group>::Scalar,
         mode: Mode,
     ) -> Output<CS::Hash> {
-        let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, mode);
-        let point = CS::Group::hash_to_curve::<CS::Hash>(&[input], &dst.as_dst()).unwrap();
+        let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, mode);
+        let point = CS::Group::hash_to_curve::<CS::ExpandMsg>(&[input], &dst.as_dst()).unwrap();
 
         let res = point * &key;
 
@@ -599,7 +599,7 @@ mod tests {
         let num_iterations = 10;
         for _ in 0..num_iterations {
             let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
+            rng.try_fill_bytes(&mut input).unwrap();
             let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
@@ -643,7 +643,7 @@ mod tests {
         let num_iterations = 10;
         for _ in 0..num_iterations {
             let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
+            rng.try_fill_bytes(&mut input).unwrap();
             let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
@@ -662,9 +662,9 @@ mod tests {
             .unwrap();
         let messages: Vec<_> = messages.collect();
         let wrong_pk = {
-            let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
+            let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
+            CS::Group::hash_to_curve::<CS::ExpandMsg>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result =
             VoprfClient::batch_finalize(&inputs, &client_states, &messages, &proof, wrong_pk);
@@ -678,9 +678,9 @@ mod tests {
         let server = VoprfServer::<CS>::new(&mut rng).unwrap();
         let server_result = server.blind_evaluate(&mut rng, &client_blind_result.message);
         let wrong_pk = {
-            let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
+            let dst = Dst::new::<CS, _>(STR_HASH_TO_GROUP, Mode::Oprf);
             // Choose a group element that is unlikely to be the right public key
-            CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
+            CS::Group::hash_to_curve::<CS::ExpandMsg>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
             input,
@@ -772,6 +772,20 @@ mod tests {
 
             zeroize_voprf_client::<Ristretto255>();
             zeroize_voprf_server::<Ristretto255>();
+        }
+
+        #[cfg(feature = "decaf448")]
+        {
+            use crate::Decaf448;
+
+            verifiable_retrieval::<Decaf448>();
+            verifiable_batch_retrieval::<Decaf448>();
+            verifiable_bad_public_key::<Decaf448>();
+            verifiable_batch_bad_public_key::<Decaf448>();
+            verifiable_server_evaluate::<Decaf448>();
+
+            zeroize_voprf_client::<Decaf448>();
+            zeroize_voprf_server::<Decaf448>();
         }
 
         verifiable_retrieval::<NistP256>();

@@ -11,15 +11,15 @@
 use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker, OutputSizeUser};
 use elliptic_curve::VoprfParameters;
-use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
+use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd};
+use hybrid_array::typenum::{IsLess, IsLessOrEqual, U256, U65536};
 
 use crate::Group;
 
 /// Configures the underlying primitives used in VOPRF
 pub trait CipherSuite
 where
-    <Self::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<Self::Hash as BlockSizeUser>::BlockSize>,
+    <Self::Hash as OutputSizeUser>::OutputSize: IsLess<U65536>,
 {
     /// The ciphersuite identifier as dictated by
     /// <https://www.rfc-editor.org/rfc/rfc9497>
@@ -31,7 +31,11 @@ where
 
     /// The main hash function to use (for HKDF computations and hashing
     /// transcripts).
-    type Hash: BlockSizeUser + Default + FixedOutput + HashMarker;
+    type Hash: Default + FixedOutput + HashMarker;
+
+    /// Which function to use for `expand_message` in `HashToGroup()` and
+    /// `HashToScalar()`.
+    type ExpandMsg: for<'a> ExpandMsg<'a>;
 }
 
 impl<T: VoprfParameters> CipherSuite for T
@@ -39,11 +43,13 @@ where
     T: Group,
     T::Hash: BlockSizeUser + Default + FixedOutput + HashMarker,
     <T::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
+        IsLess<U256> + IsLess<U65536> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
 {
     const ID: &'static str = T::ID;
 
     type Group = T;
 
     type Hash = T::Hash;
+
+    type ExpandMsg = ExpandMsgXmd<Self::Hash>;
 }

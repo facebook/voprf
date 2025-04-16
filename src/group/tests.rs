@@ -27,6 +27,14 @@ fn test_group_properties() -> Result<()> {
         test_zero_scalar_error::<Ristretto255>()?;
     }
 
+    #[cfg(feature = "decaf448")]
+    {
+        use crate::Decaf448;
+
+        test_identity_element_error::<Decaf448>()?;
+        test_zero_scalar_error::<Decaf448>()?;
+    }
+
     test_identity_element_error::<NistP256>()?;
     test_zero_scalar_error::<NistP256>()?;
 

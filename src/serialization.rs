@@ -9,9 +9,8 @@
 //! Handles the serialization of each of the components used in the VOPRF
 //! protocol
 
-use generic_array::sequence::Concat;
-use generic_array::typenum::{Sum, Unsigned};
-use generic_array::GenericArray;
+use hybrid_array::Array;
+use hybrid_array::typenum::{Sum, Unsigned};
 
 use crate::{
     BlindedElement, CipherSuite, Error, EvaluationElement, Group, OprfClient, OprfServer,
@@ -28,7 +27,7 @@ pub type OprfClientLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
 impl<CS: CipherSuite> OprfClient<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, OprfClientLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, OprfClientLen<CS>> {
         CS::Group::serialize_scalar(self.blind)
     }
 
@@ -51,7 +50,7 @@ pub type VoprfClientLen<CS> = Sum<
 
 impl<CS: CipherSuite> VoprfClient<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfClientLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, VoprfClientLen<CS>> {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
     }
@@ -79,7 +78,7 @@ pub type PoprfClientLen<CS> = Sum<
 
 impl<CS: CipherSuite> PoprfClient<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, PoprfClientLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, PoprfClientLen<CS>> {
         <CS::Group as Group>::serialize_scalar(self.blind)
             .concat(<CS::Group as Group>::serialize_elem(self.blinded_element))
     }
@@ -104,7 +103,7 @@ pub type OprfServerLen<CS> = <<CS as CipherSuite>::Group as Group>::ScalarLen;
 
 impl<CS: CipherSuite> OprfServer<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, OprfServerLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, OprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk)
     }
 
@@ -127,7 +126,7 @@ pub type VoprfServerLen<CS> = Sum<
 
 impl<CS: CipherSuite> VoprfServer<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, VoprfServerLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, VoprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
 
@@ -151,7 +150,7 @@ pub type PoprfServerLen<CS> = Sum<
 
 impl<CS: CipherSuite> PoprfServer<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, PoprfServerLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, PoprfServerLen<CS>> {
         CS::Group::serialize_scalar(self.sk).concat(CS::Group::serialize_elem(self.pk))
     }
 
@@ -175,7 +174,7 @@ pub type ProofLen<CS> = Sum<
 
 impl<CS: CipherSuite> Proof<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, ProofLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, ProofLen<CS>> {
         CS::Group::serialize_scalar(self.c_scalar)
             .concat(CS::Group::serialize_scalar(self.s_scalar))
     }
@@ -197,7 +196,7 @@ pub type BlindedElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemLen;
 
 impl<CS: CipherSuite> BlindedElement<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, BlindedElementLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, BlindedElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
     }
 
@@ -217,7 +216,7 @@ pub type EvaluationElementLen<CS> = <<CS as CipherSuite>::Group as Group>::ElemL
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
     /// Serialization into bytes
-    pub fn serialize(&self) -> GenericArray<u8, EvaluationElementLen<CS>> {
+    pub fn serialize(&self) -> Array<u8, EvaluationElementLen<CS>> {
         CS::Group::serialize_elem(self.0)
     }
 
@@ -266,7 +265,7 @@ impl<T> SliceExt for [T] {
 pub(crate) mod serde {
     use core::marker::PhantomData;
 
-    use generic_array::GenericArray;
+    use hybrid_array::Array;
     use serde::de::{Deserializer, Error};
     use serde::ser::Serializer;
     use serde::{Deserialize, Serialize};
@@ -280,7 +279,7 @@ pub(crate) mod serde {
         where
             D: Deserializer<'de>,
         {
-            GenericArray::<_, G::ElemLen>::deserialize(deserializer)
+            Array::<_, G::ElemLen>::deserialize(deserializer)
                 .and_then(|bytes| G::deserialize_elem(&bytes).map_err(D::Error::custom))
         }
 
@@ -299,7 +298,7 @@ pub(crate) mod serde {
         where
             D: Deserializer<'de>,
         {
-            GenericArray::<_, G::ScalarLen>::deserialize(deserializer)
+            Array::<_, G::ScalarLen>::deserialize(deserializer)
                 .and_then(|bytes| G::deserialize_scalar(&bytes).map_err(D::Error::custom))
         }
 
@@ -327,6 +326,10 @@ mod test {
             #[cfg(feature = "ristretto255")]
             {
                 let _ = $item::<crate::Ristretto255>::deserialize(&$bytes[..]);
+            }
+            #[cfg(feature = "decaf448")]
+            {
+                let _ = $item::<crate::Decaf448>::deserialize(&$bytes[..]);
             }
 
             let _ = $item::<p256::NistP256>::deserialize(&$bytes[..]);
