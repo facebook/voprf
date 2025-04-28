@@ -17,7 +17,7 @@ danger = []
 default = ["ristretto255-ciphersuite", "dep:serde"]
 ristretto255 = ["dep:curve25519-dalek", "generic-array/more_lengths"]
 ristretto255-ciphersuite = ["ristretto255", "dep:sha2"]
-serde = ["generic-array/serde", "dep:serde"]
+serde = ["curve25519-dalek?/serde", "generic-array/serde", "dep:serde"]
 std = ["alloc"]
 
 [dependencies]
