@@ -23,6 +23,15 @@ voprf = "0.5"
 
 Rust **1.65** or higher.
 
+Microbenchmarks
+---------------
+
+The library also comes with a suite of microbenchmarks for each mode `oprf`, `voprf`, `poprf` that can be run via:
+```
+cargo bench --bench <name_of_mode>
+```
+
+
 Contributors
 ------------
 
