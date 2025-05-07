@@ -96,9 +96,10 @@ impl Group for Ristretto255 {
 
     fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
         loop {
-            let scalar = Scalar::random(rng);
+            let mut scalar_bytes = [0u8; 32];
+            rng.fill_bytes(&mut scalar_bytes);
 
-            if scalar != Scalar::ZERO {
+            if let Ok(scalar) = Self::deserialize_scalar(&scalar_bytes) {
                 break scalar;
             }
         }
