@@ -103,7 +103,39 @@ jobs:
       - uses: hecrj/setup-rust-action@v2
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --verbose --target=${{ matrix.target }} --no-default-features ${{ matrix.frontend_feature }} ${{ matrix.backend_feature }}
+  
+  benches:
+    name: cargo bench compilation
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend_feature:
+          - --features ristretto255-ciphersuite
+          -
+        frontend_feature:
+          -
+          - --features danger
+          - --features serde
+        toolchain:
+          - stable
+          - 1.65.0
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
 
+      - name: Install ${{ matrix.toolchain }} toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+
+      - name: Run cargo bench --no-run
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --no-default-features ${{ matrix.backend_feature }} --no-run
 
   clippy:
     name: cargo clippy
