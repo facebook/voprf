@@ -34,7 +34,7 @@ elliptic-curve = { version = "0.13", features = [
   "voprf",
 ] }
 generic-array = "0.14"
-rand_core = { version = "0.6", default-features = false }
+rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
