@@ -39,9 +39,8 @@ impl<T: VoprfParameters> CipherSuite for T
 where
     T: Group,
     T::Hash: BlockSizeUser + Default + FixedOutput + HashMarker,
-    <T::Hash as OutputSizeUser>::OutputSize: ArrayLength
-        + IsLess<U256>
-        + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
+    <T::Hash as OutputSizeUser>::OutputSize:
+        ArrayLength + IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
 {
     const ID: &'static str = T::ID;
 

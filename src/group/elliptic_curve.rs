@@ -113,9 +113,7 @@ where
     fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
         let bytes: FieldBytes<Self> = scalar.into();
         let mut result = GenericArray::<u8, Self::ScalarLen>::default();
-        result
-            .as_mut_slice()
-            .copy_from_slice(bytes.as_ref());
+        result.as_mut_slice().copy_from_slice(bytes.as_ref());
         result
     }
 
