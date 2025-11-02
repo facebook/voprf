@@ -14,7 +14,8 @@ use elliptic_curve::group::cofactor::CofactorGroup;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, FromOkm, GroupDigest};
 use elliptic_curve::sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{
-    AffinePoint, Field, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar, SecretKey,
+    AffinePoint, Field, FieldBytes, FieldBytesSize, Group as _, ProjectivePoint, PublicKey, Scalar,
+    SecretKey,
 };
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
@@ -31,14 +32,16 @@ where
     C: GroupDigest,
     ProjectivePoint<Self>: CofactorGroup + ToEncodedPoint<Self>,
     ScalarLen<Self>: ModulusSize,
+    ScalarLen<Self>: ArrayLength,
     AffinePoint<Self>: FromEncodedPoint<Self> + ToEncodedPoint<Self>,
     Scalar<Self>: FromOkm,
     // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
     ScalarLen<Self>: Add<ElemLen<Self>>,
-    Sum<ScalarLen<Self>, ElemLen<Self>>: ArrayLength<u8>,
+    Sum<ScalarLen<Self>, ElemLen<Self>>: ArrayLength,
     // `ProofLen`
     ScalarLen<Self>: Add<ScalarLen<Self>>,
-    Sum<ScalarLen<Self>, ScalarLen<Self>>: ArrayLength<u8>,
+    Sum<ScalarLen<Self>, ScalarLen<Self>>: ArrayLength,
+    ElemLen<Self>: ArrayLength,
 {
     type Elem = ProjectivePoint<Self>;
 
@@ -108,7 +111,12 @@ where
     }
 
     fn serialize_scalar(scalar: Self::Scalar) -> GenericArray<u8, Self::ScalarLen> {
-        scalar.into()
+        let bytes: FieldBytes<Self> = scalar.into();
+        let mut result = GenericArray::<u8, Self::ScalarLen>::default();
+        result
+            .as_mut_slice()
+            .copy_from_slice(bytes.as_ref());
+        result
     }
 
     fn deserialize_scalar(scalar_bits: &[u8]) -> Result<Self::Scalar> {

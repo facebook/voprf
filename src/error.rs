@@ -8,13 +8,11 @@
 
 //! Errors which are produced during an execution of the protocol
 
-use displaydoc::Display;
-
 /// [`Result`](core::result::Result) shorthand that uses [`Error`].
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Represents an error in the manipulation of internal cryptographic data
-#[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Error {
     /// Size of info is longer then [`u16::MAX`].
     Info,
@@ -42,3 +40,19 @@ pub enum InternalError {
 }
 
 impl core::error::Error for Error {}
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let message = match self {
+            Self::Info => "Size of info is longer then u16::MAX.",
+            Self::Input => "Size of input is empty or longer then u16::MAX.",
+            Self::DeriveKeyPair => "Size of info and seed together are longer then u16::MAX - 3.",
+            Self::Deserialization => "Failure to deserialize bytes.",
+            Self::Batch => "Batched items are more then u16::MAX or length don't match.",
+            Self::ProofVerification => "In verifiable mode, occurs when the proof failed to verify.",
+            Self::Protocol => "The protocol has failed and can't be completed.",
+        };
+
+        f.write_str(message)
+    }
+}
