@@ -12,7 +12,7 @@ use core::convert::TryFrom;
 use core::ops::Add;
 
 use derive_where::derive_where;
-use digest::{Digest, Output};
+use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, Unsigned, U2, U256, U9};
 use generic_array::{ArrayLength, GenericArray};
@@ -283,7 +283,7 @@ fn compute_composites<
         .chain_update(seed_dst.i2osp_2())
         .chain_update_multi(&seed_dst.as_dst())
         .finalize();
-    let seed_len = i2osp_2_array(&seed);
+    let seed_len = i2osp_2_array::<<CS::Hash as OutputSizeUser>::OutputSize>();
 
     let mut m = CS::Group::identity_elem();
     let mut z = CS::Group::identity_elem();
@@ -442,23 +442,23 @@ pub(crate) fn server_evaluate_hash_input<CS: CipherSuite>(
             .chain_update(info.as_ref());
     }
     Ok(hash
-        .chain_update(i2osp_2(issued_element.as_ref().len()).map_err(|_| Error::Input)?)
+        .chain_update(i2osp_2(issued_element.as_slice().len()).map_err(|_| Error::Input)?)
         .chain_update(issued_element)
         .chain_update(STR_FINALIZE)
         .finalize())
 }
 
-pub(crate) struct Dst<L: ArrayLength<u8>> {
+pub(crate) struct Dst<L: ArrayLength> {
     dst_1: GenericArray<u8, L>,
     dst_2: &'static str,
 }
 
-impl<L: ArrayLength<u8>> Dst<L> {
+impl<L: ArrayLength> Dst<L> {
     pub(crate) fn new<CS, T, TL>(par_1: T, mode: Mode) -> Self
     where
         CS: CipherSuite,
         T: Into<GenericArray<u8, TL>>,
-        TL: ArrayLength<u8> + Add<U9, Output = L>,
+        TL: ArrayLength + Add<U9, Output = L>,
     {
         let par_1 = par_1.into();
         // Generates the contextString parameter as defined in
@@ -518,8 +518,6 @@ pub(crate) fn i2osp_2(input: usize) -> Result<[u8; 2], InternalError> {
         .map_err(|_| InternalError::I2osp)
 }
 
-pub(crate) fn i2osp_2_array<L: ArrayLength<u8> + IsLess<U256>>(
-    _: &GenericArray<u8, L>,
-) -> GenericArray<u8, U2> {
+pub(crate) fn i2osp_2_array<L: ArrayLength + IsLess<U256>>() -> GenericArray<u8, U2> {
     L::U16.to_be_bytes().into()
 }

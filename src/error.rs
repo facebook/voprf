@@ -8,13 +8,11 @@
 
 //! Errors which are produced during an execution of the protocol
 
-use displaydoc::Display;
-
 /// [`Result`](core::result::Result) shorthand that uses [`Error`].
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Represents an error in the manipulation of internal cryptographic data
-#[derive(Clone, Copy, Debug, Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, displaydoc::Display, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Error {
     /// Size of info is longer then [`u16::MAX`].
     Info,

@@ -15,7 +15,7 @@ use core::iter::{self, Map, Repeat, Zip};
 use derive_where::derive_where;
 use digest::{Digest, Output, OutputSizeUser};
 use generic_array::typenum::Unsigned;
-use generic_array::GenericArray;
+use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::common::{
@@ -132,7 +132,10 @@ impl<CS: CipherSuite> PoprfClient<CS> {
         proof: &Proof<CS>,
         pk: <CS::Group as Group>::Elem,
         info: Option<&[u8]>,
-    ) -> Result<Output<CS::Hash>> {
+    ) -> Result<Output<CS::Hash>>
+    where
+        <<CS as CipherSuite>::Hash as OutputSizeUser>::OutputSize: ArrayLength,
+    {
         let clients = core::array::from_ref(self);
         let messages = core::array::from_ref(evaluation_element);
 
@@ -167,6 +170,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
         <&'a IC as IntoIterator>::IntoIter: ExactSizeIterator,
         &'a IM: 'a + IntoIterator<Item = &'a EvaluationElement<CS>>,
         <&'a IM as IntoIterator>::IntoIter: ExactSizeIterator,
+        <<CS as CipherSuite>::Hash as OutputSizeUser>::OutputSize: ArrayLength,
     {
         let unblinded_elements = poprf_unblind(clients, messages, pk, proof, info)?;
 
@@ -672,7 +676,7 @@ type FinalizeAfterUnblindResult<'a, CS, IE, II> = Map<
     Zip<Zip<IE, II>, Repeat<&'a [u8]>>,
     fn(
         ((<<CS as CipherSuite>::Group as Group>::Elem, &[u8]), &[u8]),
-    ) -> Result<GenericArray<u8, <<CS as CipherSuite>::Hash as OutputSizeUser>::OutputSize>>,
+    ) -> Result<Output<<CS as CipherSuite>::Hash>>,
 >;
 
 /// Can only fail with [`Error::Batch`] and returned values can only fail with
@@ -686,7 +690,10 @@ fn finalize_after_unblind<
     unblinded_elements: IE,
     inputs: II,
     info: Option<&'a [u8]>,
-) -> Result<FinalizeAfterUnblindResult<'a, CS, IE, II>> {
+) -> Result<FinalizeAfterUnblindResult<'a, CS, IE, II>>
+where
+    <<CS as CipherSuite>::Hash as OutputSizeUser>::OutputSize: ArrayLength,
+{
     if unblinded_elements.len() != inputs.len() {
         return Err(Error::Batch);
     }

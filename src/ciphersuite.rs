@@ -12,6 +12,7 @@ use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker, OutputSizeUser};
 use elliptic_curve::VoprfParameters;
 use generic_array::typenum::{IsLess, IsLessOrEqual, U256};
+use generic_array::ArrayLength;
 
 use crate::Group;
 
@@ -19,7 +20,7 @@ use crate::Group;
 pub trait CipherSuite
 where
     <Self::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<Self::Hash as BlockSizeUser>::BlockSize>,
+        ArrayLength + IsLess<U256> + IsLessOrEqual<<Self::Hash as BlockSizeUser>::BlockSize>,
 {
     /// The ciphersuite identifier as dictated by
     /// <https://www.rfc-editor.org/rfc/rfc9497>
@@ -39,7 +40,7 @@ where
     T: Group,
     T::Hash: BlockSizeUser + Default + FixedOutput + HashMarker,
     <T::Hash as OutputSizeUser>::OutputSize:
-        IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
+        ArrayLength + IsLess<U256> + IsLessOrEqual<<T::Hash as BlockSizeUser>::BlockSize>,
 {
     const ID: &'static str = T::ID;
 

@@ -32,10 +32,10 @@ pub trait Group
 where
     // `VoprfClientLen`, `PoprfClientLen`, `VoprfServerLen`, `PoprfServerLen`
     Self::ScalarLen: Add<Self::ElemLen>,
-    Sum<Self::ScalarLen, Self::ElemLen>: ArrayLength<u8>,
+    Sum<Self::ScalarLen, Self::ElemLen>: ArrayLength,
     // `ProofLen`
     Self::ScalarLen: Add<Self::ScalarLen>,
-    Sum<Self::ScalarLen, Self::ScalarLen>: ArrayLength<u8>,
+    Sum<Self::ScalarLen, Self::ScalarLen>: ArrayLength,
 {
     /// The type of group elements
     type Elem: ConstantTimeEq
@@ -45,7 +45,7 @@ where
         + for<'a> Mul<&'a Self::Scalar, Output = Self::Elem>;
 
     /// The byte length necessary to represent group elements
-    type ElemLen: ArrayLength<u8> + 'static;
+    type ElemLen: ArrayLength + 'static;
 
     /// The type of base field scalars
     type Scalar: ConstantTimeEq
@@ -56,7 +56,7 @@ where
         + for<'a> Sub<&'a Self::Scalar, Output = Self::Scalar>;
 
     /// The byte length necessary to represent scalars
-    type ScalarLen: ArrayLength<u8> + 'static;
+    type ScalarLen: ArrayLength + 'static;
 
     /// Transforms a password and domain separation tag (DST) into a curve point
     ///
