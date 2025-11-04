@@ -198,8 +198,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
     pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.try_fill_bytes(&mut seed)
-            .map_err(|_| Error::Protocol)?;
+        rng.try_fill_bytes(&mut seed).map_err(|_| Error::Protocol)?;
         // This can't fail as the hash output is type constrained.
         Self::new_from_seed(&seed, &[])
     }
