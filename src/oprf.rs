@@ -14,7 +14,7 @@ use derive_where::derive_where;
 use digest::{Digest, Output};
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use crate::common::{
     derive_key_internal, deterministic_blind_unchecked, hash_to_group, i2osp_2,
@@ -73,7 +73,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    pub fn blind<R: RngCore + CryptoRng>(
+    pub fn blind<R: TryRngCore + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<OprfClientBlindResult<CS>> {
@@ -146,9 +146,10 @@ impl<CS: CipherSuite> OprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.fill_bytes(&mut seed);
+        rng.try_fill_bytes(&mut seed)
+            .map_err(|_| Error::Protocol)?;
         Self::new_from_seed(&seed, &[])
     }
 
@@ -268,6 +269,7 @@ mod tests {
     use core::ptr;
 
     use rand::rngs::OsRng;
+    use rand::TryRngCore;
 
     use super::*;
     use crate::common::{Dst, STR_HASH_TO_GROUP};
@@ -304,7 +306,7 @@ mod tests {
     fn base_inversion_unsalted<CS: CipherSuite>() {
         let mut rng = OsRng;
         let mut input = [0u8; 64];
-        rng.fill_bytes(&mut input);
+        rng.try_fill_bytes(&mut input).unwrap();
         let client_blind_result = OprfClient::<CS>::blind(&input, &mut rng).unwrap();
         let client_finalize_result = client_blind_result
             .state
