@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0-pre.0 (November 8, 2025)
+* MSRV bumped to 1.83
+* Updated Ristretto255 random scalar generation
+* Updated generic-array to v1
+
 ## 0.5.0 (March 6, 2024)
 * Just a version bump from v0.5.0-pre.7
 
