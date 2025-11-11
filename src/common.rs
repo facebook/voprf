@@ -16,7 +16,7 @@ use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, Unsigned, U2, U256, U9};
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{TryCryptoRng, TryRngCore};
 use subtle::ConstantTimeEq;
 
 #[cfg(feature = "serde")]
@@ -128,7 +128,7 @@ pub struct Proof<CS: CipherSuite> {
 
 /// Can only fail with [`Error::Batch`].
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn generate_proof<CS: CipherSuite, R: RngCore + CryptoRng>(
+pub(crate) fn generate_proof<CS: CipherSuite, R: TryRngCore + TryCryptoRng>(
     rng: &mut R,
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,

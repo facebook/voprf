@@ -6,6 +6,7 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
+use core::num::NonZeroU32;
 use core::ops::Add;
 
 use digest::core_api::BlockSizeUser;
@@ -19,7 +20,7 @@ use elliptic_curve::{
 };
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use super::Group;
 use crate::{Error, InternalError, Result};
@@ -93,8 +94,8 @@ where
             .map_err(|_| Error::Deserialization)
     }
 
-    fn random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Self::Scalar {
-        *SecretKey::<Self>::random(rng).to_nonzero_scalar()
+    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Self::Scalar {
+        *SecretKey::<Self>::random(&mut CompatRng(rng)).to_nonzero_scalar()
     }
 
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
@@ -122,4 +123,40 @@ where
             .map(|secret_key| *secret_key.to_nonzero_scalar())
             .map_err(|_| Error::Deserialization)
     }
+}
+
+/// Adapter allowing `rand_core 0.9` RNGs to satisfy the `elliptic_curve` 0.13
+/// requirement for `rand_core 0.6` traits.
+struct CompatRng<'a, R>(&'a mut R);
+
+impl<'a, R> elliptic_curve::rand_core::RngCore for CompatRng<'a, R>
+where
+    R: TryRngCore,
+{
+    fn next_u32(&mut self) -> u32 {
+        self.0.try_next_u32().expect("RNG failure")
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0.try_next_u64().expect("RNG failure")
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0
+            .try_fill_bytes(dest)
+            .expect("RNG failure while filling bytes");
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), elliptic_curve::rand_core::Error> {
+        self.0.try_fill_bytes(dest).map_err(|_| compat_error())?;
+        Ok(())
+    }
+}
+
+impl<'a, R> elliptic_curve::rand_core::CryptoRng for CompatRng<'a, R> where R: TryCryptoRng {}
+
+fn compat_error() -> elliptic_curve::rand_core::Error {
+    let code = NonZeroU32::new(elliptic_curve::rand_core::Error::CUSTOM_START)
+        .expect("CUSTOM_START must be non-zero");
+    elliptic_curve::rand_core::Error::from(code)
 }

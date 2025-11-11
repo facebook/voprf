@@ -16,7 +16,7 @@ use derive_where::derive_where;
 use digest::{Digest, Output};
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use crate::common::{
     derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
@@ -75,7 +75,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    pub fn blind<R: RngCore + CryptoRng>(
+    pub fn blind<R: TryRngCore + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<VoprfClientBlindResult<CS>> {
@@ -196,9 +196,9 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.fill_bytes(&mut seed);
+        rng.try_fill_bytes(&mut seed).map_err(|_| Error::Protocol)?;
         // This can't fail as the hash output is type constrained.
         Self::new_from_seed(&seed, &[])
     }
@@ -238,7 +238,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     /// Computes the second step for the multiplicative blinding version of
     /// DH-OPRF. This message is sent from the server (who holds the OPRF key)
     /// to the client.
-    pub fn blind_evaluate<R: RngCore + CryptoRng>(
+    pub fn blind_evaluate<R: TryRngCore + TryCryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
@@ -271,7 +271,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     /// [`Error::Batch`] if the number of `blinded_elements` and
     /// `evaluation_elements` don't match or is longer then [`u16::MAX`]
     #[cfg(feature = "alloc")]
-    pub fn batch_blind_evaluate<'a, R: RngCore + CryptoRng, I>(
+    pub fn batch_blind_evaluate<'a, R: TryRngCore + TryCryptoRng, I>(
         &self,
         rng: &mut R,
         blinded_elements: &'a I,
@@ -322,7 +322,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
     pub fn batch_blind_evaluate_finish<
         'a,
         'b,
-        R: RngCore + CryptoRng,
+        R: TryRngCore + TryCryptoRng,
         IB: Iterator<Item = &'a BlindedElement<CS>> + ExactSizeIterator,
         IE,
     >(
@@ -599,7 +599,7 @@ mod tests {
         let num_iterations = 10;
         for _ in 0..num_iterations {
             let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
+            rng.try_fill_bytes(&mut input).unwrap();
             let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);
@@ -643,7 +643,7 @@ mod tests {
         let num_iterations = 10;
         for _ in 0..num_iterations {
             let mut input = [0u8; 32];
-            rng.fill_bytes(&mut input);
+            rng.try_fill_bytes(&mut input).unwrap();
             let client_blind_result = VoprfClient::<CS>::blind(&input, &mut rng).unwrap();
             inputs.push(input);
             client_states.push(client_blind_result.state);

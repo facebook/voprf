@@ -16,7 +16,7 @@ use derive_where::derive_where;
 use digest::{Digest, Output, OutputSizeUser};
 use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{TryCryptoRng, TryRngCore};
 
 use crate::common::{
     derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
@@ -75,7 +75,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
-    pub fn blind<R: RngCore + CryptoRng>(
+    pub fn blind<R: TryRngCore + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<PoprfClientBlindResult<CS>> {
@@ -189,9 +189,9 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
-        rng.fill_bytes(&mut seed);
+        rng.try_fill_bytes(&mut seed).map_err(|_| Error::Protocol)?;
 
         Self::new_from_seed(&seed, &[])
     }
@@ -235,7 +235,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     /// # Errors
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn blind_evaluate<R: RngCore + CryptoRng>(
+    pub fn blind_evaluate<R: TryRngCore + TryCryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
@@ -273,7 +273,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     #[cfg(feature = "alloc")]
-    pub fn batch_blind_evaluate<'a, R: RngCore + CryptoRng, IE>(
+    pub fn batch_blind_evaluate<'a, R: TryRngCore + TryCryptoRng, IE>(
         &self,
         rng: &mut R,
         blinded_elements: &'a IE,
@@ -346,7 +346,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     pub fn batch_blind_evaluate_finish<
         'a,
         'b,
-        R: RngCore + CryptoRng,
+        R: TryRngCore + TryCryptoRng,
         IB: Iterator<Item = &'a BlindedElement<CS>> + ExactSizeIterator,
         IE,
     >(
