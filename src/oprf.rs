@@ -122,10 +122,26 @@ impl<CS: CipherSuite> OprfClient<CS> {
         input: &[u8],
         evaluation_element: &EvaluationElement<CS>,
     ) -> Result<Output<CS::Hash>> {
-        let unblinded_element = evaluation_element.0 * &CS::Group::invert_scalar(self.blind);
+        let unblinded_element = self.unblind_element(evaluation_element);
         let mut outputs =
             finalize_after_unblind::<CS, _, _>(iter::once((input, unblinded_element)), &[]);
         outputs.next().unwrap()
+    }
+
+    /// Computes the unblinding step for the base OPRF protocol and returns the
+    /// serialized group element prior to finalization.
+    pub fn unblind(
+        &self,
+        evaluation_element: &EvaluationElement<CS>,
+    ) -> GenericArray<u8, <CS::Group as Group>::ElemLen> {
+        CS::Group::serialize_elem(self.unblind_element(evaluation_element))
+    }
+
+    fn unblind_element(
+        &self,
+        evaluation_element: &EvaluationElement<CS>,
+    ) -> <CS::Group as Group>::Elem {
+        evaluation_element.0 * &CS::Group::invert_scalar(self.blind)
     }
 
     /// Only used for test functions
