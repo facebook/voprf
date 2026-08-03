@@ -18,7 +18,7 @@ use digest::core_api::BlockSizeUser;
 use digest::{FixedOutput, HashMarker};
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{TryCryptoRng, TryRngCore};
+use rand_core::{TryCryptoRng, TryRng};
 #[cfg(feature = "ristretto255")]
 pub use ristretto::Ristretto255;
 use subtle::{Choice, ConstantTimeEq};
@@ -104,7 +104,7 @@ where
     ///
     /// # Errors
     /// [`Error::Rng`](crate::Error::Rng) if the random number generator fails.
-    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar>;
+    fn random_scalar<R: TryRng + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar>;
 
     /// The multiplicative inverse of this scalar
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
