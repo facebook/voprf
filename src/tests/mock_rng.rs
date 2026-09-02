@@ -8,6 +8,7 @@
 
 use alloc::vec::Vec;
 use core::cmp::min;
+
 use rand_core::{TryCryptoRng, TryRng};
 
 /// A simple implementation of `Rng` for testing purposes.
@@ -36,7 +37,6 @@ fn rotate_left<T>(data: &mut [T], steps: usize) {
     data[steps..].reverse();
     data.reverse();
 }
-
 
 impl TryRng for CycleRng {
     type Error = core::convert::Infallible;

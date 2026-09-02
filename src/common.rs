@@ -343,8 +343,8 @@ pub(crate) fn derive_key_internal<CS: CipherSuite>(
 
     for counter in 0_u8..=u8::MAX {
         // deriveInput = seed || I2OSP(len(info), 2) || info
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
+        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST =
+        // "DeriveKeyPair" || contextString)
         let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
             &[seed, &info_len, info, &counter.to_be_bytes()],
             &dst.as_dst(),
@@ -465,7 +465,7 @@ impl<L: ArrayLength> Dst<L> {
         // <https://www.rfc-editor.org/rfc/rfc9497#section-3.1>
         let par_2 = GenericArray::from(STR_OPRF)
             .concat([mode.to_u8()].into())
-            .concat([b'-'].into());
+            .concat((*b"-").into());
 
         let dst_1 = par_1.concat(par_2);
         let dst_2 = CS::ID;
