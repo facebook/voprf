@@ -16,7 +16,7 @@ use derive_where::derive_where;
 use digest::{Digest, Output, OutputSizeUser};
 use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{TryCryptoRng, TryRngCore};
+use rand_core::{TryCryptoRng, TryRng};
 
 use crate::common::{
     derive_keypair, deterministic_blind_unchecked, generate_proof, hash_to_group, i2osp_2,
@@ -75,7 +75,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer than [`u16::MAX`].
-    pub fn blind<R: TryRngCore + TryCryptoRng>(
+    pub fn blind<R: TryRng + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<PoprfClientBlindResult<CS>> {
@@ -189,7 +189,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: TryRng + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
         rng.try_fill_bytes(&mut seed).map_err(|_| Error::Protocol)?;
 
@@ -235,7 +235,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     /// # Errors
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn blind_evaluate<R: TryRngCore + TryCryptoRng>(
+    pub fn blind_evaluate<R: TryRng + TryCryptoRng>(
         &self,
         rng: &mut R,
         blinded_element: &BlindedElement<CS>,
@@ -273,7 +273,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     /// - [`Error::Info`] if the `info` is longer than `u16::MAX`.
     /// - [`Error::Protocol`] if the protocol fails and can't be completed.
     #[cfg(feature = "alloc")]
-    pub fn batch_blind_evaluate<'a, R: TryRngCore + TryCryptoRng, IE>(
+    pub fn batch_blind_evaluate<'a, R: TryRng + TryCryptoRng, IE>(
         &self,
         rng: &mut R,
         blinded_elements: &'a IE,
@@ -346,7 +346,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
     pub fn batch_blind_evaluate_finish<
         'a,
         'b,
-        R: TryRngCore + TryCryptoRng,
+        R: TryRng + TryCryptoRng,
         IB: Iterator<Item = &'a BlindedElement<CS>> + ExactSizeIterator,
         IE,
     >(
@@ -706,8 +706,8 @@ where
 
             // hashInput = I2OSP(len(input), 2) || input ||
             //             I2OSP(len(info), 2) || info ||
-            //             I2OSP(len(unblindedElement), 2) || unblindedElement ||
-            //             "Finalize"
+            //             I2OSP(len(unblindedElement), 2) || unblindedElement
+            // ||             "Finalize"
             // return Hash(hashInput)
             let output = CS::Hash::new()
                 .chain_update(i2osp_2(input.as_ref().len()).map_err(|_| Error::Input)?)
@@ -733,7 +733,7 @@ where
 mod tests {
     use core::ptr;
 
-    use rand::rngs::OsRng;
+    use rand::rngs::SysRng;
 
     use super::*;
     use crate::common::STR_HASH_TO_GROUP;
@@ -763,7 +763,7 @@ mod tests {
     fn verifiable_retrieval<CS: CipherSuite>() {
         let input = b"input";
         let info = b"info";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
         let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server
@@ -786,7 +786,7 @@ mod tests {
     fn verifiable_bad_public_key<CS: CipherSuite>() {
         let input = b"input";
         let info = b"info";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
         let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server
@@ -794,7 +794,8 @@ mod tests {
             .unwrap();
         let wrong_pk = {
             let dst = Dst::new::<CS, _, _>(STR_HASH_TO_GROUP, Mode::Oprf);
-            // Choose a group element that is unlikely to be the right public key
+            // Choose a group element that is unlikely to be the right public
+            // key
             CS::Group::hash_to_curve::<CS::Hash>(&[b"msg"], &dst.as_dst()).unwrap()
         };
         let client_finalize_result = client_blind_result.state.finalize(
@@ -810,7 +811,7 @@ mod tests {
     fn verifiable_server_evaluate<CS: CipherSuite>() {
         let input = b"input";
         let info = Some(b"info".as_slice());
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
         let server_result = server
@@ -828,13 +829,13 @@ mod tests {
             )
             .unwrap();
 
-        // We expect the outputs from client and server to be equal given an identical
-        // input
+        // We expect the outputs from client and server to be equal given an
+        // identical input
         let server_evaluate = server.evaluate(input, info).unwrap();
         assert_eq!(client_finalize, server_evaluate);
 
-        // We expect the outputs from client and server to be different given different
-        // inputs
+        // We expect the outputs from client and server to be different given
+        // different inputs
         let wrong_input = b"wrong input";
         let server_evaluate = server.evaluate(wrong_input, info).unwrap();
         assert!(client_finalize != server_evaluate);
@@ -842,7 +843,7 @@ mod tests {
 
     fn zeroize_verifiable_client<CS: CipherSuite>() {
         let input = b"input";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
@@ -857,7 +858,7 @@ mod tests {
     fn zeroize_verifiable_server<CS: CipherSuite>() {
         let input = b"input";
         let info = b"info";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let server = PoprfServer::<CS>::new(&mut rng).unwrap();
         let client_blind_result = PoprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server_result = server

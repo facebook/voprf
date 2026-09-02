@@ -14,7 +14,7 @@ use derive_where::derive_where;
 use digest::{Digest, Output};
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
-use rand_core::{TryCryptoRng, TryRngCore};
+use rand_core::{TryCryptoRng, TryRng};
 
 use crate::common::{
     derive_key_internal, deterministic_blind_unchecked, hash_to_group, i2osp_2,
@@ -73,7 +73,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
     ///
     /// # Errors
     /// [`Error::Input`] if the `input` is empty or longer then [`u16::MAX`].
-    pub fn blind<R: TryRngCore + TryCryptoRng>(
+    pub fn blind<R: TryRng + TryCryptoRng>(
         input: &[u8],
         blinding_factor_rng: &mut R,
     ) -> Result<OprfClientBlindResult<CS>> {
@@ -146,7 +146,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
     ///
     /// # Errors
     /// [`Error::Protocol`] if the protocol fails and can't be completed.
-    pub fn new<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self> {
+    pub fn new<R: TryRng + TryCryptoRng>(rng: &mut R) -> Result<Self> {
         let mut seed = GenericArray::<_, <CS::Group as Group>::ScalarLen>::default();
         rng.try_fill_bytes(&mut seed).map_err(|_| Error::Protocol)?;
         Self::new_from_seed(&seed, &[])
@@ -267,8 +267,8 @@ fn finalize_after_unblind<
 mod tests {
     use core::ptr;
 
-    use rand::rngs::OsRng;
-    use rand::TryRngCore;
+    use rand::rngs::SysRng;
+    use rand::TryRng;
 
     use super::*;
     use crate::common::{Dst, STR_HASH_TO_GROUP};
@@ -293,7 +293,7 @@ mod tests {
 
     fn base_retrieval<CS: CipherSuite>() {
         let input = b"input";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng).unwrap();
         let message = server.blind_evaluate(&client_blind_result.message);
@@ -303,7 +303,7 @@ mod tests {
     }
 
     fn base_inversion_unsalted<CS: CipherSuite>() {
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let mut input = [0u8; 64];
         rng.try_fill_bytes(&mut input).unwrap();
         let client_blind_result = OprfClient::<CS>::blind(&input, &mut rng).unwrap();
@@ -324,7 +324,7 @@ mod tests {
 
     fn server_evaluate<CS: CipherSuite>() {
         let input = b"input";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng).unwrap();
         let server_result = server.blind_evaluate(&client_blind_result.message);
@@ -334,13 +334,13 @@ mod tests {
             .finalize(input, &server_result)
             .unwrap();
 
-        // We expect the outputs from client and server to be equal given an identical
-        // input
+        // We expect the outputs from client and server to be equal given an
+        // identical input
         let server_evaluate = server.evaluate(input).unwrap();
         assert_eq!(client_finalize, server_evaluate);
 
-        // We expect the outputs from client and server to be different given different
-        // inputs
+        // We expect the outputs from client and server to be different given
+        // different inputs
         let wrong_input = b"wrong input";
         let server_evaluate = server.evaluate(wrong_input).unwrap();
         assert!(client_finalize != server_evaluate);
@@ -348,7 +348,7 @@ mod tests {
 
     fn zeroize_oprf_client<CS: CipherSuite>() {
         let input = b"input";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
 
         let mut state = client_blind_result.state;
@@ -362,7 +362,7 @@ mod tests {
 
     fn zeroize_oprf_server<CS: CipherSuite>() {
         let input = b"input";
-        let mut rng = OsRng;
+        let mut rng = SysRng;
         let client_blind_result = OprfClient::<CS>::blind(input, &mut rng).unwrap();
         let server = OprfServer::<CS>::new(&mut rng).unwrap();
         let mut message = server.blind_evaluate(&client_blind_result.message);

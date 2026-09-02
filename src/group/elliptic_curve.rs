@@ -20,7 +20,7 @@ use elliptic_curve::{
 };
 use generic_array::typenum::{IsLess, IsLessOrEqual, Sum, U256};
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{TryCryptoRng, TryRngCore};
+use rand_core::{TryCryptoRng, TryRng};
 
 use super::Group;
 use crate::{Error, InternalError, Result};
@@ -94,7 +94,7 @@ where
             .map_err(|_| Error::Deserialization)
     }
 
-    fn random_scalar<R: TryRngCore + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar> {
+    fn random_scalar<R: TryRng + TryCryptoRng>(rng: &mut R) -> Result<Self::Scalar> {
         Ok(*SecretKey::<Self>::random(&mut CompatRng(rng)).to_nonzero_scalar())
     }
 
@@ -134,7 +134,7 @@ struct CompatRng<'a, R>(&'a mut R);
 
 impl<'a, R> elliptic_curve::rand_core::RngCore for CompatRng<'a, R>
 where
-    R: TryRngCore,
+    R: TryRng,
 {
     fn next_u32(&mut self) -> u32 {
         self.0.try_next_u32().expect("RNG failure")

@@ -16,7 +16,7 @@ use digest::{Digest, Output, OutputSizeUser};
 use generic_array::sequence::Concat;
 use generic_array::typenum::{IsLess, Unsigned, U2, U256, U9};
 use generic_array::{ArrayLength, GenericArray};
-use rand_core::{TryCryptoRng, TryRngCore};
+use rand_core::{TryCryptoRng, TryRng};
 use subtle::ConstantTimeEq;
 
 #[cfg(feature = "serde")]
@@ -128,7 +128,7 @@ pub struct Proof<CS: CipherSuite> {
 
 /// Can only fail with [`Error::Batch`].
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn generate_proof<CS: CipherSuite, R: TryRngCore + TryCryptoRng>(
+pub(crate) fn generate_proof<CS: CipherSuite, R: TryRng + TryCryptoRng>(
     rng: &mut R,
     k: <CS::Group as Group>::Scalar,
     a: <CS::Group as Group>::Elem,
@@ -343,8 +343,8 @@ pub(crate) fn derive_key_internal<CS: CipherSuite>(
 
     for counter in 0_u8..=u8::MAX {
         // deriveInput = seed || I2OSP(len(info), 2) || info
-        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST = "DeriveKeyPair"
-        // || contextString)
+        // skS = G.HashToScalar(deriveInput || I2OSP(counter, 1), DST =
+        // "DeriveKeyPair" || contextString)
         let sk_s = CS::Group::hash_to_scalar::<CS::Hash>(
             &[seed, &info_len, info, &counter.to_be_bytes()],
             &dst.as_dst(),
@@ -465,7 +465,7 @@ impl<L: ArrayLength> Dst<L> {
         // <https://www.rfc-editor.org/rfc/rfc9497#section-3.1>
         let par_2 = GenericArray::from(STR_OPRF)
             .concat([mode.to_u8()].into())
-            .concat([b'-'].into());
+            .concat((*b"-").into());
 
         let dst_1 = par_1.concat(par_2);
         let dst_2 = CS::ID;
